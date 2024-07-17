@@ -4,8 +4,9 @@ namespace :lnmarkets_trader do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts ''
     puts 'Run lnmarkets_trader:check_market_indicators...'
-    puts 'Query date:'
-    puts DateTime.now
+    puts ''
+    puts 'QUERY DATE:'
+    puts DateTime.now.utc.beginning_of_day
     timestamp = DateTime.now.utc.beginning_of_day.to_i.in_milliseconds
     puts timestamp
 
@@ -27,8 +28,8 @@ namespace :lnmarkets_trader do
     start_date = (timestamp - (11 * 86400000))
     end_date = timestamp
 
-    rsi_values, volume_values, simple_moving_average_values, exponential_moving_average_values, macd_values, avg_funding_rate =
-      nil, nil, nil, nil, nil, nil
+    rsi_values, volume_values, simple_moving_average_values, exponential_moving_average_values, macd_values, avg_funding_rate, aggregate_open_interest =
+      nil, nil, nil, nil, nil, nil, nil
     data_errors = 0
 
     # Get technical indicators from Polygon
@@ -91,7 +92,6 @@ namespace :lnmarkets_trader do
     puts ""
 
     # Funding data
-    avg_funding_rate = 0.0
     begin
       coinalyze_client = CoinalyzeAPI.new
       start_time = (DateTime.now.utc.beginning_of_day.to_i - 86400)
@@ -109,9 +109,11 @@ namespace :lnmarkets_trader do
       puts e
       puts 'Error fetching funding rate data'
     end
+    puts "FUNDING RATE:"
+    puts avg_funding_rate
+    puts ""
 
     # Open Interest data
-    aggregate_open_interest = 0.0
     begin
       coinalyze_client = CoinalyzeAPI.new
       start_time = (DateTime.now.utc.beginning_of_day.to_i - 86400)
@@ -129,10 +131,122 @@ namespace :lnmarkets_trader do
       puts e
       puts 'Error fetching open interest data'
     end
+    puts "OPEN INTEREST:"
+    puts aggregate_open_interest
+    puts ""
 
-    # Make trade decision
+    #
+    # Initialize score
+    #
     trade_direction_score = 0.0
 
+    #
+    # Evaluate rules
+    #
+    if volume_values.present?
+      if (prior_day_volume < two_days_ago_volume &&
+        prior_day_volume < three_days_ago_volume &&
+        prior_day_volume < four_days_ago_volume &&
+        prior_day_volume < five_days_ago_volume &&
+        prior_day_volume < six_days_ago_volume) || (
+        (two_days_ago_volume < three_days_ago_volume &&
+        two_days_ago_volume < four_days_ago_volume &&
+        two_days_ago_volume < five_days_ago_volume &&
+        two_days_ago_volume < six_days_ago_volume) && (prior_day_volume < three_days_ago_volume))
+        trade_direction_score -= 1.0
+      end
+
+      if (prior_day_volume > two_days_ago_volume &&
+        two_days_ago_volume > three_days_ago_volume &&
+        three_days_ago_volume > four_days_ago_volume &&
+        four_days_ago_volume > five_days_ago_volume)
+        trade_direction_score += 2.0
+      end
+    else
+      data_errors += 1
+    end
+
+    if rsi_values.present?
+      if rsi_values[0]['value'] > 65 && rsi_values[0]['value'] < 100
+        trade_direction_score += 3.0
+      else
+        trade_direction_score -= 1.0
+      end
+    else
+      data_errors += 1
+    end
+
+    if macd_values.present?
+      if macd_values[0]['histogram'] < 100
+        trade_direction_score += 1.0
+      elsif macd_values[0]['histogram'] > 500.0
+        trade_direction_score -= 2.0
+      end
+    else
+      data_errors += 1
+    end
+
+    if ema > sma * 1.019
+      trade_direction_score += 1.0
+      table << ["EMA: #{ema}", trade_direction_score]
+    end
+
+    if ema < sma * 0.98
+      trade_direction_score -= 1.0
+      table << ["EMA: #{ema}", trade_direction_score]
+    end
+
+    if avg_funding_rate != nil
+      if avg_funding_rate > 0.003 && avg_funding_rate < 0.01
+        trade_direction_score -= 6.0
+      elsif avg_funding_rate < -0.008 && avg_funding_rate > -0.01
+        trade_direction_score += 3.0
+      end
+    end
+
+    # if candle_open > ((last_10_candle_closes_average) * 1.20) && last_10_candle_closes.size == 10
+    #   trade_direction_score -= 6.0
+    # end
+
+    # if last_10_aggregate_open_interests.size == 8 && aggregate_open_interest != 0.0
+    #   if aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.015) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.02)
+    #     trade_direction_score -= 1.0
+    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.02) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.04)
+    #     trade_direction_score -= 1.0
+    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.04) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.10)
+    #     trade_direction_score += 0.0
+    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.10) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.11)
+    #     trade_direction_score -= 1.0
+    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.11) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.12)
+    #     trade_direction_score += 1.0
+    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.14) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.20)
+    #     trade_direction_score += 1.0
+    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.20) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.30)
+    #     trade_direction_score += 2.0
+    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.30) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.40)
+    #     trade_direction_score -= 5.0
+    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.40)
+    #     trade_direction_score += 1.0
+    #   end
+
+    #   if aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.98) && aggregate_open_interest > ((last_10_aggregate_open_interests_average)*0.960)
+    #     trade_direction_score -= 0.0
+    #   elsif aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.96) && aggregate_open_interest > ((last_10_aggregate_open_interests_average)*0.95)
+    #     trade_direction_score += 1.0
+    #   elsif aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.95) && aggregate_open_interest > ((last_10_aggregate_open_interests_average)*0.94)
+    #     trade_direction_score -= 5.0
+    #   elsif aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.92) && aggregate_open_interest > ((last_10_aggregate_open_interests_average)*0.88)
+    #     trade_direction_score -= 3.0
+    #   elsif aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.88) && aggregate_open_interest > ((last_10_aggregate_open_interests_average)*0.80)
+    #     trade_direction_score -= 3.0
+    #   elsif aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.80) && aggregate_open_interest > ((last_10_aggregate_open_interests_average)*0.70)
+    #     trade_direction_score += 1.0
+    #   elsif aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.70) && aggregate_open_interest > ((last_10_aggregate_open_interests_average)*0.60)
+    #     trade_direction_score += 1.0
+    #   elsif aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.60)
+    #     trade_direction_score += 1.0
+    #   end
+    # end
     puts "trade_direction_score: #{trade_direction_score}"
 
     puts 'End lnmarkets_trader:check_market_indicators...'

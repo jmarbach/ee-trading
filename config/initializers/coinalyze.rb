@@ -52,7 +52,7 @@ class CoinalyzeAPI
       hash_method_response[:message] = 'SSLError'
       return hash_method_response
     rescue => e
-      puts "CoinGlass Error!"
+      puts "Coinalyze Error!"
       puts e
       puts e.response
       hash_method_response[:status] = 'error'
