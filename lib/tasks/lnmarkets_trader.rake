@@ -92,6 +92,7 @@ namespace :lnmarkets_trader do
     puts ""
 
     # Funding data
+    avg_funding_rate = 0.0
     begin
       coinalyze_client = CoinalyzeAPI.new
       start_time = (DateTime.now.utc.beginning_of_day.to_i - 86400)
@@ -114,6 +115,7 @@ namespace :lnmarkets_trader do
     puts ""
 
     # Open Interest data
+    aggregate_open_interest = 0.0
     begin
       coinalyze_client = CoinalyzeAPI.new
       start_time = (DateTime.now.utc.beginning_of_day.to_i - 86400)
@@ -133,6 +135,41 @@ namespace :lnmarkets_trader do
     end
     puts "OPEN INTEREST:"
     puts aggregate_open_interest
+    puts ""
+
+    # Last 10 1D Candle Close Avg
+    last_10_candle_closes_average = 0.0
+    start_date = (timestamp - (9 * 86400000))
+    response_last_10_1d_candles = polygon_client.get_aggregate_bars(symbol, aggregates_timespan, aggregates_multiplier, start_date, end_date)
+    if response_exponential_moving_average[:status] == 'success'
+      last_10_1d_candles = response_last_10_1d_candles[:body]['results']
+
+      if last_10_1d_candles.count > 0
+        last_10_candle_closes_sum = 0.0
+        last_10_1d_candles.each_with_index do |f, index|
+          last_10_candle_closes_sum += f['c']
+        end
+        last_10_candle_closes_average = (last_10_candle_closes_sum/last_10_1d_candles.count).round(4)
+      end
+    else
+      data_errors += 1
+    end
+    puts "LAST 10 1D CANDLES CLOSE AVG:"
+    puts last_10_candle_closes_average
+    puts ""
+
+    # Current BTCUSD price
+    btcusd = 0.0
+    currency_from = 'BTC'
+    currency_to = 'USD'
+    response_btcusd = polygon_client.get_last_trade(currency_from, currency_to)
+    if response_btcusd[:status] == 'success'
+      btcusd = response_btcusd[:body]['last']['price']
+    else
+      data_errors += 1
+    end
+    puts "LAST BTCUSD TICK:"
+    puts btcusd
     puts ""
 
     #
@@ -206,9 +243,13 @@ namespace :lnmarkets_trader do
       data_errors += 1
     end
 
-    # if candle_open > ((last_10_candle_closes_average) * 1.20) && last_10_candle_closes.size == 10
-    #   trade_direction_score -= 6.0
-    # end
+    if last_10_candle_closes_average != 0.0
+      if btcusd > ((last_10_candle_closes_average) * 1.20)
+        trade_direction_score -= 6.0
+      end
+    else
+      data_errors += 1
+    end
 
     # if last_10_aggregate_open_interests.size == 8 && aggregate_open_interest != 0.0
     #   if aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.015) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.02)
