@@ -186,14 +186,14 @@ namespace :lnmarkets_trader do
       data_errors += 1
     end
 
-    if ema > sma * 1.019
-      trade_direction_score += 1.0
-      table << ["EMA: #{ema}", trade_direction_score]
-    end
-
-    if ema < sma * 0.98
-      trade_direction_score -= 1.0
-      table << ["EMA: #{ema}", trade_direction_score]
+    if exponential_moving_average_values.present? && simple_moving_average_values.present?
+      if exponential_moving_average_values[0]['value'] > (simple_moving_average_values[0]['value'] * 1.019)
+        trade_direction_score += 1.0
+      elsif exponential_moving_average_values[0]['value'] < (simple_moving_average_values[0]['value'] * 0.98)
+        trade_direction_score -= 1.0
+      end
+    else
+      data_errors += 1
     end
 
     if avg_funding_rate != nil
@@ -202,6 +202,8 @@ namespace :lnmarkets_trader do
       elsif avg_funding_rate < -0.008 && avg_funding_rate > -0.01
         trade_direction_score += 3.0
       end
+    else
+      data_errors += 1
     end
 
     # if candle_open > ((last_10_candle_closes_average) * 1.20) && last_10_candle_closes.size == 10
