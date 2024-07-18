@@ -1,0 +1,2 @@
+class ScoreLog < ApplicationRecord
+end

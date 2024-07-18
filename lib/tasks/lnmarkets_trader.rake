@@ -146,7 +146,7 @@ namespace :lnmarkets_trader do
 
       if last_10_1d_candles.count > 0
         last_10_candle_closes_sum = 0.0
-        last_10_1d_candles.each_with_index do |f, index|
+        last_10_1d_candles.each do |f|
           last_10_candle_closes_sum += f['c']
         end
         last_10_candle_closes_average = (last_10_candle_closes_sum/last_10_1d_candles.count).round(4)
@@ -251,47 +251,51 @@ namespace :lnmarkets_trader do
       data_errors += 1
     end
 
-    # if last_10_aggregate_open_interests.size == 8 && aggregate_open_interest != 0.0
-    #   if aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.015) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.02)
-    #     trade_direction_score -= 1.0
-    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.02) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.04)
-    #     trade_direction_score -= 1.0
-    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.04) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.10)
-    #     trade_direction_score += 0.0
-    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.10) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.11)
-    #     trade_direction_score -= 1.0
-    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.11) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.12)
-    #     trade_direction_score += 1.0
-    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.14) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.20)
-    #     trade_direction_score += 1.0
-    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.20) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.30)
-    #     trade_direction_score += 2.0
-    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.30) && aggregate_open_interest < ((last_10_aggregate_open_interests_average)*1.40)
-    #     trade_direction_score -= 5.0
-    #   elsif aggregate_open_interest > ((last_10_aggregate_open_interests_average)*1.40)
-    #     trade_direction_score += 1.0
-    #   end
+    last_8_aggregate_open_interests_average = nil
+    #last_8_aggregate_open_interests_average = MarketDataLog.last(8).avg(:sum_open_interest)
 
-    #   if aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.98) && aggregate_open_interest > ((last_10_aggregate_open_interests_average)*0.960)
-    #     trade_direction_score -= 0.0
-    #   elsif aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.96) && aggregate_open_interest > ((last_10_aggregate_open_interests_average)*0.95)
-    #     trade_direction_score += 1.0
-    #   elsif aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.95) && aggregate_open_interest > ((last_10_aggregate_open_interests_average)*0.94)
-    #     trade_direction_score -= 5.0
-    #   elsif aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.92) && aggregate_open_interest > ((last_10_aggregate_open_interests_average)*0.88)
-    #     trade_direction_score -= 3.0
-    #   elsif aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.88) && aggregate_open_interest > ((last_10_aggregate_open_interests_average)*0.80)
-    #     trade_direction_score -= 3.0
-    #   elsif aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.80) && aggregate_open_interest > ((last_10_aggregate_open_interests_average)*0.70)
-    #     trade_direction_score += 1.0
-    #   elsif aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.70) && aggregate_open_interest > ((last_10_aggregate_open_interests_average)*0.60)
-    #     trade_direction_score += 1.0
-    #   elsif aggregate_open_interest < ((last_10_aggregate_open_interests_average)*0.60)
-    #     trade_direction_score += 1.0
-    #   end
-    # end
+    if last_8_aggregate_open_interests != nil && aggregate_open_interest != 0.0
+      if aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.015) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.02)
+        trade_direction_score -= 1.0
+      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.02) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.04)
+        trade_direction_score -= 1.0
+      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.04) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.10)
+        trade_direction_score += 0.0
+      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.10) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.11)
+        trade_direction_score -= 1.0
+      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.11) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.12)
+        trade_direction_score += 1.0
+      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.14) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.20)
+        trade_direction_score += 1.0
+      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.20) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.30)
+        trade_direction_score += 2.0
+      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.30) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.40)
+        trade_direction_score -= 5.0
+      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.40)
+        trade_direction_score += 1.0
+      end
+
+      if aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.98) && aggregate_open_interest > ((last_8_aggregate_open_interests_average)*0.960)
+        trade_direction_score -= 0.0
+      elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.96) && aggregate_open_interest > ((last_8_aggregate_open_interests_average)*0.95)
+        trade_direction_score += 1.0
+      elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.95) && aggregate_open_interest > ((last_8_aggregate_open_interests_average)*0.94)
+        trade_direction_score -= 5.0
+      elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.92) && aggregate_open_interest > ((last_8_aggregate_open_interests_average)*0.88)
+        trade_direction_score -= 3.0
+      elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.88) && aggregate_open_interest > ((last_8_aggregate_open_interests_average)*0.80)
+        trade_direction_score -= 3.0
+      elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.80) && aggregate_open_interest > ((last_8_aggregate_open_interests_average)*0.70)
+        trade_direction_score += 1.0
+      elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.70) && aggregate_open_interest > ((last_8_aggregate_open_interests_average)*0.60)
+        trade_direction_score += 1.0
+      elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.60)
+        trade_direction_score += 1.0
+      end
+    end
+    puts ""
     puts "trade_direction_score: #{trade_direction_score}"
-
+    puts ""
     puts 'End lnmarkets_trader:check_market_indicators...'
     puts ''
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'

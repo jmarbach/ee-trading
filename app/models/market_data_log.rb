@@ -1,0 +1,2 @@
+class MarketDataLog < ApplicationRecord
+end
