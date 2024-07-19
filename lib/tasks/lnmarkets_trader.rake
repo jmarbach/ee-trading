@@ -378,11 +378,17 @@ namespace :lnmarkets_trader do
       puts ""
       puts "1. Check existing open options contracts..."
       #lnmarkets_response = lnmarkets_client.get_options_trades('running')
-      running_contracts = lnmarkets_response[:body]
-      #lnmarkets_response = lnmarkets_client.get_options_trades('open')
-      open_contracts = lnmarkets_response[:body]
+      if lnmarkets_response[:status] == 'success'
+        running_contracts = lnmarkets_response[:body]
+      else
+        puts 'Error. Unable to get running contracts.'
+      end
 
-      if running_contracts.any? || open_contracts.any?
+      else
+        puts 'Error. Unable to get running or open trades.'
+      end
+
+      if running_contracts.any?
         puts ""
         puts "Close all open options contracts from prior trading interval..."
         puts ""
@@ -402,9 +408,18 @@ namespace :lnmarkets_trader do
       puts ""
       puts "2. Check existing open futures trades..."
       #lnmarkets_response = lnmarkets_client.get_futures_trades('running')
-      running_futures = lnmarkets_response[:body]
+      if lnmarkets_response[:status] == 'success'
+        running_futures = lnmarkets_response[:body]
+      else
+        puts 'Error. Unable to get running trades.'
+      end
+
       #lnmarkets_response = lnmarkets_client.get_futures_trades('open')
-      open_futures = lnmarkets_response[:body]
+      if lnmarkets_response[:status] == 'success'
+        open_futures = lnmarkets_response[:body]
+      else
+        puts 'Error. Unable to get open trades.'
+      end
 
       if running_futures.any? || open_futures.any?
         puts ""
@@ -514,11 +529,19 @@ namespace :lnmarkets_trader do
       side = 'b'
       type = 'l'
       leverage = 3
-      price = 0.0
+      price = (price_btcusd * 0.999925).round(2)
       quantity = capital_waged_usd
-      takeprofit = 0.0
-      stoploss = 0.0
+      takeprofit = (price_btcusd * 1.07).round(2)
+      stoploss = (price_btcusd * 0.95).round(2)
       #lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
+    
+      if lnmarkets_response[:status] == 'success'
+        #
+        # Create new record in TradeLog table
+        #
+      else
+        puts 'Error. Unable to create futures trade.'
+      end
     else
       puts 'Error. Unable to fetch account balance info... skip trade.'
     end

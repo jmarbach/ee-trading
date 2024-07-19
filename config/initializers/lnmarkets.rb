@@ -682,14 +682,13 @@ class LnmarketsAPI
       return hash_method_response
     end
   end
-
-  def create_futures_trades(side, trade_type, leverage)
+  def create_futures_trades(side, trade_type, leverage, price, quantity, takeprofit, stoploss)
     hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
     begin
       time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       timestamp = DateTime.now.to_i.in_milliseconds.to_s
       path = '/v2/futures'
-      hash_params = { side: side, type: trade_type, leverage: leverage }
+      hash_params = { side: side, type: trade_type, leverage: leverage, price: price, quantity: quantity, takeprofit: takeprofit, stoploss: stoploss }
       data = URI.encode_www_form(hash_params)
 
       lnm_signature = ''
