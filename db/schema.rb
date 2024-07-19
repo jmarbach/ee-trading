@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_07_19_141810) do
+ActiveRecord::Schema[7.0].define(version: 2024_07_19_233120) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -50,9 +50,26 @@ ActiveRecord::Schema[7.0].define(version: 2024_07_19_141810) do
 
   create_table "trade_logs", force: :cascade do |t|
     t.bigint "score_log_id"
-    t.datetime "recorded_date"
     t.datetime "created_at", default: -> { "now()" }
     t.datetime "updated_at", default: -> { "now()" }
+    t.string "external_id"
+    t.string "exchange_name"
+    t.string "trade_type"
+    t.string "trade_direction"
+    t.float "quantity", default: 0.0
+    t.float "margin_quantity", default: 0.0
+    t.float "open_price", default: 0.0
+    t.float "close_price", default: 0.0
+    t.float "fixing_price", default: 0.0
+    t.float "open_fee", default: 0.0
+    t.float "close_fee", default: 0.0
+    t.bigint "creation_timestamp"
+    t.bigint "market_filled_timestamp"
+    t.bigint "closed_timestamp"
+    t.float "absolute_net_proceeds", default: 0.0
+    t.float "percent_net_proceeds", default: 0.0
+    t.float "strike", default: 0.0
+    t.string "settlement"
     t.index ["score_log_id"], name: "index_trade_logs_on_score_log_id"
   end
 
