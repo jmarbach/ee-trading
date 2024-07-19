@@ -24,6 +24,7 @@
 #  avg_last_8_aggregate_open_interests :float
 #  created_at                          :datetime
 #  updated_at                          :datetime
+#  int_data_errors                     :integer          default(0)
 #
 class MarketDataLog < ApplicationRecord
 end

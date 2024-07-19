@@ -109,6 +109,7 @@ namespace :lnmarkets_trader do
     rescue => e
       puts e
       puts 'Error fetching funding rate data'
+      data_errors += 1
     end
     puts "FUNDING RATE:"
     puts avg_funding_rate
@@ -145,6 +146,7 @@ namespace :lnmarkets_trader do
       last_8_aggregate_open_interests_average = last_8_market_data_log_entries.sum.fdiv(last_8_market_data_log_entries.size).round(2)
     else
       last_8_aggregate_open_interests_average = 0.0
+      data_errors += 1
     end
 
     # Last 10 1D Candle Close Avg
@@ -443,6 +445,9 @@ namespace :lnmarkets_trader do
     puts ""
     puts "Data Errors: #{data_errors}"
     puts ""
+    if data_errors > 0
+      market_data_log.update(int_data_errors: data_errors)
+    end
 
     puts 'End lnmarkets_trader:check_market_indicators...'
     puts ''

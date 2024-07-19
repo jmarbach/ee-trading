@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_07_19_003204) do
+ActiveRecord::Schema[7.0].define(version: 2024_07_19_141810) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -36,6 +36,7 @@ ActiveRecord::Schema[7.0].define(version: 2024_07_19_003204) do
     t.float "avg_last_8_aggregate_open_interests"
     t.datetime "created_at", default: -> { "now()" }
     t.datetime "updated_at", default: -> { "now()" }
+    t.integer "int_data_errors", default: 0
   end
 
   create_table "score_logs", force: :cascade do |t|
