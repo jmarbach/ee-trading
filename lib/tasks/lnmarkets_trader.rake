@@ -461,7 +461,68 @@ namespace :lnmarkets_trader do
     puts ''
     puts 'Run lnmarkets_trader:create_long_trade...'
     puts ''
+    # Initialize lnmarkets_client
+    lnmarkets_client = LnmarketsAPI.new
 
+    #
+    # 1. Get current account state
+    #
+    lnmarkets_response = lnmarkets_client.get_user_info
+    if lnmarkets_response[:status] == 'success'
+      #
+      # Establish balance available to trade
+      #
+      sats_balance = lnmarkets_response[:body]['balance'].to_f.round(2)
+      puts "Sats Available: #{sats_balance.to_fs(:delimited)}"
+      puts ""
+
+      #
+      # Fetch latest price of BTCUSD
+      #
+      polygon_client = PolygonAPI.new
+      price_btcusd = 0.00
+      response_btcusd = polygon_client.get_last_trade('BTC', 'USD')
+      if response_btcusd[:status] == 'success'
+        price_btcusd = response_btcusd[:body]['last']['price']
+        puts "Price BTCUSD: #{price_btcusd.to_fs(:delimited)}"
+
+        price_sat_usd = (price_btcusd/100000000.0).round(5)
+        balance_usd = (sats_balance * price_sat_usd).round(2)
+        puts ""
+        puts "Balance USD: #{balance_usd.to_fs(:delimited)}"
+      else
+        puts 'Error. Unable to fetch latest price for BTCUSD... skip trade.'
+        return
+      end
+
+      #
+      # Define leverage factor
+      #
+      leverage_factor = 2.75
+      puts "Leverage: #{leverage}"
+
+      #
+      # Determine capital waged
+      #
+      capital_waged_usd = (balance_usd * leverage_factor).round(2)
+      puts "Capital Waged with Leverage: #{capital_waged_usd.to_fs(:delimited)}"
+
+      #
+      # Execute Buy Limit order
+      #
+      #
+      side = 'b'
+      type = 'l'
+      leverage = 3
+      price = 0.0
+      quantity = capital_waged_usd
+      takeprofit = 0.0
+      stoploss = 0.0
+      #lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
+    else
+      puts 'Error. Unable to fetch account balance info... skip trade.'
+    end
+    puts ''
     puts 'End lnmarkets_trader:create_long_trade...'
     puts ''
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
@@ -481,7 +542,7 @@ namespace :lnmarkets_trader do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
 
-  task task :open_options_contract, [:direction, :amount] => :environment do |t, args|
+  task :open_options_contract, [:direction, :amount] => :environment do |t, args|
     #
     # Invoke this script with the following command:
     # rake "lnmarkets_trader:open_options_contract[direction, amount]"
@@ -491,6 +552,15 @@ namespace :lnmarkets_trader do
     puts ''
     puts 'Run lnmarkets_trader:open_options_contract...'
     puts ''
+    puts "args[:direction]: #{args[:direction]}"
+    puts "args[:amount]: #{args[:amount]}"
+    if args[:direction].present? && args[:amount].present?
+
+    else
+      puts ""
+      puts "Error. Invocation missing required params."
+      puts ""
+    end
 
     puts 'End lnmarkets_trader:open_options_contract...'
     puts ''
