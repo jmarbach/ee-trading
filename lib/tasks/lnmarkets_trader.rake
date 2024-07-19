@@ -337,6 +337,9 @@ namespace :lnmarkets_trader do
     #
     # Save ScoreLog
     #
+    puts ""
+    puts "trade_direction_score: #{trade_direction_score}"
+    puts ""
     begin
       score_log = ScoreLog.create(
         recorded_date: DateTime.now,
@@ -350,9 +353,97 @@ namespace :lnmarkets_trader do
         recorded_date: DateTime.now
       )
     end
+
+    #
+    # Invoke trade order scripts
+    #
+    if trade_direction_score < 0.0 || trade_direction_score > 0.0
+      trade_direction = ''
+      if trade_direction_score > 0.0
+        trade_direction = 'buy'
+      elsif trade_direction_score < 0.0
+        trade_direction = 'sell'
+      end
+      puts "New trade direction: #{trade_direction}"
+      puts ""
+
+      # Initialize lnmarkets_client
+      lnmarkets_client = LnmarketsAPI.new
+
+      #
+      # Close existing futures and options contracts
+      #
+      puts ""
+      puts "1. Check existing open options contracts..."
+      #lnmarkets_response = lnmarkets_client.get_options_trades('running')
+      running_contracts = lnmarkets_response[:body]
+      #lnmarkets_response = lnmarkets_client.get_options_trades('open')
+      open_contracts = lnmarkets_response[:body]
+
+      if running_contracts.any? || open_contracts.any?
+        puts ""
+        puts "Close all open options contracts from prior trading interval..."
+        puts ""
+        #
+        # Close all 'running' contracts
+        #
+        lnmarkets_response = lnmarkets_client.close_all_option_contracts
+        puts ""
+        puts "Finished closing open options contracts."
+        puts ""
+      else
+        puts ""
+        puts "No running or open contracts."
+        puts ""
+      end
+
+      puts ""
+      puts "2. Check existing open futures trades..."
+      #lnmarkets_response = lnmarkets_client.get_futures_trades('running')
+      running_futures = lnmarkets_response[:body]
+      #lnmarkets_response = lnmarkets_client.get_futures_trades('open')
+      open_futures = lnmarkets_response[:body]
+
+      if running_futures.any? || open_futures.any?
+        puts ""
+        puts "Close all open options contracts from prior trading interval..."
+        puts ""
+        #
+        # Close all 'running' contracts
+        #
+        lnmarkets_response = lnmarkets_client.close_all_futures_trades
+        puts ""
+        puts "Finished closing open futures trades."
+        puts ""
+      else
+        puts ""
+        puts "No running or open futures trades."
+        puts ""
+      end
+
+      puts ""
+      puts "3. Proceed to create new #{trade_direction} trade..."
+      puts ""
+      if trade_direction == 'buy'
+        #Rake::Task["lnmarkets_trade_operations:create_long_trade"].invoke
+      elsif trade_direction == 'sell'
+        #Rake::Task["lnmarkets_trade_operations:create_short_trade"].invoke
+      end
+      puts ""
+      puts "Finished creating new #{trade_direction} trade."
+      puts ""
+    elsif trade_direction_score == 0.0
+      #
+      # No trade... wait for updated market indicators
+      #
+      puts "No trade."
+      puts ""
+    end
+
     puts ""
-    puts "trade_direction_score: #{trade_direction_score}"
+    puts "Data Errors: #{data_errors}"
     puts ""
+
     puts 'End lnmarkets_trader:check_market_indicators...'
     puts ''
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
