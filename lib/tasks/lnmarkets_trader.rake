@@ -137,6 +137,16 @@ namespace :lnmarkets_trader do
     puts aggregate_open_interest
     puts ""
 
+    #
+    # Find average open interest over last 8 days
+    #
+    last_8_market_data_log_entries = MarketDataLog.last(8).pluck(:aggregate_open_interest)
+    if last_8_market_data_log_entries != nil && !last_8_market_data_log_entries.empty?
+      last_8_aggregate_open_interests_average = last_8_market_data_log_entries.sum.fdiv(last_8_market_data_log_entries.size).round(2)
+    else
+      last_8_aggregate_open_interests_average = 0.0
+    end
+
     # Last 10 1D Candle Close Avg
     last_10_candle_closes_average = 0.0
     start_date = (timestamp - (9 * 86400000))
@@ -171,6 +181,39 @@ namespace :lnmarkets_trader do
     puts "LAST BTCUSD TICK:"
     puts btcusd
     puts ""
+
+    #
+    # Save MarketDataLog
+    #
+    begin
+      market_data_log = MarketDataLog.create(
+        recorded_date: DateTime.now,
+        price_btcusd: btcusd,
+        prior_day_volume: current_day_volume,
+        two_days_ago_volume: prior_day_volume,
+        three_days_ago_volume: two_days_ago_volume,
+        four_days_ago_volume: three_days_ago_volume,
+        five_days_ago_volume: four_days_ago_volume,
+        six_days_ago_volume: five_days_ago_volume,
+        seven_days_ago_volume: six_days_ago_volume,
+        rsi: rsi_values[0]['value'],
+        simple_moving_average: simple_moving_average_values[0]['value'],
+        exponential_moving_average: exponential_moving_average_values[0]['value'],
+        macd_value: macd_values[0]['value'],
+        macd_signal: macd_values[0]['signal'],
+        macd_histogram: macd_values[0]['histogram'],
+        avg_funding_rate: avg_funding_rate,
+        aggregate_open_interest: aggregate_open_interest,
+        avg_last_10_candle_closes: last_10_candle_closes_average,
+        avg_last_8_aggregate_open_interests: last_8_aggregate_open_interests_average
+      )
+    rescue => e
+      puts e
+      puts 'Error saving market_data_log record'
+      market_data_log = MarketDataLog.create(
+        recorded_date: DateTime.now
+      )
+    end
 
     #
     # Initialize score
@@ -251,10 +294,7 @@ namespace :lnmarkets_trader do
       data_errors += 1
     end
 
-    last_8_aggregate_open_interests_average = nil
-    #last_8_aggregate_open_interests_average = MarketDataLog.last(8).avg(:sum_open_interest)
-
-    if last_8_aggregate_open_interests != nil && aggregate_open_interest != 0.0
+    if last_8_aggregate_open_interests_average != 0.0 && aggregate_open_interest != 0.0
       if aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.015) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.02)
         trade_direction_score -= 1.0
       elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.02) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.04)
@@ -292,6 +332,23 @@ namespace :lnmarkets_trader do
       elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.60)
         trade_direction_score += 1.0
       end
+    end
+
+    #
+    # Save ScoreLog
+    #
+    begin
+      score_log = ScoreLog.create(
+        recorded_date: DateTime.now,
+        market_data_log_id: market_data_log.id,
+        score: trade_direction_score
+      )
+    rescue => e
+      puts e
+      puts 'Error saving score_log record'
+      score_log = ScoreLog.create(
+        recorded_date: DateTime.now
+      )
     end
     puts ""
     puts "trade_direction_score: #{trade_direction_score}"

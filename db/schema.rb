@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_07_18_021016) do
+ActiveRecord::Schema[7.0].define(version: 2024_07_19_003204) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -43,6 +43,8 @@ ActiveRecord::Schema[7.0].define(version: 2024_07_18_021016) do
     t.float "score"
     t.datetime "created_at", default: -> { "now()" }
     t.datetime "updated_at", default: -> { "now()" }
+    t.bigint "market_data_log_id"
+    t.index ["market_data_log_id"], name: "index_score_logs_on_market_data_log_id"
   end
 
   create_table "trade_logs", force: :cascade do |t|
@@ -53,4 +55,5 @@ ActiveRecord::Schema[7.0].define(version: 2024_07_18_021016) do
     t.index ["score_log_id"], name: "index_trade_logs_on_score_log_id"
   end
 
+  add_foreign_key "score_logs", "market_data_logs"
 end
