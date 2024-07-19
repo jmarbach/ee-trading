@@ -340,7 +340,7 @@ namespace :lnmarkets_trader do
     # Save ScoreLog
     #
     puts ""
-    puts "trade_direction_score: #{trade_direction_score}"
+    puts "Final Score: #{trade_direction_score}"
     puts ""
     begin
       score_log = ScoreLog.create(
@@ -360,14 +360,17 @@ namespace :lnmarkets_trader do
     # Invoke trade order scripts
     #
     if trade_direction_score < 0.0 || trade_direction_score > 0.0
+      puts "********************************************"
+      puts "********************************************"
       trade_direction = ''
       if trade_direction_score > 0.0
         trade_direction = 'buy'
       elsif trade_direction_score < 0.0
         trade_direction = 'sell'
       end
-      puts "New trade direction: #{trade_direction}"
       puts ""
+      puts "Proceed with new trade direction: #{trade_direction}"
+      
 
       # Initialize lnmarkets_client
       lnmarkets_client = LnmarketsAPI.new
@@ -377,15 +380,18 @@ namespace :lnmarkets_trader do
       #
       puts ""
       puts "1. Check existing open options contracts..."
-      #lnmarkets_response = lnmarkets_client.get_options_trades('running')
+      puts "--------------------------------------------"
+      lnmarkets_response = lnmarkets_client.get_options_trades()
       if lnmarkets_response[:status] == 'success'
-        running_contracts = lnmarkets_response[:body]
+        all_contracts = lnmarkets_response[:body]
+        if all_contracts.count > 0
+          running_contracts = all_contracts.select { |a| a['running'] == true }
+          puts "Running Options Contracts: #{running_contracts.count}"
+        else
+          # No options trades returned
+        end
       else
         puts 'Error. Unable to get running contracts.'
-      end
-
-      else
-        puts 'Error. Unable to get running or open trades.'
       end
 
       if running_contracts.any?
@@ -395,7 +401,7 @@ namespace :lnmarkets_trader do
         #
         # Close all 'running' contracts
         #
-        lnmarkets_response = lnmarkets_client.close_all_option_contracts
+        #lnmarkets_response = lnmarkets_client.close_all_option_contracts
         puts ""
         puts "Finished closing open options contracts."
         puts ""
@@ -407,16 +413,19 @@ namespace :lnmarkets_trader do
 
       puts ""
       puts "2. Check existing open futures trades..."
-      #lnmarkets_response = lnmarkets_client.get_futures_trades('running')
+      puts "--------------------------------------------"
+      lnmarkets_response = lnmarkets_client.get_futures_trades('running')
       if lnmarkets_response[:status] == 'success'
         running_futures = lnmarkets_response[:body]
+        puts "Running Futures: #{running_futures.count}"
       else
         puts 'Error. Unable to get running trades.'
       end
 
-      #lnmarkets_response = lnmarkets_client.get_futures_trades('open')
+      lnmarkets_response = lnmarkets_client.get_futures_trades('open')
       if lnmarkets_response[:status] == 'success'
         open_futures = lnmarkets_response[:body]
+        puts "Open Futures: #{open_futures.count}"
       else
         puts 'Error. Unable to get open trades.'
       end
@@ -428,7 +437,7 @@ namespace :lnmarkets_trader do
         #
         # Close all 'running' contracts
         #
-        lnmarkets_response = lnmarkets_client.close_all_futures_trades
+        #lnmarkets_response = lnmarkets_client.close_all_futures_trades
         puts ""
         puts "Finished closing open futures trades."
         puts ""
@@ -440,6 +449,7 @@ namespace :lnmarkets_trader do
 
       puts ""
       puts "3. Proceed to create new #{trade_direction} trade..."
+      puts "--------------------------------------------"
       puts ""
       if trade_direction == 'buy'
         #Rake::Task["lnmarkets_trade_operations:create_long_trade"].invoke
@@ -449,6 +459,8 @@ namespace :lnmarkets_trader do
       puts ""
       puts "Finished creating new #{trade_direction} trade."
       puts ""
+      puts "********************************************"
+      puts "********************************************"
     elsif trade_direction_score == 0.0
       #
       # No trade... wait for updated market indicators
@@ -470,12 +482,20 @@ namespace :lnmarkets_trader do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
 
-  task create_long_trade: :environment do
+  task :create_long_trade, [:score_log_id] => :environment do |t, args|
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts ''
     puts 'Run lnmarkets_trader:create_long_trade...'
     puts ''
+    puts "args[:score_log_id]: #{args[:score_log_id]}"
+    if !args[:score_log_id].present?
+      puts ""
+      puts "Error. Invocation missing required params."
+      puts ""
+      return
+    end
+
     # Initialize lnmarkets_client
     lnmarkets_client = LnmarketsAPI.new
 
@@ -514,7 +534,7 @@ namespace :lnmarkets_trader do
       # Define leverage factor
       #
       leverage_factor = 2.75
-      puts "Leverage: #{leverage}"
+      puts "Leverage: #{leverage_factor}"
 
       #
       # Determine capital waged
@@ -539,6 +559,10 @@ namespace :lnmarkets_trader do
         #
         # Create new record in TradeLog table
         #
+        trade_log = TradeLog.create(
+          recorded_date: DateTime.now,
+          score_log_id: args[:score_log_id]
+        )
       else
         puts 'Error. Unable to create futures trade.'
       end
@@ -552,20 +576,99 @@ namespace :lnmarkets_trader do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
 
-  task create_short_trade: :environment do
+  task :create_short_trade, [:score_log_id] => :environment do |t, args|
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts ''
     puts 'Run lnmarkets_trader:create_short_trade...'
     puts ''
+    puts "args[:score_log_id]: #{args[:score_log_id]}"
+    if !args[:score_log_id].present?
+      puts ""
+      puts "Error. Invocation missing required params."
+      puts ""
+      return
+    end
+    # Initialize lnmarkets_client
+    lnmarkets_client = LnmarketsAPI.new
 
+    #
+    # 1. Get current account state
+    #
+    lnmarkets_response = lnmarkets_client.get_user_info
+    if lnmarkets_response[:status] == 'success'
+      #
+      # Establish balance available to trade
+      #
+      sats_balance = lnmarkets_response[:body]['balance'].to_f.round(2)
+      puts "Sats Available: #{sats_balance.to_fs(:delimited)}"
+      puts ""
+
+      #
+      # Fetch latest price of BTCUSD
+      #
+      polygon_client = PolygonAPI.new
+      price_btcusd = 0.00
+      response_btcusd = polygon_client.get_last_trade('BTC', 'USD')
+      if response_btcusd[:status] == 'success'
+        price_btcusd = response_btcusd[:body]['last']['price']
+        puts "Price BTCUSD: #{price_btcusd.to_fs(:delimited)}"
+
+        price_sat_usd = (price_btcusd/100000000.0).round(5)
+        balance_usd = (sats_balance * price_sat_usd).round(2)
+        puts ""
+        puts "Balance USD: #{balance_usd.to_fs(:delimited)}"
+      else
+        puts 'Error. Unable to fetch latest price for BTCUSD... skip trade.'
+        return
+      end
+
+      #
+      # Define leverage factor
+      #
+      leverage_factor = 2.75
+      puts "Leverage: #{leverage_factor}"
+
+      #
+      # Determine capital waged
+      #
+      capital_waged_usd = (balance_usd * leverage_factor).round(2)
+      puts "Capital Waged with Leverage: #{capital_waged_usd.to_fs(:delimited)}"
+
+      #
+      # Execute Short Limit order
+      #
+      #
+      side = 's'
+      type = 'l'
+      leverage = 3
+      price = (price_btcusd * 1.000025).round(2)
+      quantity = capital_waged_usd
+      takeprofit = (price_btcusd * 0.98).round(2)
+      stoploss = (price_btcusd * 1.09).round(2)
+      #lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
+    
+      if lnmarkets_response[:status] == 'success'
+        #
+        # Create new record in TradeLog table
+        #
+        trade_log = TradeLog.create(
+          recorded_date: DateTime.now,
+          score_log_id: args[:score_log_id]
+        )
+      else
+        puts 'Error. Unable to create futures trade.'
+      end
+    else
+      puts 'Error. Unable to fetch account balance info... skip trade.'
+    end
     puts 'End lnmarkets_trader:create_short_trade...'
     puts ''
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
 
-  task :open_options_contract, [:direction, :amount] => :environment do |t, args|
+  task :open_options_contract, [:direction, :amount, :score_log_id] => :environment do |t, args|
     #
     # Invoke this script with the following command:
     # rake "lnmarkets_trader:open_options_contract[direction, amount]"
@@ -577,7 +680,10 @@ namespace :lnmarkets_trader do
     puts ''
     puts "args[:direction]: #{args[:direction]}"
     puts "args[:amount]: #{args[:amount]}"
-    if args[:direction].present? && args[:amount].present?
+    puts "args[:score_log_id]: #{args[:score_log_id]}"
+    if args[:direction].present? && 
+      args[:amount].present? &&
+      args[:score_log_id].present?
 
     else
       puts ""

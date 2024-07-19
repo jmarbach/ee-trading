@@ -289,21 +289,19 @@ class LnmarketsAPI
     end
   end
 
-  def get_options_trades(status)
+  def get_options_trades()
     hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
     begin
       time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       timestamp = DateTime.now.to_i.in_milliseconds.to_s
       path = '/v2/options'
-      hash_params = { status: status }
-      data = URI.encode_www_form(hash_params)
 
       lnm_signature = ''
       digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'GET' + path + data )
+      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'GET' + path)
       lnm_signature = Base64.strict_encode64(hmac)
 
-      request_response = @conn.get(path, hash_params) do |req|
+      request_response = @conn.get(path) do |req|
         req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
         req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
       end
