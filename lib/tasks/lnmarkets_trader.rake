@@ -560,8 +560,8 @@ namespace :lnmarkets_trader do
         # Create new record in TradeLog table
         #
         trade_log = TradeLog.create(
-          recorded_date: DateTime.now,
-          score_log_id: args[:score_log_id]
+          score_log_id: args[:score_log_id],
+          derivative_type: 'futures'
         )
       else
         puts 'Error. Unable to create futures trade.'
@@ -653,8 +653,8 @@ namespace :lnmarkets_trader do
         # Create new record in TradeLog table
         #
         trade_log = TradeLog.create(
-          recorded_date: DateTime.now,
-          score_log_id: args[:score_log_id]
+          score_log_id: args[:score_log_id],
+          derivative_type: 'futures'
         )
       else
         puts 'Error. Unable to create futures trade.'
@@ -684,6 +684,12 @@ namespace :lnmarkets_trader do
     if args[:direction].present? && 
       args[:amount].present? &&
       args[:score_log_id].present?
+
+
+      # trade_log = TradeLog.create(
+      #   score_log_id: args[:score_log_id],
+      #   derivative_type: 'options'
+      # )
 
     else
       puts ""

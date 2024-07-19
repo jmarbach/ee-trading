@@ -24,6 +24,8 @@
 #  percent_net_proceeds    :float            default(0.0)
 #  strike                  :float            default(0.0)
 #  settlement              :string
+#  instrument              :string
+#  derivative_type         :string
 #
 class TradeLog < ApplicationRecord
 end
