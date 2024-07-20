@@ -26,6 +26,7 @@
 #  settlement              :string
 #  instrument              :string
 #  derivative_type         :string
+#  leverage_quantity       :float            default(0.0)
 #
 class TradeLog < ApplicationRecord
 end

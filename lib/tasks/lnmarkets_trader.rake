@@ -557,14 +557,23 @@ namespace :lnmarkets_trader do
     
       if lnmarkets_response[:status] == 'success'
         #
-        # Create new record in TradeLog table
+        # Create new record in TradeLogs table
         #
         trade_log = TradeLog.create(
           score_log_id: args[:score_log_id],
+          external_id: lnmarkets_response[:body]['uid'],
           exchange_name: 'lnmarkets',
           derivative_type: 'futures',
           trade_type: 'buy',
-          trade_direction: 'long'
+          trade_direction: 'long',
+          quantity: lnmarkets_response[:body]['quantity'],
+          open_fee: lnmarkets_response[:body]['open_fee'],
+          close_fee: lnmarkets_response[:body]['closing_fee'],
+          margin_quantity: lnmarkets_response[:body]['margin'],
+          leverage_quantity: lnmarkets_response[:body]['leverage'],
+          open_price: lnmarkets_response[:body]['price'],
+          open_fee: lnmarkets_response[:body]['opening_fee'],
+          creation_timestamp: lnmarkets_response[:body]['creation_ts']
         )
       else
         puts 'Error. Unable to create futures trade.'
@@ -653,29 +662,24 @@ namespace :lnmarkets_trader do
     
       if lnmarkets_response[:status] == 'success'
         #
-        # Create new record in TradeLog table
+        # Create new record in TradeLogs table
         #
         trade_log = TradeLog.create(
           score_log_id: args[:score_log_id],
+          external_id: lnmarkets_response[:body]['uid'],
           exchange_name: 'lnmarkets',
           derivative_type: 'futures',
           trade_type: 'sell',
-          trade_direction: 'short'
+          trade_direction: 'short',
+          quantity: lnmarkets_response[:body]['quantity'],
+          open_fee: lnmarkets_response[:body]['open_fee'],
+          close_fee: lnmarkets_response[:body]['closing_fee'],
+          margin_quantity: lnmarkets_response[:body]['margin'],
+          leverage_quantity: lnmarkets_response[:body]['leverage'],
+          open_price: lnmarkets_response[:body]['price'],
+          open_fee: lnmarkets_response[:body]['opening_fee'],
+          creation_timestamp: lnmarkets_response[:body]['creation_ts']
         )
-        #  external_id             :string
-        #  quantity                :float            default(0.0)
-        #  margin_quantity         :float            default(0.0)
-        #  open_price              :float            default(0.0)
-        #  close_price             :float            default(0.0)
-        #  fixing_price            :float            default(0.0)
-        #  open_fee                :float            default(0.0)
-        #  close_fee               :float            default(0.0)
-        #  creation_timestamp      :bigint
-        #  market_filled_timestamp :bigint
-        #  closed_timestamp        :bigint
-        #  absolute_net_proceeds   :float            default(0.0)
-        #  percent_net_proceeds    :float            default(0.0)
-        #  strike                  :float            default(0.0)
       else
         puts 'Error. Unable to create futures trade.'
       end

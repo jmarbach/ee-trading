@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_07_19_234406) do
+ActiveRecord::Schema[7.0].define(version: 2024_07_20_033903) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -72,6 +72,7 @@ ActiveRecord::Schema[7.0].define(version: 2024_07_19_234406) do
     t.string "settlement"
     t.string "instrument"
     t.string "derivative_type"
+    t.float "leverage_quantity", default: 0.0
     t.index ["score_log_id"], name: "index_trade_logs_on_score_log_id"
   end
 
