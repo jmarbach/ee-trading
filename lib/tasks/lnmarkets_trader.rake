@@ -431,14 +431,6 @@ namespace :lnmarkets_trader do
       puts ""
       puts "2. Check existing open futures trades..."
       puts "--------------------------------------------"
-      lnmarkets_response = lnmarkets_client.get_futures_trades('running')
-      if lnmarkets_response[:status] == 'success'
-        running_futures = lnmarkets_response[:body]
-        puts "Running Futures: #{running_futures.count}"
-      else
-        puts 'Error. Unable to get running futures trades.'
-      end
-
       lnmarkets_response = lnmarkets_client.get_futures_trades('open')
       if lnmarkets_response[:status] == 'success'
         open_futures = lnmarkets_response[:body]
@@ -447,15 +439,55 @@ namespace :lnmarkets_trader do
         puts 'Error. Unable to get open futures trades.'
       end
 
-      if running_futures.any? || open_futures.any?
+      if open_futures.any?
         puts ""
-        puts "Close all open options contracts from prior trading interval..."
+        puts "Cancel all open futures trades from prior trading interval..."
+        puts ""
+        #
+        # Cancel all open futures trades
+        #
+        open_futures.each do |f|
+          lnmarkets_response = lnmarkets_client.cancel_futures_trade(f['id'])
+          if lnmarkets_response[:status] == 'success'
+            puts ""
+            puts "Finished closing futures trade: #{f['id']}."
+            puts ""
+            #
+            # Update Trade Log
+            #
+            trade_log = TradeLog.find_by_external_id(f['id'])
+            trade_log.update(
+              # close_price: lnmarkets_response[:body]['fixing_price'],
+              # closed_timestamp: lnmarkets_response[:body]['closed_ts'],
+              # close_fee: lnmarkets_response[:body]['closing_fee'],
+              # absolute_net_proceeds: lnmarkets_response[:body]['pl']
+            )
+          else
+            puts "Error. Unable to close futures trade: #{f['id']}"
+          end
+        end
+      else
+        puts ""
+        puts "No running futures trades."
+        puts ""
+      end
+
+      lnmarkets_response = lnmarkets_client.get_futures_trades('running')
+      if lnmarkets_response[:status] == 'success'
+        running_futures = lnmarkets_response[:body]
+        puts "Running Futures: #{running_futures.count}"
+      else
+        puts 'Error. Unable to get running futures trades.'
+      end
+
+      if running_futures.any?
+        puts ""
+        puts "Close all running futures trades from prior trading interval..."
         puts ""
         #
         # Close all futures trades
         #
-        combined_futures = running_futures + open_futures
-        combined_futures.each do |f|
+        running_futures.each do |f|
           lnmarkets_response = lnmarkets_client.close_futures_trade(f['id'])
           if lnmarkets_response[:status] == 'success'
             puts ""
@@ -477,7 +509,7 @@ namespace :lnmarkets_trader do
         end
       else
         puts ""
-        puts "No running or open futures trades."
+        puts "No running futures trades."
         puts ""
       end
 

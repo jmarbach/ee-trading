@@ -26,6 +26,11 @@
 #  instrument              :string
 #  derivative_type         :string
 #  leverage_quantity       :float            default(0.0)
+#  open                    :boolean
+#  running                 :boolean
+#  canceled                :boolean
+#  closed                  :boolean
+#  last_update_timestamp   :bigint
 #
 class TradeLog < ApplicationRecord
 end
