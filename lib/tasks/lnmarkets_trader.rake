@@ -401,13 +401,26 @@ namespace :lnmarkets_trader do
         #
         # Close all 'running' contracts
         #
-        lnmarkets_response = lnmarkets_client.close_all_option_contracts
-        if lnmarkets_response[:status] == 'success'
-          puts ""
-          puts "Finished closing open options contracts."
-          puts ""
-        else
-          puts 'Error. Unable to close open options contracts.'
+        running_contracts.each do |c|
+          lnmarkets_client.close_option_contract(c['id'])
+
+          if lnmarkets_response[:status] == 'success'
+            puts ""
+            puts "Finished closing open options contract: #{c['id']}."
+            puts ""
+            #
+            # Update Trade Log
+            #
+            trade_log = TradeLog.find_by_external_id(c['id'])
+            trade_log.update(
+              close_price: lnmarkets_response[:body]['fixing_price'],
+              closed_timestamp: lnmarkets_response[:body]['closed_ts'],
+              close_fee: lnmarkets_response[:body]['closing_fee'],
+              absolute_net_proceeds: lnmarkets_response[:body]['pl']
+            )
+          else
+            puts "Error. Unable to close open options contracts: #{c['id']}"
+          end
         end
       else
         puts ""
@@ -423,7 +436,7 @@ namespace :lnmarkets_trader do
         running_futures = lnmarkets_response[:body]
         puts "Running Futures: #{running_futures.count}"
       else
-        puts 'Error. Unable to get running trades.'
+        puts 'Error. Unable to get running futures trades.'
       end
 
       lnmarkets_response = lnmarkets_client.get_futures_trades('open')
@@ -431,7 +444,7 @@ namespace :lnmarkets_trader do
         open_futures = lnmarkets_response[:body]
         puts "Open Futures: #{open_futures.count}"
       else
-        puts 'Error. Unable to get open trades.'
+        puts 'Error. Unable to get open futures trades.'
       end
 
       if running_futures.any? || open_futures.any?
@@ -439,15 +452,28 @@ namespace :lnmarkets_trader do
         puts "Close all open options contracts from prior trading interval..."
         puts ""
         #
-        # Close all 'running' contracts
+        # Close all futures trades
         #
-        lnmarkets_response = lnmarkets_client.close_all_futures_trades
-        if lnmarkets_response[:status] == 'success'
-          puts ""
-          puts "Finished closing open futures trades."
-          puts ""
-        else
-          puts 'Error. Unable to close open futures trades.'
+        combined_futures = running_futures + open_futures
+        combined_futures.each do |f|
+          lnmarkets_response = lnmarkets_client.close_futures_trade(f['id'])
+          if lnmarkets_response[:status] == 'success'
+            puts ""
+            puts "Finished closing futures trade: #{f['id']}."
+            puts ""
+            #
+            # Update Trade Log
+            #
+            trade_log = TradeLog.find_by_external_id(f['id'])
+            trade_log.update(
+              # close_price: lnmarkets_response[:body]['fixing_price'],
+              # closed_timestamp: lnmarkets_response[:body]['closed_ts'],
+              # close_fee: lnmarkets_response[:body]['closing_fee'],
+              # absolute_net_proceeds: lnmarkets_response[:body]['pl']
+            )
+          else
+            puts "Error. Unable to close futures trade: #{f['id']}"
+          end
         end
       else
         puts ""
@@ -581,7 +607,6 @@ namespace :lnmarkets_trader do
           margin_quantity: lnmarkets_response[:body]['margin'],
           leverage_quantity: lnmarkets_response[:body]['leverage'],
           open_price: lnmarkets_response[:body]['price'],
-          open_fee: lnmarkets_response[:body]['opening_fee'],
           creation_timestamp: lnmarkets_response[:body]['creation_ts']
         )
         #
@@ -839,4 +864,5 @@ namespace :lnmarkets_trader do
     puts ''
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+  end
 end

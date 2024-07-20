@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_07_20_161517) do
+ActiveRecord::Schema[7.0].define(version: 2024_07_20_204029) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -60,7 +60,6 @@ ActiveRecord::Schema[7.0].define(version: 2024_07_20_161517) do
     t.float "margin_quantity", default: 0.0
     t.float "open_price", default: 0.0
     t.float "close_price", default: 0.0
-    t.float "fixing_price", default: 0.0
     t.float "open_fee", default: 0.0
     t.float "close_fee", default: 0.0
     t.bigint "creation_timestamp"

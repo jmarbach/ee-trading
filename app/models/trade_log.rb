@@ -14,7 +14,6 @@
 #  margin_quantity         :float            default(0.0)
 #  open_price              :float            default(0.0)
 #  close_price             :float            default(0.0)
-#  fixing_price            :float            default(0.0)
 #  open_fee                :float            default(0.0)
 #  close_fee               :float            default(0.0)
 #  creation_timestamp      :bigint
