@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_07_20_033903) do
+ActiveRecord::Schema[7.0].define(version: 2024_07_20_161517) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -74,6 +74,20 @@ ActiveRecord::Schema[7.0].define(version: 2024_07_20_033903) do
     t.string "derivative_type"
     t.float "leverage_quantity", default: 0.0
     t.index ["score_log_id"], name: "index_trade_logs_on_score_log_id"
+  end
+
+  create_table "trading_stats_dailies", force: :cascade do |t|
+    t.datetime "recorded_date"
+    t.float "balance_btc"
+    t.float "balance_btc_sats"
+    t.float "balance_usd"
+    t.float "balance_usd_cents"
+    t.float "win_streak"
+    t.float "lose_streak"
+    t.float "last_100d_wins"
+    t.float "last_100d_losses"
+    t.datetime "created_at", default: -> { "now()" }
+    t.datetime "updated_at", default: -> { "now()" }
   end
 
   add_foreign_key "score_logs", "market_data_logs"

@@ -709,12 +709,29 @@ namespace :lnmarkets_trader do
       args[:amount].present? &&
       args[:score_log_id].present?
 
-
-      # trade_log = TradeLog.create(
-      #   score_log_id: args[:score_log_id],
-      #   exchange_name: 'lnmarkets',
-      #   derivative_type: 'options'
-      # )
+      if lnmarkets_response[:status] == 'success'
+        #
+        # Create new record in TradeLogs table
+        #
+        # trade_log = TradeLog.create(
+        #   score_log_id: args[:score_log_id],
+        #   external_id: lnmarkets_response[:body]['uid'],
+        #   exchange_name: 'lnmarkets',
+        #   derivative_type: 'options',
+        #   trade_type: 'sell',
+        #   trade_direction: 'short',
+        #   quantity: lnmarkets_response[:body]['quantity'],
+        #   open_fee: lnmarkets_response[:body]['open_fee'],
+        #   close_fee: lnmarkets_response[:body]['closing_fee'],
+        #   margin_quantity: lnmarkets_response[:body]['margin'],
+        #   leverage_quantity: lnmarkets_response[:body]['leverage'],
+        #   open_price: lnmarkets_response[:body]['price'],
+        #   open_fee: lnmarkets_response[:body]['opening_fee'],
+        #   creation_timestamp: lnmarkets_response[:body]['creation_ts']
+        # )
+      else
+        puts 'Error. Unable to create options trade.'
+      end
 
     else
       puts ""
