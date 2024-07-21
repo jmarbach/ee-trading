@@ -618,7 +618,7 @@ namespace :lnmarkets_trader do
       #
       # Define leverage factor
       #
-      leverage_factor = 2.75
+      leverage_factor = 2.50
       puts "Leverage: #{leverage_factor}"
 
       #
@@ -638,7 +638,7 @@ namespace :lnmarkets_trader do
       quantity = capital_waged_usd
       takeprofit = (price_btcusd * 1.07).round(0)
       stoploss = (price_btcusd * 0.95).round(0)
-      #ToDo
+
       lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
       if lnmarkets_response[:status] == 'success'
         #
@@ -652,7 +652,7 @@ namespace :lnmarkets_trader do
           trade_type: 'buy',
           trade_direction: 'long',
           quantity: lnmarkets_response[:body]['quantity'],
-          open_fee: lnmarkets_response[:body]['open_fee'],
+          open_fee: lnmarkets_response[:body]['opening_fee'],
           close_fee: lnmarkets_response[:body]['closing_fee'],
           margin_quantity: lnmarkets_response[:body]['margin'],
           leverage_quantity: lnmarkets_response[:body]['leverage'],
@@ -832,6 +832,13 @@ namespace :lnmarkets_trader do
       lnmarkets_response = lnmarkets_client.get_user_info
       if lnmarkets_response[:status] == 'success'
         #
+        # Establish balance available to trade
+        #
+        sats_balance = lnmarkets_response[:body]['balance'].to_f.round(2)
+        puts "Sats Available: #{sats_balance.to_fs(:delimited)}"
+        puts ""
+
+        #
         # Fetch latest price of BTCUSD
         #
         polygon_client = PolygonAPI.new
@@ -848,6 +855,16 @@ namespace :lnmarkets_trader do
         end
 
         #
+        # Verify available balance to satisfy margin requirement
+        # - About 2% of capital waged is required for In-the-Money options
+        #
+        approx_margin_requirement_usd = (capital_waged_usd * 0.02).round(2)
+        if approx_margin_requirement_usd < balance_usd
+          puts 'Error. Not enough balance available to attempt trade.'
+          return
+        end
+
+        #
         # 2. Fetch options instruments
         #
         lnmarkets_response = lnmarkets_client.get_options_instruments
@@ -859,7 +876,7 @@ namespace :lnmarkets_trader do
             filtered_instruments = filtered_instruments.select { |y| y.include?((price_btcusd-1000).ceil(-3).to_s) }
           elsif direction == 'short'
             filtered_instruments = filtered_instruments.select { |y| y.include?('.P') }
-            filtered_instruments = filtered_instruments.select { |y| y.include?((price_btcusd-1000).ceil(-3).to_s) }
+            filtered_instruments = filtered_instruments.select { |y| y.include?((price_btcusd).ceil(-3).to_s) }
           end
         else
           puts 'Error. Unable to fetch options instruments.'
@@ -896,12 +913,13 @@ namespace :lnmarkets_trader do
             trade_type: 'buy',
             trade_direction: direction,
             quantity: lnmarkets_response[:body]['quantity'],
-            open_fee: lnmarkets_response[:body]['open_fee'],
+            open_fee: lnmarkets_response[:body]['opening_fee'],
             close_fee: lnmarkets_response[:body]['closing_fee'],
             margin_quantity: lnmarkets_response[:body]['margin'],
             open_price: lnmarkets_response[:body]['forward'],
-            open_fee: lnmarkets_response[:body]['opening_fee'],
-            creation_timestamp: lnmarkets_response[:body]['creation_ts']
+            creation_timestamp: lnmarkets_response[:body]['creation_ts'],
+            running: true,
+            closed: false
           )
         else
           puts 'Error. Unable to open options contract.'
