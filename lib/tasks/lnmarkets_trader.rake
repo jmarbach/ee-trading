@@ -461,7 +461,7 @@ namespace :lnmarkets_trader do
             trade_log.update(
               open: false,
               canceled: true,
-              closed_timestamp: lnmarkets_response[:body]['closed_ts'].
+              closed_timestamp: lnmarkets_response[:body]['closed_ts'],
               last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
             )
           else
