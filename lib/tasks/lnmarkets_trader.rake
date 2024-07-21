@@ -634,10 +634,10 @@ namespace :lnmarkets_trader do
       side = 'b'
       type = 'l'
       leverage = 3
-      price = (price_btcusd * 0.999925).round(2)
+      price = (price_btcusd * 0.999925).round(0)
       quantity = capital_waged_usd
-      takeprofit = (price_btcusd * 1.07).round(2)
-      stoploss = (price_btcusd * 0.95).round(2)
+      takeprofit = (price_btcusd * 1.07).round(0)
+      stoploss = (price_btcusd * 0.95).round(0)
       #ToDo
       lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
       if lnmarkets_response[:status] == 'success'
@@ -657,7 +657,8 @@ namespace :lnmarkets_trader do
           margin_quantity: lnmarkets_response[:body]['margin'],
           leverage_quantity: lnmarkets_response[:body]['leverage'],
           open_price: lnmarkets_response[:body]['price'],
-          creation_timestamp: lnmarkets_response[:body]['creation_ts']
+          creation_timestamp: lnmarkets_response[:body]['creation_ts'],
+          last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
         )
         #
         # Open directional hedge by buying options contract in the inverse direction
@@ -744,10 +745,10 @@ namespace :lnmarkets_trader do
       side = 's'
       type = 'l'
       leverage = 3
-      price = (price_btcusd * 1.000025).round(2)
+      price = (price_btcusd * 1.000025).round(0)
       quantity = capital_waged_usd
-      takeprofit = (price_btcusd * 0.98).round(2)
-      stoploss = (price_btcusd * 1.09).round(2)
+      takeprofit = (price_btcusd * 0.98).round(0)
+      stoploss = (price_btcusd * 1.09).round(0)
 
       lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
       if lnmarkets_response[:status] == 'success'
@@ -768,7 +769,8 @@ namespace :lnmarkets_trader do
           leverage_quantity: lnmarkets_response[:body]['leverage'],
           open_price: lnmarkets_response[:body]['price'],
           open_fee: lnmarkets_response[:body]['opening_fee'],
-          creation_timestamp: lnmarkets_response[:body]['creation_ts']
+          creation_timestamp: lnmarkets_response[:body]['creation_ts'],
+          last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
         )
         #
         # Open directional hedge by buying options contract in the inverse direction
@@ -809,6 +811,18 @@ namespace :lnmarkets_trader do
         puts 'Error. Invalid trade direction parameter.'
         return
       end
+
+      # Assign capital waged based on Lnmarkets trading limits
+      if args[:amount] > 500000.00
+        capital_waged_usd = args[:amount]
+      else
+        puts ""
+        puts "Quantity too high for options trade. Adjusting to 499,999.00"
+        puts ""
+        capital_waged_usd = 499999.00
+      end
+      score_log_id = args[:score_log_id]
+
       # Initialize lnmarkets_client
       lnmarkets_client = LnmarketsAPI.new
 
@@ -825,30 +839,13 @@ namespace :lnmarkets_trader do
         response_btcusd = polygon_client.get_last_trade('BTC', 'USD')
         if response_btcusd[:status] == 'success'
           price_btcusd = response_btcusd[:body]['last']['price']
+
+          price_sat_usd = (price_btcusd/100000000.0).round(5)
+          balance_usd = (sats_balance * price_sat_usd).round(2)
         else
           puts 'Error. Unable to fetch latest price for BTCUSD.'
           return
         end
-
-
-        #
-        # Establish max margin - the max we are willing to risk
-        #
-        #max_margin = (500000.00 * sat_price_usd)
-
-        #
-        # Determine approx intended margin
-        #
-
-
-        #
-        # Check intended margin against max margin
-        #
-        # if approx_margin_requirement >= max_margin
-        #   puts "margin requirement too high... adjust capital_waged lower"
-        #   capital_waged = (max_margin * 45).round(0)
-        #   puts "capital_waged: #{capital_waged}"
-        # end
 
         #
         # 2. Fetch options instruments
@@ -882,7 +879,7 @@ namespace :lnmarkets_trader do
         # 3. Open options contract
         #
         side = 'b'
-        quantity = capital_waged
+        quantity = capital_waged_usd
         settlement = 'cash'
         instrument_name = filtered_instruments[0]
         lnmarkets_response = lnmarkets_client.open_option_contract(side, quantity, settlement, instrument_name)
