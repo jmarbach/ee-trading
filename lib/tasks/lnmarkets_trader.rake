@@ -416,7 +416,9 @@ namespace :lnmarkets_trader do
               close_price: lnmarkets_response[:body]['fixing_price'],
               closed_timestamp: lnmarkets_response[:body]['closed_ts'],
               close_fee: lnmarkets_response[:body]['closing_fee'],
-              absolute_net_proceeds: lnmarkets_response[:body]['pl']
+              absolute_net_proceeds: lnmarkets_response[:body]['pl'],
+              running: false,
+              closed: true
             )
           else
             puts "Error. Unable to close open options contracts: #{c['id']}"
@@ -424,7 +426,7 @@ namespace :lnmarkets_trader do
         end
       else
         puts ""
-        puts "No running or open contracts."
+        puts "No running contracts."
         puts ""
       end
 
@@ -457,10 +459,10 @@ namespace :lnmarkets_trader do
             #
             trade_log = TradeLog.find_by_external_id(f['id'])
             trade_log.update(
-              # close_price: lnmarkets_response[:body]['fixing_price'],
-              # closed_timestamp: lnmarkets_response[:body]['closed_ts'],
-              # close_fee: lnmarkets_response[:body]['closing_fee'],
-              # absolute_net_proceeds: lnmarkets_response[:body]['pl']
+              open: false,
+              canceled: true,
+              closed_timestamp: lnmarkets_response[:body]['closed_ts'].
+              last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
             )
           else
             puts "Error. Unable to close futures trade: #{f['id']}"
@@ -498,10 +500,14 @@ namespace :lnmarkets_trader do
             #
             trade_log = TradeLog.find_by_external_id(f['id'])
             trade_log.update(
-              # close_price: lnmarkets_response[:body]['fixing_price'],
-              # closed_timestamp: lnmarkets_response[:body]['closed_ts'],
-              # close_fee: lnmarkets_response[:body]['closing_fee'],
-              # absolute_net_proceeds: lnmarkets_response[:body]['pl']
+              close_price: lnmarkets_response[:body]['fixing_price'],
+              closed_timestamp: lnmarkets_response[:body]['closed_ts'],
+              close_fee: lnmarkets_response[:body]['closing_fee'],
+              absolute_net_proceeds: lnmarkets_response[:body]['pl'],
+              open: false,
+              running: false,
+              closed: true,
+              last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
             )
           else
             puts "Error. Unable to close futures trade: #{f['id']}"
