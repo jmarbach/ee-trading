@@ -634,7 +634,7 @@ namespace :lnmarkets_trader do
         #
         trade_log = TradeLog.create(
           score_log_id: score_log_id,
-          external_id: lnmarkets_response[:body]['uid'],
+          external_id: lnmarkets_response[:body]['id'],
           exchange_name: 'lnmarkets',
           derivative_type: 'futures',
           trade_type: 'buy',
@@ -744,7 +744,7 @@ namespace :lnmarkets_trader do
         #
         trade_log = TradeLog.create(
           score_log_id: args[:score_log_id],
-          external_id: lnmarkets_response[:body]['uid'],
+          external_id: lnmarkets_response[:body]['id'],
           exchange_name: 'lnmarkets',
           derivative_type: 'futures',
           trade_type: 'sell',
@@ -847,10 +847,10 @@ namespace :lnmarkets_trader do
 
           if direction == 'long'
             filtered_instruments = filtered_instruments.select { |y| y.include?('.C') }
-            filtered_instruments = filtered_instruments.select { |y| y.include?((price_btcusd-1000).to_s[0..1]) }
+            filtered_instruments = filtered_instruments.select { |y| y.include?((price_btcusd-1000).ceil(-3).to_s) }
           elsif direction == 'short'
             filtered_instruments = filtered_instruments.select { |y| y.include?('.P') }
-            filtered_instruments = filtered_instruments.select { |y| y.include?((price_btcusd+1000).to_s[0..1]) }
+            filtered_instruments = filtered_instruments.select { |y| y.include?((price_btcusd-1000).ceil(-3).to_s) }
           end
         else
           puts 'Error. Unable to fetch options instruments.'
@@ -879,22 +879,21 @@ namespace :lnmarkets_trader do
           #
           # Create new record in TradeLogs table
           #
-          # trade_log = TradeLog.create(
-          #   score_log_id: args[:score_log_id],
-          #   external_id: lnmarkets_response[:body]['uid'],
-          #   exchange_name: 'lnmarkets',
-          #   derivative_type: 'options',
-          #   trade_type: 'buy',
-          #   trade_direction: args[:direction],
-          #   quantity: lnmarkets_response[:body]['quantity'],
-          #   open_fee: lnmarkets_response[:body]['open_fee'],
-          #   close_fee: lnmarkets_response[:body]['closing_fee'],
-          #   margin_quantity: lnmarkets_response[:body]['margin'],
-          #   leverage_quantity: lnmarkets_response[:body]['leverage'],
-          #   open_price: lnmarkets_response[:body]['price'],
-          #   open_fee: lnmarkets_response[:body]['opening_fee'],
-          #   creation_timestamp: lnmarkets_response[:body]['creation_ts']
-          # )
+          trade_log = TradeLog.create(
+            score_log_id: args[:score_log_id],
+            external_id: lnmarkets_response[:body]['id'],
+            exchange_name: 'lnmarkets',
+            derivative_type: 'options',
+            trade_type: 'buy',
+            trade_direction: direction,
+            quantity: lnmarkets_response[:body]['quantity'],
+            open_fee: lnmarkets_response[:body]['open_fee'],
+            close_fee: lnmarkets_response[:body]['closing_fee'],
+            margin_quantity: lnmarkets_response[:body]['margin'],
+            open_price: lnmarkets_response[:body]['forward'],
+            open_fee: lnmarkets_response[:body]['opening_fee'],
+            creation_timestamp: lnmarkets_response[:body]['creation_ts']
+          )
         else
           puts 'Error. Unable to open options contract.'
           puts lnmarkets_response
