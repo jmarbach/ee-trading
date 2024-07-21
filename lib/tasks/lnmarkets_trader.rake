@@ -412,14 +412,18 @@ namespace :lnmarkets_trader do
             # Update Trade Log
             #
             trade_log = TradeLog.find_by_external_id(c['id'])
-            trade_log.update(
-              close_price: lnmarkets_response[:body]['fixing_price'],
-              closed_timestamp: lnmarkets_response[:body]['closed_ts'],
-              close_fee: lnmarkets_response[:body]['closing_fee'],
-              absolute_net_proceeds: lnmarkets_response[:body]['pl'],
-              running: false,
-              closed: true
-            )
+            if trade_log.present?
+              trade_log.update(
+                close_price: lnmarkets_response[:body]['fixing_price'],
+                closed_timestamp: lnmarkets_response[:body]['closed_ts'],
+                close_fee: lnmarkets_response[:body]['closing_fee'],
+                absolute_net_proceeds: lnmarkets_response[:body]['pl'],
+                running: false,
+                closed: true
+              )
+            else
+              puts "Error. Unable to find trade log for trade: #{f['id']}"
+            end
           else
             puts "Error. Unable to close open options contracts: #{c['id']}"
           end
@@ -458,12 +462,16 @@ namespace :lnmarkets_trader do
             # Update Trade Log
             #
             trade_log = TradeLog.find_by_external_id(f['id'])
-            trade_log.update(
-              open: false,
-              canceled: true,
-              closed_timestamp: lnmarkets_response[:body]['closed_ts'],
-              last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
-            )
+            if trade_log.present?
+              trade_log.update(
+                open: false,
+                canceled: true,
+                closed_timestamp: lnmarkets_response[:body]['closed_ts'],
+                last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
+              )
+            else
+              puts "Error. Unable to find trade log for trade: #{f['id']}"
+            end
           else
             puts "Error. Unable to close futures trade: #{f['id']}"
           end
@@ -499,16 +507,20 @@ namespace :lnmarkets_trader do
             # Update Trade Log
             #
             trade_log = TradeLog.find_by_external_id(f['id'])
-            trade_log.update(
-              close_price: lnmarkets_response[:body]['fixing_price'],
-              closed_timestamp: lnmarkets_response[:body]['closed_ts'],
-              close_fee: lnmarkets_response[:body]['closing_fee'],
-              absolute_net_proceeds: lnmarkets_response[:body]['pl'],
-              open: false,
-              running: false,
-              closed: true,
-              last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
-            )
+            if trade_log.present?
+              trade_log.update(
+                close_price: lnmarkets_response[:body]['fixing_price'],
+                closed_timestamp: lnmarkets_response[:body]['closed_ts'],
+                close_fee: lnmarkets_response[:body]['closing_fee'],
+                absolute_net_proceeds: lnmarkets_response[:body]['pl'],
+                open: false,
+                running: false,
+                closed: true,
+                last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
+              )
+            else
+              puts "Error. Unable to find trade log for trade: #{f['id']}"
+            end
           else
             puts "Error. Unable to close futures trade: #{f['id']}"
           end
@@ -626,8 +638,8 @@ namespace :lnmarkets_trader do
       quantity = capital_waged_usd
       takeprofit = (price_btcusd * 1.07).round(2)
       stoploss = (price_btcusd * 0.95).round(2)
+      #ToDo
       lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
-    
       if lnmarkets_response[:status] == 'success'
         #
         # Create new record in TradeLogs table
@@ -736,8 +748,8 @@ namespace :lnmarkets_trader do
       quantity = capital_waged_usd
       takeprofit = (price_btcusd * 0.98).round(2)
       stoploss = (price_btcusd * 1.09).round(2)
+
       lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
-    
       if lnmarkets_response[:status] == 'success'
         #
         # Create new record in TradeLogs table
