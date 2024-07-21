@@ -431,7 +431,7 @@ namespace :lnmarkets_trader do
       end
 
       puts ""
-      puts "2. Check existing open futures trades..."
+      puts "2. Check existing open and running futures trades..."
       puts "--------------------------------------------"
       lnmarkets_response = lnmarkets_client.get_futures_trades('open')
       if lnmarkets_response[:status] == 'success'
@@ -791,6 +791,12 @@ namespace :lnmarkets_trader do
       args[:amount].present? &&
       args[:score_log_id].present?
 
+      if ['long', 'short'].include?(args[:direction])
+        direction = args[:direction]
+      else
+        puts 'Error. Invalid trade direction parameter.'
+        return
+      end
       # Initialize lnmarkets_client
       lnmarkets_client = LnmarketsAPI.new
 
@@ -799,6 +805,20 @@ namespace :lnmarkets_trader do
       #
       lnmarkets_response = lnmarkets_client.get_user_info
       if lnmarkets_response[:status] == 'success'
+        #
+        # Fetch latest price of BTCUSD
+        #
+        polygon_client = PolygonAPI.new
+        price_btcusd = 0.00
+        response_btcusd = polygon_client.get_last_trade('BTC', 'USD')
+        if response_btcusd[:status] == 'success'
+          price_btcusd = response_btcusd[:body]['last']['price']
+        else
+          puts 'Error. Unable to fetch latest price for BTCUSD.'
+          return
+        end
+
+
         #
         # Establish max margin - the max we are willing to risk
         #
@@ -823,26 +843,31 @@ namespace :lnmarkets_trader do
         #
         lnmarkets_response = lnmarkets_client.get_options_instruments
         if lnmarkets_response[:status] == 'success'
-          # To Do - accomodate both directions
           filtered_instruments = lnmarkets_response[:body].select {|y| y.include?((DateTime.now + 1.day).utc.strftime("BTC.%Y-%m-%d")) }
-          filtered_instruments = filtered_instruments.select { |y| y.include?('.P') }
-          filtered_instruments = filtered_instruments.select { |y| y.include?((btc_price_usd+1000).to_s[0..1]) }
+
+          if direction == 'long'
+            filtered_instruments = filtered_instruments.select { |y| y.include?('.C') }
+            filtered_instruments = filtered_instruments.select { |y| y.include?((price_btcusd-1000).to_s[0..1]) }
+          elsif direction == 'short'
+            filtered_instruments = filtered_instruments.select { |y| y.include?('.P') }
+            filtered_instruments = filtered_instruments.select { |y| y.include?((price_btcusd+1000).to_s[0..1]) }
+          end
         else
           puts 'Error. Unable to fetch options instruments.'
           return
         end
 
         if filtered_instruments.any?
-          # continue
           puts ''
           puts 'Found options instrument:'
           puts "#{filtered_instruments[0]}"
         else
-          puts 'Did not find any instruments.'
+          puts 'No viable options instruments found.'
+          return
         end
 
         #
-        # 3. Open contract
+        # 3. Open options contract
         #
         side = 'b'
         quantity = capital_waged
@@ -881,6 +906,7 @@ namespace :lnmarkets_trader do
       puts ""
       puts "Error. Invocation missing required params."
       puts ""
+      return
     end
 
     puts 'End lnmarkets_trader:open_options_contract...'

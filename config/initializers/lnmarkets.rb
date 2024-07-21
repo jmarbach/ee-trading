@@ -270,12 +270,7 @@ class LnmarketsAPI
     rescue => e
       puts "LnmarketsAPI Error!"
       puts e
-      puts e.response
       hash_method_response[:status] = 'error'
-      if e.response != nil
-        parsed_response_body = JSON.parse(e.response[:body])
-        hash_method_response[:message] = parsed_response_body['message']
-      end
       return hash_method_response
     else
       puts ''
