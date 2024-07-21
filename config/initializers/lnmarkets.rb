@@ -974,6 +974,55 @@ class LnmarketsAPI
     hash_method_response
   end
 
+  def update_futures_trades(id, trade_type, value)
+    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
+    begin
+      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      timestamp = (Time.now.to_f * 1000).to_i.to_s
+      path = '/futures'
+      hash_params = { 
+        id: id, 
+        type: trade_type, 
+        value: value, 
+      }
+      json_body = hash_params.to_json
+
+      digest = OpenSSL::Digest.new('sha256')
+      payload = timestamp + 'PUT' + '/v2' + path + json_body
+      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], payload)
+      lnm_signature = Base64.strict_encode64(hmac)
+
+      request_response = @conn.put("/v2#{path}") do |req|
+        req.headers['Content-Type'] = 'application/json'
+        req.headers['LNM-ACCESS-KEY'] = ENV["LNMARKETS_API_KEY"]
+        req.headers['LNM-ACCESS-PASSPHRASE'] = ENV["LNMARKETS_API_PASSPHRASE"]
+        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
+        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
+        req.body = json_body
+      end
+
+      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      elapsed_time = (time_finish - time_start).round(6)
+
+      parsed_response_body = JSON.parse(request_response.body)
+      hash_method_response[:status] = 'success'
+      hash_method_response[:body] = parsed_response_body
+      hash_method_response[:elapsed_time] = elapsed_time
+
+    rescue Faraday::ClientError => e
+      puts "Faraday Client Error: #{e.response[:status]} #{e.response[:body]}"
+      hash_method_response[:status] = 'error'
+      hash_method_response[:message] = e.response[:status]
+      hash_method_response[:body] = JSON.parse(e.response[:body]) rescue e.response[:body]
+    rescue => e
+      puts "Unexpected error: #{e.message}"
+      hash_method_response[:status] = 'error'
+      hash_method_response[:message] = e.message
+    end
+
+    hash_method_response
+  end
+
   def parse(response)
     JSON.parse(response.body)
   end

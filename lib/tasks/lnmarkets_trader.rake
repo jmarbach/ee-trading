@@ -1045,6 +1045,20 @@ namespace :lnmarkets_trader do
         #
         if update_trade_stoploss_price == true
           puts "Attempt to update futures trade..."
+          #
+          # Calcualte new stoploss
+          #
+          new_stoploss = (price_btcusd * 0.98).round(0)
+          puts "New stoploss: #{new_stoploss}"
+
+          lnmarkets_response = lnmarkets_client.update_futures_trade(f['id'], 'stoploss', new_stoploss)
+          if lnmarkets_response[:status] == 'success'
+            puts "Updated stoploss for #{f['id']}:"
+            puts lnmarkets_response[:body]
+            puts ""
+          else
+            puts 'Error. Unable to update futures trade.'
+          end
         end
       end
     else
