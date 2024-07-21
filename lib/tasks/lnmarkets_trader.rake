@@ -962,6 +962,96 @@ namespace :lnmarkets_trader do
     puts ''
     # Initialize lnmarkets_client
     lnmarkets_client = LnmarketsAPI.new
+
+    #
+    # 1. Check for any running futures positions...
+    #
+    running_futures = []
+    lnmarkets_response = lnmarkets_client.get_futures_trades('running')
+    if lnmarkets_response[:status] == 'success'
+      running_futures = lnmarkets_response[:body]
+      if running_futures.count > 0
+        puts "Running Futures: #{running_futures.count}"
+      end
+    else
+      puts 'Error. Unable to get running futures trades.'
+    end
+
+    if running_futures.any?
+      puts ""
+      puts "Evaluate if each running futures trade needs its stop-loss updated"
+      puts ""
+      #
+      # Iterate through each futures trade
+      #
+      running_futures.each do |f|
+        puts ''
+        puts f
+        puts ''
+        #
+        # 2. Check trade direction, long/short
+        #
+        trade_direction = ''
+        if f['side'] == 'b'
+          trade_direction = 'long'
+        elsif f['side'] == 's'
+          trade_direction = 'short'
+        end
+        puts ''
+        puts "Trade Direction: #{trade_direction}"
+        #
+        # 3. Check if position is 'in the money'
+        #
+        polygon_client = PolygonAPI.new
+        price_btcusd = 0.00
+        response_btcusd = polygon_client.get_last_trade('BTC', 'USD')
+        if response_btcusd[:status] == 'success'
+          price_btcusd = response_btcusd[:body]['last']['price']
+          puts "Price BTCUSD: #{price_btcusd.to_fs(:delimited)}"
+          puts ""
+        else
+          puts 'Error. Unable to fetch latest price for BTCUSD... skip trade.'
+          abort 'Unable to proceed without BTCUSD price.'
+        end
+
+        update_trade_stoploss_price = false
+        entry_price = f['entry_price']
+        if trade_direction == 'long'
+          if price_btcusd > entry_price
+            #
+            # Update the position's stop-loss
+            #
+            puts "Update stop-loss for #{f['id']}"
+            update_trade_stoploss_price = true
+          else
+            next
+          end
+        elsif trade_direction == 'short'
+          if price_btcusd < entry_price
+            #
+            # Update the position's stop-loss
+            #
+            puts "Update stop-loss for #{f['id']}"
+            update_trade_stoploss_price = true
+          else
+            next
+          end
+        else
+          abort 'Invalid trade direction.'
+        end
+
+        #
+        # 4. Update the position's stop-loss
+        #
+        if update_trade_stoploss_price == true
+          puts "Attempt to update futures trade..."
+        end
+      end
+    else
+      puts ""
+      puts "Skip. No running futures trades."
+      puts ""
+    end
     puts ''
     puts 'End lnmarkets_trader:check_stops...'
     puts ''
