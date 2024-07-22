@@ -141,9 +141,14 @@ namespace :lnmarkets_trader do
     #
     # Find average open interest over last 8 days
     #
+    last_8_market_data_log_entries = nil
     last_8_market_data_log_entries = MarketDataLog.last(8).pluck(:aggregate_open_interest)
-    if last_8_market_data_log_entries != nil && !last_8_market_data_log_entries.empty?
-      last_8_aggregate_open_interests_average = last_8_market_data_log_entries.sum.fdiv(last_8_market_data_log_entries.size).round(2)
+    if last_8_market_data_log_entries != nil
+      # Remote nil values from array
+      last_8_market_data_log_entries.compact!
+      if !last_8_market_data_log_entries.empty?
+        last_8_aggregate_open_interests_average = last_8_market_data_log_entries.sum.fdiv(last_8_market_data_log_entries.size).round(2)
+      end
     else
       last_8_aggregate_open_interests_average = 0.0
       data_errors += 1
