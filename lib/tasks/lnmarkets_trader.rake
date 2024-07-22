@@ -1026,6 +1026,7 @@ namespace :lnmarkets_trader do
             #
             # Update the position's stop-loss
             #
+            puts "Trade Entry Price: #{f['entry_price']}"
             puts "Update stop-loss for #{f['id']}"
             update_trade_stoploss_price = true
           else
@@ -1036,6 +1037,7 @@ namespace :lnmarkets_trader do
             #
             # Update the position's stop-loss
             #
+            puts "Trade Entry Price: #{f['entry_price']}"
             puts "Update stop-loss for #{f['id']}"
             update_trade_stoploss_price = true
           else
@@ -1064,6 +1066,8 @@ namespace :lnmarkets_trader do
           else
             puts 'Error. Unable to update futures trade.'
           end
+        else
+          puts 'Trade is not in the money. Do no update stoploss.'
         end
       end
     else
