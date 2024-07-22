@@ -189,6 +189,16 @@ namespace :lnmarkets_trader do
     puts btcusd
     puts ""
 
+    # Implied volatility
+    implied_volatility = 0.0
+    lnmarkets_client = LnmarketsAPI.new
+    lnmarkets_response = lnmarkets_client.get_options_volatility_index()
+    if lnmarkets_response[:status] == 'success'
+      implied_volatility = lnmarkets_response[:body]['volatilityIndex']
+    else
+      puts 'Error. Unable to get implied volatility from LnMarkets.'
+    end
+
     #
     # Save MarketDataLog
     #
@@ -212,7 +222,8 @@ namespace :lnmarkets_trader do
         avg_funding_rate: avg_funding_rate,
         aggregate_open_interest: aggregate_open_interest,
         avg_last_10_candle_closes: last_10_candle_closes_average,
-        avg_last_8_aggregate_open_interests: last_8_aggregate_open_interests_average
+        avg_last_8_aggregate_open_interests: last_8_aggregate_open_interests_average,
+        implied_volatility: implied_volatility
       )
     rescue => e
       puts e
@@ -375,10 +386,6 @@ namespace :lnmarkets_trader do
       end
       puts ""
       puts "Proceed with new trade direction: #{trade_direction}"
-      
-
-      # Initialize lnmarkets_client
-      lnmarkets_client = LnmarketsAPI.new
 
       #
       # Close existing futures and options contracts

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_07_20_212827) do
+ActiveRecord::Schema[7.0].define(version: 2024_07_22_203201) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -37,6 +37,7 @@ ActiveRecord::Schema[7.0].define(version: 2024_07_20_212827) do
     t.datetime "created_at", default: -> { "now()" }
     t.datetime "updated_at", default: -> { "now()" }
     t.integer "int_data_errors", default: 0
+    t.float "implied_volatility"
   end
 
   create_table "score_logs", force: :cascade do |t|
@@ -77,6 +78,7 @@ ActiveRecord::Schema[7.0].define(version: 2024_07_20_212827) do
     t.boolean "canceled"
     t.boolean "closed"
     t.bigint "last_update_timestamp"
+    t.float "implied_volatility"
     t.index ["score_log_id"], name: "index_trade_logs_on_score_log_id"
   end
 

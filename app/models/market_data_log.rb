@@ -25,6 +25,7 @@
 #  created_at                          :datetime
 #  updated_at                          :datetime
 #  int_data_errors                     :integer          default(0)
+#  implied_volatility                  :float
 #
 class MarketDataLog < ApplicationRecord
 end

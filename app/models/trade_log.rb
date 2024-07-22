@@ -31,6 +31,7 @@
 #  canceled                :boolean
 #  closed                  :boolean
 #  last_update_timestamp   :bigint
+#  implied_volatility      :float
 #
 class TradeLog < ApplicationRecord
 
@@ -49,6 +50,9 @@ class TradeLog < ApplicationRecord
       if lnmarkets_response[:status] == 'success'
       	puts 'Parse trade:'
         puts lnmarkets_response[:body]
+        #
+        # Update TradeLog
+        #
       else
         puts 'Error. Unable to get futures trade.'
       end
@@ -57,6 +61,9 @@ class TradeLog < ApplicationRecord
       if lnmarkets_response[:status] == 'success'
       	puts 'Parse trade:'
         puts lnmarkets_response[:body]
+        #
+        # Update TradeLog
+        #
       else
         puts 'Error. Unable to get options trade.'
       end
