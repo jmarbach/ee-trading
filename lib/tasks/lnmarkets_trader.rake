@@ -648,7 +648,7 @@ namespace :lnmarkets_trader do
       price = (price_btcusd * 0.999925).round(0)
       quantity = capital_waged_usd
       takeprofit = (price_btcusd * 1.07).round(0)
-      stoploss = (price_btcusd * 0.95).round(0)
+      stoploss = (price_btcusd * 0.94).round(0)
 
       lnmarkets_response = lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
       if lnmarkets_response[:status] == 'success'
@@ -762,8 +762,8 @@ namespace :lnmarkets_trader do
       leverage = 3
       price = (price_btcusd * 1.000025).round(0)
       quantity = capital_waged_usd
-      takeprofit = (price_btcusd * 0.98).round(0)
-      stoploss = (price_btcusd * 1.09).round(0)
+      takeprofit = (price_btcusd * 0.93).round(0)
+      stoploss = (price_btcusd * 1.06).round(0)
 
       lnmarkets_response = lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
       if lnmarkets_response[:status] == 'success'
