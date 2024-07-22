@@ -990,8 +990,8 @@ namespace :lnmarkets_trader do
       # Iterate through each futures trade
       #
       running_futures.each do |f|
-        puts ''
-        puts f
+        puts 'Futures Trade ID:'
+        puts f['id']
         puts ''
         #
         # 2. Check trade direction, long/short
@@ -1021,12 +1021,14 @@ namespace :lnmarkets_trader do
 
         update_trade_stoploss_price = false
         entry_price = f['entry_price']
+        puts ""
+        puts "Trade Entry Price: #{entry_price.to_fs(:delimited)}"
+        puts ""
         if trade_direction == 'long'
           if price_btcusd > entry_price
             #
             # Update the position's stop-loss
             #
-            puts "Trade Entry Price: #{f['entry_price']}"
             puts "Update stop-loss for #{f['id']}"
             update_trade_stoploss_price = true
           else
@@ -1037,7 +1039,6 @@ namespace :lnmarkets_trader do
             #
             # Update the position's stop-loss
             #
-            puts "Trade Entry Price: #{f['entry_price']}"
             puts "Update stop-loss for #{f['id']}"
             update_trade_stoploss_price = true
           else
@@ -1064,6 +1065,7 @@ namespace :lnmarkets_trader do
 
           lnmarkets_response = lnmarkets_client.update_futures_trade(f['id'], 'stoploss', new_stoploss)
           if lnmarkets_response[:status] == 'success'
+            puts ""
             puts "Updated stoploss for #{f['id']}:"
             puts lnmarkets_response[:body]
             puts ""
