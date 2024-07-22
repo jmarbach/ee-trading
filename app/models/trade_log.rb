@@ -33,4 +33,33 @@
 #  last_update_timestamp   :bigint
 #
 class TradeLog < ApplicationRecord
+
+  after_update :get_final_trade_stats, if: Proc.new { |i| 
+    i.saved_change_to_attribute?(:closed, to: true) 
+  }
+
+  def get_final_trade_stats
+  	puts 'TradeLog - get_final_trade_stats'
+  	#
+  	# Get final trade stats from LnMarkets
+  	#
+  	lnmarkets_client = LnmarketsAPI.new
+  	if self.derivative_type == 'futures'
+  	  lnmarkets_response = lnmarkets_client.get_futures_trade(self.external_id)
+      if lnmarkets_response[:status] == 'success'
+      	puts 'Parse trade:'
+        puts lnmarkets_response[:body]
+      else
+        puts 'Error. Unable to get futures trade.'
+      end
+  	elsif self.derivative_type == 'options'
+  	  lnmarkets_response = lnmarkets_client.get_options_trade(self.external_id)
+      if lnmarkets_response[:status] == 'success'
+      	puts 'Parse trade:'
+        puts lnmarkets_response[:body]
+      else
+        puts 'Error. Unable to get options trade.'
+      end
+  	end
+  end
 end
