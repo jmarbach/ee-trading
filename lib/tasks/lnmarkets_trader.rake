@@ -426,7 +426,7 @@ namespace :lnmarkets_trader do
                 closed: true
               )
             else
-              puts "Error. Unable to find trade log for trade: #{f['id']}"
+              puts "Error. Unable to find trade log for trade: #{c['id']}"
             end
           else
             puts "Error. Unable to close open options contracts: #{c['id']}"
