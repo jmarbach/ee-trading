@@ -32,6 +32,7 @@
 #  closed                  :boolean
 #  last_update_timestamp   :bigint
 #  implied_volatility      :float
+#  total_carry_fees        :float
 #
 class TradeLog < ApplicationRecord
 
@@ -53,6 +54,23 @@ class TradeLog < ApplicationRecord
         #
         # Update TradeLog
         #
+        entry_margin = lnmarkets_response[:body]['entry_margin'].to_f
+        absolute_net_proceeds = lnmarkets_response[:body]['pl'].to_f
+        percent_net_proceeds = ((((absolute_net_proceeds + entry_margin) - entry_margin)/entry_margin)*100.0).round(2)
+
+        update_columns(
+          open_fee: lnmarkets_response[:body]['opening_fee'],
+          close_fee: lnmarkets_response[:body]['closing_fee'],
+          close_price: lnmarkets_response[:body]['exit_price'],
+          absolute_net_proceeds: absolute_net_proceeds,
+          percent_net_proceeds: percent_net_proceeds,
+          market_filled_timestamp: lnmarkets_response[:body]['market_filled_ts'],
+          closed_timestamp: lnmarkets_response[:body]['closed_ts'],
+          total_carry_fees: lnmarkets_response[:body]['sum_carry_fees'],
+          open: false,
+          running: false,
+          canceled: false
+        )
       else
         puts 'Error. Unable to get futures trade.'
       end
@@ -64,6 +82,9 @@ class TradeLog < ApplicationRecord
         #
         # Update TradeLog
         #
+        # update_columns(
+
+        # )
       else
         puts 'Error. Unable to get options trade.'
       end

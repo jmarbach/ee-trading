@@ -197,6 +197,7 @@ namespace :lnmarkets_trader do
       implied_volatility = lnmarkets_response[:body]['volatilityIndex']
     else
       puts 'Error. Unable to get implied volatility from LnMarkets.'
+      data_errors += 1
     end
 
     #
