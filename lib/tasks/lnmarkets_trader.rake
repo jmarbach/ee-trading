@@ -1055,7 +1055,11 @@ namespace :lnmarkets_trader do
           #
           # Calcualte new stoploss
           #
-          new_stoploss = (price_btcusd * 0.98).round(0)
+          if trade_direction == 'long'
+            new_stoploss = (price_btcusd * 0.97).round(0)
+          elsif trade_direction == 'short'
+            new_stoploss = (price_btcusd * 1.03).round(0)
+          end
           puts "New stoploss: #{new_stoploss}"
 
           lnmarkets_response = lnmarkets_client.update_futures_trade(f['id'], 'stoploss', new_stoploss)

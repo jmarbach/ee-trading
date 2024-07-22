@@ -974,7 +974,7 @@ class LnmarketsAPI
     hash_method_response
   end
 
-  def update_futures_trades(id, trade_type, value)
+  def update_futures_trade(id, trade_type, value)
     hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
     begin
       time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
