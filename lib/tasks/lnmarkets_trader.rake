@@ -998,15 +998,18 @@ namespace :lnmarkets_trader do
 
     if running_futures.any?
       puts ""
-      puts "Evaluate if each running futures trade needs its stop-loss updated"
+      puts "Evaluate if each running futures trade needs its stop-loss updated..."
       puts ""
       #
       # Iterate through each futures trade
       #
       running_futures.each do |f|
+        puts ''
+        puts '---------------------------------------------------'
+        puts '---------------------------------------------------'
+        puts ''
         puts 'Futures Trade ID:'
         puts f['id']
-        puts ''
         #
         # 2. Check trade direction, long/short
         #
@@ -1047,6 +1050,7 @@ namespace :lnmarkets_trader do
             # Update the position's stop-loss
             #
             puts "Update stop-loss for #{f['id']}"
+            puts ""
             update_trade_stoploss_price = true
           else
             next
@@ -1057,6 +1061,7 @@ namespace :lnmarkets_trader do
             # Update the position's stop-loss
             #
             puts "Update stop-loss for #{f['id']}"
+            puts ""
             update_trade_stoploss_price = true
           else
             next
@@ -1074,11 +1079,19 @@ namespace :lnmarkets_trader do
           # Calcualte new stoploss
           #
           if trade_direction == 'long'
-            new_stoploss = (index_price_btcusd * 0.97).round(0)
+            if index_price_btcusd > (entry_price * 1.025)
+              new_stoploss = (entry_price * 1.025).round(0)
+            else
+              new_stoploss = (index_price_btcusd * 0.97).round(0)
+            end
           elsif trade_direction == 'short'
-            new_stoploss = (index_price_btcusd * 1.03).round(0)
+            if index_price_btcusd < (entry_price * 0.975)
+              new_stoploss = (entry_price * 0.975).round(0)
+            else
+              new_stoploss = (index_price_btcusd * 1.03).round(0)
+            end
           end
-          puts "New stoploss: #{new_stoploss}"
+          puts "New stoploss: #{new_stoploss.to_fs(:delimited)}"
 
           lnmarkets_response = lnmarkets_client.update_futures_trade(f['id'], 'stoploss', new_stoploss)
           if lnmarkets_response[:status] == 'success'
@@ -1093,6 +1106,8 @@ namespace :lnmarkets_trader do
           puts 'Trade is not in the money. Do no update stoploss.'
         end
       end
+      puts '---------------------------------------------------'
+      puts '---------------------------------------------------'
     else
       puts ""
       puts "Skip. No running futures trades."
