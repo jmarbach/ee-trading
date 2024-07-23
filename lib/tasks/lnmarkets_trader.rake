@@ -643,7 +643,8 @@ namespace :lnmarkets_trader do
       #
       # Define leverage factor
       #
-      leverage_factor = 2.50
+      # TODO - modify leverage factor by implied volatility... more leverage with less volatility
+      leverage_factor = 2.65
       puts "Leverage: #{leverage_factor}"
 
       #
@@ -1085,13 +1086,17 @@ namespace :lnmarkets_trader do
           # Calcualte new stoploss
           #
           if trade_direction == 'long'
-            if index_price_btcusd > (entry_price * 1.025)
+            if index_price_btcusd > (entry_price * 1.035)
+              new_stoploss = (entry_price * 1.035).round(0)
+            elsif index_price_btcusd > (entry_price * 1.025)
               new_stoploss = (entry_price * 1.025).round(0)
             else
               new_stoploss = (index_price_btcusd * 0.97).round(0)
             end
           elsif trade_direction == 'short'
-            if index_price_btcusd < (entry_price * 0.975)
+            if index_price_btcusd < (entry_price * 0.965)
+              new_stoploss = (entry_price * 0.965).round(0)
+            elsif index_price_btcusd < (entry_price * 0.975)
               new_stoploss = (entry_price * 0.975).round(0)
             else
               new_stoploss = (index_price_btcusd * 1.03).round(0)
