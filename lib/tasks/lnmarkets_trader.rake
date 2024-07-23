@@ -550,7 +550,13 @@ namespace :lnmarkets_trader do
       end
 
       puts ""
-      puts "3. Proceed to create new #{trade_direction} trade..."
+      puts "3. Save TradingStatsDaily record"
+      puts "--------------------------------------------"
+      puts ""
+      Rake::Task["accountant:save_trading_stats_daily"].execute
+
+      puts ""
+      puts "4. Proceed to create new #{trade_direction} trade..."
       puts "--------------------------------------------"
       puts ""
       if trade_direction == 'buy'
@@ -623,7 +629,7 @@ namespace :lnmarkets_trader do
         index_price_btcusd = lnmarkets_response[:body]['index']
         ask_price_btcusd = lnmarkets_response[:body]['askPrice']
         bid_price_btcusd = lnmarkets_response[:body]['askPrice']
-        puts "Price BTCUSD: #{price_btcusd.to_fs(:delimited)}"
+        puts "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}"
 
         price_sat_usd = (index_price_btcusd/100000000.0).round(5)
         balance_usd = (sats_balance * price_sat_usd).round(2)
@@ -739,7 +745,7 @@ namespace :lnmarkets_trader do
         index_price_btcusd = lnmarkets_response[:body]['index']
         ask_price_btcusd = lnmarkets_response[:body]['askPrice']
         bid_price_btcusd = lnmarkets_response[:body]['askPrice']
-        puts "Price BTCUSD: #{price_btcusd.to_fs(:delimited)}"
+        puts "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}"
 
         price_sat_usd = (index_price_btcusd/100000000.0).round(5)
         balance_usd = (sats_balance * price_sat_usd).round(2)
@@ -770,10 +776,10 @@ namespace :lnmarkets_trader do
       side = 's'
       type = 'l'
       leverage = 3
-      price = (price_btcusd * 1.000025).round(0)
+      price = (bid_price_btcusd * 1.000025).round(0)
       quantity = capital_waged_usd
-      takeprofit = (price_btcusd * 0.93).round(0)
-      stoploss = (price_btcusd * 1.06).round(0)
+      takeprofit = (index_price_btcusd * 0.93).round(0)
+      stoploss = (index_price_btcusd * 1.06).round(0)
 
       lnmarkets_response = lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
       if lnmarkets_response[:status] == 'success'
@@ -874,7 +880,7 @@ namespace :lnmarkets_trader do
           index_price_btcusd = lnmarkets_response[:body]['index']
           ask_price_btcusd = lnmarkets_response[:body]['askPrice']
           bid_price_btcusd = lnmarkets_response[:body]['askPrice']
-          puts "Price BTCUSD: #{price_btcusd.to_fs(:delimited)}"
+          puts "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}"
 
           price_sat_usd = (index_price_btcusd/100000000.0).round(5)
           balance_usd = (sats_balance * price_sat_usd).round(2)
