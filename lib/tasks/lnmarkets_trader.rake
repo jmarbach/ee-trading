@@ -1031,11 +1031,6 @@ namespace :lnmarkets_trader do
           ask_price_btcusd = lnmarkets_response[:body]['askPrice']
           bid_price_btcusd = lnmarkets_response[:body]['askPrice']
           puts "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}"
-
-          price_sat_usd = (index_price_btcusd/100000000.0).round(5)
-          balance_usd = (sats_balance * price_sat_usd).round(2)
-          puts ""
-          puts "Balance USD: #{balance_usd.to_fs(:delimited)}"
         else
           puts 'Error. Unable to fetch latest price for BTCUSD... skip trade.'
           abort 'Unable to proceed with creating a long trade without BTCUSD price.'
