@@ -617,14 +617,15 @@ namespace :lnmarkets_trader do
       #
       # Fetch latest price of BTCUSD
       #
-      polygon_client = PolygonAPI.new
-      price_btcusd = 0.00
-      response_btcusd = polygon_client.get_last_trade('BTC', 'USD')
-      if response_btcusd[:status] == 'success'
-        price_btcusd = response_btcusd[:body]['last']['price']
+      index_price_btcusd, ask_price_btcusd, bid_price_btcusd = 0.0, 0.0, 0.0
+      lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
+      if lnmarkets_response[:status] == 'success'
+        index_price_btcusd = lnmarkets_response[:body]['index']
+        ask_price_btcusd = lnmarkets_response[:body]['askPrice']
+        bid_price_btcusd = lnmarkets_response[:body]['askPrice']
         puts "Price BTCUSD: #{price_btcusd.to_fs(:delimited)}"
 
-        price_sat_usd = (price_btcusd/100000000.0).round(5)
+        price_sat_usd = (index_price_btcusd/100000000.0).round(5)
         balance_usd = (sats_balance * price_sat_usd).round(2)
         puts ""
         puts "Balance USD: #{balance_usd.to_fs(:delimited)}"
@@ -653,10 +654,10 @@ namespace :lnmarkets_trader do
       side = 'b'
       type = 'l'
       leverage = 3
-      price = (price_btcusd * 0.999925).round(0)
+      price = (bid_price_btcusd * 0.999925).round(0)
       quantity = capital_waged_usd
-      takeprofit = (price_btcusd * 1.07).round(0)
-      stoploss = (price_btcusd * 0.94).round(0)
+      takeprofit = (index_price_btcusd * 1.07).round(0)
+      stoploss = (index_price_btcusd * 0.94).round(0)
 
       lnmarkets_response = lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
       if lnmarkets_response[:status] == 'success'
@@ -732,20 +733,21 @@ namespace :lnmarkets_trader do
       #
       # Fetch latest price of BTCUSD
       #
-      polygon_client = PolygonAPI.new
-      price_btcusd = 0.00
-      response_btcusd = polygon_client.get_last_trade('BTC', 'USD')
-      if response_btcusd[:status] == 'success'
-        price_btcusd = response_btcusd[:body]['last']['price']
+      index_price_btcusd, ask_price_btcusd, bid_price_btcusd = 0.0, 0.0, 0.0
+      lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
+      if lnmarkets_response[:status] == 'success'
+        index_price_btcusd = lnmarkets_response[:body]['index']
+        ask_price_btcusd = lnmarkets_response[:body]['askPrice']
+        bid_price_btcusd = lnmarkets_response[:body]['askPrice']
         puts "Price BTCUSD: #{price_btcusd.to_fs(:delimited)}"
 
-        price_sat_usd = (price_btcusd/100000000.0).round(5)
+        price_sat_usd = (index_price_btcusd/100000000.0).round(5)
         balance_usd = (sats_balance * price_sat_usd).round(2)
         puts ""
         puts "Balance USD: #{balance_usd.to_fs(:delimited)}"
       else
         puts 'Error. Unable to fetch latest price for BTCUSD... skip trade.'
-        abort 'Unable to proceed without BTCUSD data.'
+        abort 'Unable to proceed with creating a long trade without BTCUSD price.'
       end
 
       #
@@ -866,17 +868,21 @@ namespace :lnmarkets_trader do
         #
         # Fetch latest price of BTCUSD
         #
-        polygon_client = PolygonAPI.new
-        price_btcusd = 0.00
-        response_btcusd = polygon_client.get_last_trade('BTC', 'USD')
-        if response_btcusd[:status] == 'success'
-          price_btcusd = response_btcusd[:body]['last']['price']
+        index_price_btcusd, ask_price_btcusd, bid_price_btcusd = 0.0, 0.0, 0.0
+        lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
+        if lnmarkets_response[:status] == 'success'
+          index_price_btcusd = lnmarkets_response[:body]['index']
+          ask_price_btcusd = lnmarkets_response[:body]['askPrice']
+          bid_price_btcusd = lnmarkets_response[:body]['askPrice']
+          puts "Price BTCUSD: #{price_btcusd.to_fs(:delimited)}"
 
-          price_sat_usd = (price_btcusd/100000000.0).round(5)
+          price_sat_usd = (index_price_btcusd/100000000.0).round(5)
           balance_usd = (sats_balance * price_sat_usd).round(2)
+          puts ""
+          puts "Balance USD: #{balance_usd.to_fs(:delimited)}"
         else
-          puts 'Error. Unable to fetch latest price for BTCUSD.'
-          abort 'Unable to proceed without BTCUSD data.'
+          puts 'Error. Unable to fetch latest price for BTCUSD... skip trade.'
+          abort 'Unable to proceed with creating a long trade without BTCUSD price.'
         end
 
         #
@@ -897,10 +903,10 @@ namespace :lnmarkets_trader do
 
           if direction == 'long'
             filtered_instruments = filtered_instruments.select { |y| y.include?('.C') }
-            filtered_instruments = filtered_instruments.select { |y| y.include?((price_btcusd-1000).ceil(-3).to_s) }
+            filtered_instruments = filtered_instruments.select { |y| y.include?((index_price_btcusd-1000).ceil(-3).to_s) }
           elsif direction == 'short'
             filtered_instruments = filtered_instruments.select { |y| y.include?('.P') }
-            filtered_instruments = filtered_instruments.select { |y| y.include?((price_btcusd).ceil(-3).to_s) }
+            filtered_instruments = filtered_instruments.select { |y| y.include?((index_price_btcusd).ceil(-3).to_s) }
           end
         else
           abort 'Error. Unable to fetch options instruments.'
@@ -1015,16 +1021,24 @@ namespace :lnmarkets_trader do
         #
         # 3. Check if position is 'in the money'
         #
-        polygon_client = PolygonAPI.new
-        price_btcusd = 0.00
-        response_btcusd = polygon_client.get_last_trade('BTC', 'USD')
-        if response_btcusd[:status] == 'success'
-          price_btcusd = response_btcusd[:body]['last']['price']
+        #
+        # Fetch latest price of BTCUSD
+        #
+        index_price_btcusd, ask_price_btcusd, bid_price_btcusd = 0.0, 0.0, 0.0
+        lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
+        if lnmarkets_response[:status] == 'success'
+          index_price_btcusd = lnmarkets_response[:body]['index']
+          ask_price_btcusd = lnmarkets_response[:body]['askPrice']
+          bid_price_btcusd = lnmarkets_response[:body]['askPrice']
           puts "Price BTCUSD: #{price_btcusd.to_fs(:delimited)}"
+
+          price_sat_usd = (index_price_btcusd/100000000.0).round(5)
+          balance_usd = (sats_balance * price_sat_usd).round(2)
           puts ""
+          puts "Balance USD: #{balance_usd.to_fs(:delimited)}"
         else
           puts 'Error. Unable to fetch latest price for BTCUSD... skip trade.'
-          abort 'Unable to proceed without BTCUSD price.'
+          abort 'Unable to proceed with creating a long trade without BTCUSD price.'
         end
 
         update_trade_stoploss_price = false
@@ -1033,7 +1047,7 @@ namespace :lnmarkets_trader do
         puts "Trade Entry Price: #{entry_price.to_fs(:delimited)}"
         puts ""
         if trade_direction == 'long'
-          if price_btcusd > entry_price
+          if index_price_btcusd > entry_price
             #
             # Update the position's stop-loss
             #
@@ -1043,7 +1057,7 @@ namespace :lnmarkets_trader do
             next
           end
         elsif trade_direction == 'short'
-          if price_btcusd < entry_price
+          if index_price_btcusd < entry_price
             #
             # Update the position's stop-loss
             #
@@ -1065,9 +1079,9 @@ namespace :lnmarkets_trader do
           # Calcualte new stoploss
           #
           if trade_direction == 'long'
-            new_stoploss = (price_btcusd * 0.97).round(0)
+            new_stoploss = (index_price_btcusd * 0.97).round(0)
           elsif trade_direction == 'short'
-            new_stoploss = (price_btcusd * 1.03).round(0)
+            new_stoploss = (index_price_btcusd * 1.03).round(0)
           end
           puts "New stoploss: #{new_stoploss}"
 
