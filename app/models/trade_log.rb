@@ -82,8 +82,29 @@ class TradeLog < ApplicationRecord
         #
         # Update TradeLog
         #
-        # update_columns(
+        lnmarkets_response = lnmarkets_client.get_options_trade(self.external_id)
+        if lnmarkets_response[:status] == 'success'
+        puts 'Parse trade:'
+        puts lnmarkets_response[:body]
+        #
+        # Update TradeLog
+        #
+        margin = lnmarkets_response[:body]['margin'].to_f
+        absolute_net_proceeds = lnmarkets_response[:body]['pl'].to_f
+        percent_net_proceeds = ((((absolute_net_proceeds + margin) - margin)/margin)*100.0).round(2)
 
+        # update_columns(
+        #   open_fee: lnmarkets_response[:body]['opening_fee'],
+        #   close_fee: lnmarkets_response[:body]['closing_fee'],
+        #   close_price: lnmarkets_response[:body]['exit_price'],
+        #   absolute_net_proceeds: absolute_net_proceeds,
+        #   percent_net_proceeds: percent_net_proceeds,
+        #   market_filled_timestamp: lnmarkets_response[:body]['market_filled_ts'],
+        #   closed_timestamp: lnmarkets_response[:body]['closed_ts'],
+        #   total_carry_fees: lnmarkets_response[:body]['sum_carry_fees'],
+        #   open: false,
+        #   running: false,
+        #   canceled: false
         # )
       else
         puts 'Error. Unable to get options trade.'
