@@ -86,7 +86,7 @@ class LnmarketsAPI
     end
   end
 
-  def close_option_contract(trade_id)
+  def close_options_contract(trade_id)
     hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
     begin
       time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)

@@ -414,7 +414,7 @@ namespace :lnmarkets_trader do
         # Close all 'running' contracts
         #
         running_contracts.each do |c|
-          lnmarkets_client.close_option_contract(c['id'])
+          lnmarkets_response = lnmarkets_client.close_options_contract(c['id'])
 
           if lnmarkets_response[:status] == 'success'
             puts ""
