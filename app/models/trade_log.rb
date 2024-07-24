@@ -43,13 +43,13 @@ class TradeLog < ApplicationRecord
   def get_final_trade_stats
   	puts 'TradeLog - get_final_trade_stats'
   	#
-  	# Get final trade stats from LnMarkets
-  	#
-  	lnmarkets_client = LnmarketsAPI.new
-  	if self.derivative_type == 'futures'
-  	  lnmarkets_response = lnmarkets_client.get_futures_trade(self.external_id)
+    # Get final trade stats from LnMarkets
+    #
+    lnmarkets_client = LnmarketsAPI.new
+    if self.derivative_type == 'futures'
+      lnmarkets_response = lnmarkets_client.get_futures_trade(self.external_id)
       if lnmarkets_response[:status] == 'success'
-      	puts 'Parse trade:'
+        puts 'Parse trade:'
         puts lnmarkets_response[:body]
         #
         # Update TradeLog
@@ -74,21 +74,15 @@ class TradeLog < ApplicationRecord
       else
         puts 'Error. Unable to get futures trade.'
       end
-  	elsif self.derivative_type == 'options'
-  	  lnmarkets_response = lnmarkets_client.get_options_trade(self.external_id)
+    elsif self.derivative_type == 'options'
+      lnmarkets_response = lnmarkets_client.get_options_trade(self.external_id)
       if lnmarkets_response[:status] == 'success'
-      	puts 'Parse trade:'
-        puts lnmarkets_response[:body]
-        #
-        # Update TradeLog
-        #
-        lnmarkets_response = lnmarkets_client.get_options_trade(self.external_id)
-        if lnmarkets_response[:status] == 'success'
         puts 'Parse trade:'
         puts lnmarkets_response[:body]
         #
         # Update TradeLog
         #
+        
         margin = lnmarkets_response[:body]['margin'].to_f
         absolute_net_proceeds = lnmarkets_response[:body]['pl'].to_f
         percent_net_proceeds = ((((absolute_net_proceeds + margin) - margin)/margin)*100.0).round(2)
@@ -106,9 +100,10 @@ class TradeLog < ApplicationRecord
         #   running: false,
         #   canceled: false
         # )
+
       else
         puts 'Error. Unable to get options trade.'
       end
-  	end
+    end
   end
 end
