@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_07_25_133221) do
+ActiveRecord::Schema[7.0].define(version: 2024_07_25_135919) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -66,8 +66,8 @@ ActiveRecord::Schema[7.0].define(version: 2024_07_25_133221) do
     t.bigint "creation_timestamp"
     t.bigint "market_filled_timestamp"
     t.bigint "closed_timestamp"
-    t.float "absolute_net_proceeds", default: 0.0
-    t.float "percent_net_proceeds", default: 0.0
+    t.float "net_proceeds_absolute", default: 0.0
+    t.float "net_proceeds_percent", default: 0.0
     t.float "strike", default: 0.0
     t.string "settlement"
     t.string "instrument"
@@ -80,8 +80,8 @@ ActiveRecord::Schema[7.0].define(version: 2024_07_25_133221) do
     t.bigint "last_update_timestamp"
     t.float "implied_volatility"
     t.float "total_carry_fees"
-    t.float "absolute_gross_proceeds"
-    t.float "percent_gross_proceeds"
+    t.float "gross_proceeds_absolute", default: 0.0
+    t.float "gross_proceeds_percent", default: 0.0
     t.index ["score_log_id"], name: "index_trade_logs_on_score_log_id"
   end
 

@@ -19,8 +19,8 @@
 #  creation_timestamp      :bigint
 #  market_filled_timestamp :bigint
 #  closed_timestamp        :bigint
-#  absolute_net_proceeds   :float            default(0.0)
-#  percent_net_proceeds    :float            default(0.0)
+#  net_proceeds_absolute   :float            default(0.0)
+#  net_proceeds_percent    :float            default(0.0)
 #  strike                  :float            default(0.0)
 #  settlement              :string
 #  instrument              :string
@@ -33,8 +33,8 @@
 #  last_update_timestamp   :bigint
 #  implied_volatility      :float
 #  total_carry_fees        :float
-#  absolute_gross_proceeds :float
-#  percent_gross_proceeds  :float
+#  gross_proceeds_absolute :float            default(0.0)
+#  gross_proceeds_percent  :float            default(0.0)
 #
 class TradeLog < ApplicationRecord
 
@@ -57,15 +57,21 @@ class TradeLog < ApplicationRecord
         # Update TradeLog
         #
         entry_margin = lnmarkets_response[:body]['entry_margin'].to_f
-        absolute_net_proceeds = lnmarkets_response[:body]['pl'].to_f
-        percent_net_proceeds = ((((absolute_net_proceeds + entry_margin) - entry_margin)/entry_margin)*100.0).round(2)
+        gross_proceeds_absolute = lnmarkets_response[:body]['pl'].to_f
+        gross_proceeds_percent = ((((gross_proceeds_absolute + entry_margin) - entry_margin)/entry_margin)*100.0).round(2)
+
+        sum_fees = (lnmarkets_response[:body]['opening_fee'] + lnmarkets_response[:body]['closing_fee'] + lnmarkets_response[:body]['sum_carry_fees'])
+        net_proceeds_absolute = (absolute_gross_proceeds - sum_fees)
+        net_proceeds_percent = ((((absolute_net_proceeds + entry_margin) - entry_margin)/entry_margin)*100.0).round(2)
 
         update_columns(
           open_fee: lnmarkets_response[:body]['opening_fee'],
           close_fee: lnmarkets_response[:body]['closing_fee'],
           close_price: lnmarkets_response[:body]['exit_price'],
-          absolute_net_proceeds: absolute_net_proceeds,
-          percent_net_proceeds: percent_net_proceeds,
+          gross_proceeds_absolute: gross_proceeds_absolute,
+          gross_proceeds_percent: gross_proceeds_percent,
+          net_proceeds_absolute: net_proceeds_absolute,
+          net_proceeds_percent: net_proceeds_percent,
           market_filled_timestamp: lnmarkets_response[:body]['market_filled_ts'],
           closed_timestamp: lnmarkets_response[:body]['closed_ts'],
           total_carry_fees: lnmarkets_response[:body]['sum_carry_fees'],
