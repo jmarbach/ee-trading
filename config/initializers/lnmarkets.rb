@@ -13,7 +13,7 @@ class LnmarketsAPI
         verify: true
       },
       proxy: ENV["SQUID_PROXY_URL"],
-      request: { timeout: 10 }
+      request: { timeout: 60 }
     ) do |faraday|
       faraday.response :raise_error
     end
