@@ -811,10 +811,14 @@ namespace :lnmarkets_trader do
         #
         Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'long', amount: quantity, score_log_id: score_log_id})
       else
+        puts ''
         puts 'Error. Unable to create futures trade.'
+        puts ''
       end
     else
+      puts ''
       puts 'Error. Unable to fetch account balance info... skip trade.'
+      puts ''
     end
     puts 'End lnmarkets_trader:create_short_trade...'
     puts ''
@@ -1124,6 +1128,12 @@ namespace :lnmarkets_trader do
       puts "Skip. No running futures trades."
       puts ""
     end
+    Rails.logger.info(
+      {
+        message: "Script complete.",
+        script: "lnmarkets_trader:check_stops"
+      }.to_json
+    )
     puts ''
     puts 'End lnmarkets_trader:check_stops...'
     puts ''
