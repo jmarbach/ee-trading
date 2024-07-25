@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_07_22_213017) do
+ActiveRecord::Schema[7.0].define(version: 2024_07_25_133221) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -80,6 +80,8 @@ ActiveRecord::Schema[7.0].define(version: 2024_07_22_213017) do
     t.bigint "last_update_timestamp"
     t.float "implied_volatility"
     t.float "total_carry_fees"
+    t.float "absolute_gross_proceeds"
+    t.float "percent_gross_proceeds"
     t.index ["score_log_id"], name: "index_trade_logs_on_score_log_id"
   end
 

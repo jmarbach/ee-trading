@@ -33,6 +33,8 @@
 #  last_update_timestamp   :bigint
 #  implied_volatility      :float
 #  total_carry_fees        :float
+#  absolute_gross_proceeds :float
+#  percent_gross_proceeds  :float
 #
 class TradeLog < ApplicationRecord
 
