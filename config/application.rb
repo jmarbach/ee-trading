@@ -13,7 +13,7 @@ module EeTrading
 
     # Custom logger
     config.logger = ActiveSupport::Logger.new(STDOUT)
-    config.logger.formatter = CustomLogFormatter.new
+    config.logger.formatter = EeTrading::CustomLogFormatter.new
 
     # Configuration for the application, engines, and railties goes here.
     #
@@ -22,5 +22,8 @@ module EeTrading
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+
+    # Auto-load lib files
+    config.autoload_paths << Rails.root.join('lib')
   end
 end
