@@ -628,7 +628,7 @@ namespace :lnmarkets_trader do
       if lnmarkets_response[:status] == 'success'
         index_price_btcusd = lnmarkets_response[:body]['index']
         ask_price_btcusd = lnmarkets_response[:body]['askPrice']
-        bid_price_btcusd = lnmarkets_response[:body]['askPrice']
+        bid_price_btcusd = lnmarkets_response[:body]['bidPrice']
         puts "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}"
 
         price_sat_usd = (index_price_btcusd/100000000.0).round(5)
@@ -745,7 +745,7 @@ namespace :lnmarkets_trader do
       if lnmarkets_response[:status] == 'success'
         index_price_btcusd = lnmarkets_response[:body]['index']
         ask_price_btcusd = lnmarkets_response[:body]['askPrice']
-        bid_price_btcusd = lnmarkets_response[:body]['askPrice']
+        bid_price_btcusd = lnmarkets_response[:body]['bidPrice']
         puts "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}"
 
         price_sat_usd = (index_price_btcusd/100000000.0).round(5)
@@ -884,7 +884,7 @@ namespace :lnmarkets_trader do
         if lnmarkets_response[:status] == 'success'
           index_price_btcusd = lnmarkets_response[:body]['index']
           ask_price_btcusd = lnmarkets_response[:body]['askPrice']
-          bid_price_btcusd = lnmarkets_response[:body]['askPrice']
+          bid_price_btcusd = lnmarkets_response[:body]['bidPrice']
           puts "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}"
 
           price_sat_usd = (index_price_btcusd/100000000.0).round(5)
@@ -1043,7 +1043,7 @@ namespace :lnmarkets_trader do
         if lnmarkets_response[:status] == 'success'
           index_price_btcusd = lnmarkets_response[:body]['index']
           ask_price_btcusd = lnmarkets_response[:body]['askPrice']
-          bid_price_btcusd = lnmarkets_response[:body]['askPrice']
+          bid_price_btcusd = lnmarkets_response[:body]['bidPrice']
           puts "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}"
         else
           puts 'Error. Unable to fetch latest price for BTCUSD... skip trade.'
