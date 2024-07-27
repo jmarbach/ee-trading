@@ -3,8 +3,3 @@ class CustomLogFormatter < Logger::Formatter
     "[#{severity}] #{msg}\n"
   end
 end
-
-Rails.application.configure do
-  config.logger = ActiveSupport::Logger.new(STDOUT)
-  config.logger.formatter = CustomLogFormatter.new
-end
