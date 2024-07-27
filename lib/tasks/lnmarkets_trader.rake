@@ -987,9 +987,12 @@ namespace :lnmarkets_trader do
   task check_stops: :environment do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
-    puts ''
-    puts 'Run lnmarkets_trader:check_stops...'
-    puts ''
+    Rails.logger.info(
+      {
+        message: "Run lnmarkets_trader:check_stops...",
+        script: "lnmarkets_trader:check_stops"
+      }.to_json
+    )
     # Initialize lnmarkets_client
     lnmarkets_client = LnmarketsAPI.new
 
@@ -1128,19 +1131,19 @@ namespace :lnmarkets_trader do
       puts '---------------------------------------------------'
       puts '---------------------------------------------------'
     else
-      puts ""
-      puts "Skip. No running futures trades."
-      puts ""
+      Rails.logger.info(
+        {
+          message: "Skip. No running futures trades.",
+          script: "lnmarkets_trader:check_stops"
+        }.to_json
+      )
     end
     Rails.logger.info(
       {
-        message: "Script complete.",
+        message: "End lnmarkets_trader:check_stops...",
         script: "lnmarkets_trader:check_stops"
       }.to_json
     )
-    puts ''
-    puts 'End lnmarkets_trader:check_stops...'
-    puts ''
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
