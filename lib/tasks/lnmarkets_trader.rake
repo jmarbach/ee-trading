@@ -978,18 +978,29 @@ namespace :lnmarkets_trader do
             closed: false
           )
         else
-          puts ''
-          puts 'Error. Unable to open options contract.'
-          puts lnmarkets_response
-          puts ''
+          Rails.logger.error(
+            {
+              message: "Error. Unable to open options contract.",
+              body: "#{lnmarkets_response}",
+              script: "lnmarkets_trader:open_options_contract"
+            }.to_json
+          )
         end
       else
-        puts 'Error. Unable to fetch account balance info... skip trade.'
+        Rails.logger.fatal(
+          {
+            message: "Error. Unable to fetch account balance info... skip trade.",
+            script: "lnmarkets_trader:open_options_contract"
+          }.to_json
+        )
       end
     else
-      puts ""
-      puts "Error. Invocation missing required params."
-      puts ""
+      Rails.logger.fatal(
+        {
+          message: "Error. Invocation missing required params.",
+          script: "lnmarkets_trader:open_options_contract"
+        }.to_json
+      )
       abort 'Unable to invoke open_options_contract script.'
     end
 
