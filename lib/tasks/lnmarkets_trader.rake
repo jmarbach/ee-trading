@@ -1156,7 +1156,7 @@ namespace :lnmarkets_trader do
               script: "lnmarkets_trader:check_stops"
             }.to_json
           )
-          abort 'Unable to proceed with creating a long trade without BTCUSD price.'
+          abort 'Unable to proceed with updating Stops without BTCUSD price.'
         end
 
         update_trade_stoploss_price = false
