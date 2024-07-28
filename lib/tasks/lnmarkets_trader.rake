@@ -833,9 +833,12 @@ namespace :lnmarkets_trader do
     #
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
-    puts ''
-    puts 'Run lnmarkets_trader:open_options_contract...'
-    puts ''
+    Rails.logger.info(
+      {
+        message: "Run lnmarkets_trader:open_options_contract...",
+        script: "lnmarkets_trader:open_options_contract"
+      }.to_json
+    )
     puts "args[:direction]: #{args[:direction]}"
     puts "args[:amount]: #{args[:amount]}"
     puts "args[:score_log_id]: #{args[:score_log_id]}"
@@ -990,8 +993,12 @@ namespace :lnmarkets_trader do
       abort 'Unable to invoke open_options_contract script.'
     end
 
-    puts 'End lnmarkets_trader:open_options_contract...'
-    puts ''
+    Rails.logger.info(
+      {
+        message: "End lnmarkets_trader:open_options_contract...",
+        script: "lnmarkets_trader:open_options_contract"
+      }.to_json
+    )
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
