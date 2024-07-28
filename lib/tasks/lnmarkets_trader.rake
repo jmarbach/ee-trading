@@ -636,7 +636,7 @@ namespace :lnmarkets_trader do
         puts ""
         puts "Balance USD: #{balance_usd.to_fs(:delimited)}"
       else
-        puts 'Error. Unable to fetch latest price for BTCUSD... skip trade.'
+        puts 'Error. Unable to fetch latest price for BTCUSD... abort create_long_trade script.'
         abort 'Unable to proceed with creating a long trade without BTCUSD price.'
       end
 
@@ -753,7 +753,7 @@ namespace :lnmarkets_trader do
         puts ""
         puts "Balance USD: #{balance_usd.to_fs(:delimited)}"
       else
-        puts 'Error. Unable to fetch latest price for BTCUSD... skip trade.'
+        puts 'Error. Unable to fetch latest price for BTCUSD... abort create_short_trade script.'
         abort 'Unable to proceed with creating a long trade without BTCUSD price.'
       end
 
@@ -924,7 +924,7 @@ namespace :lnmarkets_trader do
         else
           Rails.logger.fatal(
             {
-              message: "Error. Unable to fetch latest price for BTCUSD... skip trade.",
+              message: "Error. Unable to fetch latest price for BTCUSD... abort open_options_contract script.",
               script: "lnmarkets_trader:open_options_contract"
             }.to_json
           )
@@ -1152,7 +1152,7 @@ namespace :lnmarkets_trader do
         else
           Rails.logger.fatal(
             {
-              message: "Error. Unable to fetch latest price for BTCUSD... skip trade.",
+              message: "Error. Unable to fetch latest price for BTCUSD... abort check_stops script.",
               script: "lnmarkets_trader:check_stops"
             }.to_json
           )
