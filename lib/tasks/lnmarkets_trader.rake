@@ -853,11 +853,20 @@ namespace :lnmarkets_trader do
       # Assign capital waged based on Lnmarkets trading limits
       if args[:amount] < 500000.00
         capital_waged_usd = args[:amount]
+        Rails.logger.info(
+          {
+            message: "Found options instrument: #{filtered_instruments[0]}",
+            script: "lnmarkets_trader:open_options_contract"
+          }.to_json
+        )
       else
-        puts ""
-        puts "Quantity too high for options trade. Adjusting to 499,999.00"
-        puts ""
         capital_waged_usd = 499999.00
+        Rails.logger.warn(
+          {
+            message: "args[:amount] too high for options trade. Adjusting capital_waged_usd to 499,999.00. capital_waged_usd: #{capital_waged_usd}",
+            script: "lnmarkets_trader:open_options_contract"
+          }.to_json
+        )
       end
       score_log_id = args[:score_log_id]
 
@@ -924,9 +933,12 @@ namespace :lnmarkets_trader do
         end
 
         if filtered_instruments.any?
-          puts ''
-          puts 'Found options instrument:'
-          puts "#{filtered_instruments[0]}"
+          Rails.logger.info(
+            {
+              message: "Found options instrument: #{filtered_instruments[0]}",
+              script: "lnmarkets_trader:open_options_contract"
+            }.to_json
+          )
         else
           abort 'No viable options instruments found.'
         end
