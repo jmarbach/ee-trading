@@ -2,6 +2,8 @@ require_relative "boot"
 
 require "rails/all"
 
+require_relative '../lib/custom_log_formatter'
+
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)
@@ -13,7 +15,7 @@ module EeTrading
 
     # Custom logger
     config.logger = ActiveSupport::Logger.new(STDOUT)
-    config.logger.formatter = EeTrading::CustomLogFormatter.new
+    config.logger.formatter = ::CustomLogFormatter.new
 
     # Configuration for the application, engines, and railties goes here.
     #
