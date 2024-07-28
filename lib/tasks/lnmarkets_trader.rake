@@ -2,13 +2,14 @@ namespace :lnmarkets_trader do
   task check_market_indicators: :environment do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
-    puts ''
-    puts 'Run lnmarkets_trader:check_market_indicators...'
-    puts ''
-    puts 'QUERY DATE:'
-    puts DateTime.now.utc.beginning_of_day
     timestamp = DateTime.now.utc.beginning_of_day.to_i.in_milliseconds
-    puts timestamp
+    Rails.logger.info(
+      {
+        message: "Run lnmarkets_trader:check_market_indicators...",
+        body: "QUERY DATE: #{DateTime.now.utc.beginning_of_day} - #{timestamp}",
+        script: "lnmarkets_trader:check_market_indicators"
+      }.to_json
+    )
 
     # Standard model inputs
     polygon_client = PolygonAPI.new
@@ -185,9 +186,13 @@ namespace :lnmarkets_trader do
     else
       data_errors += 1
     end
-    puts "LAST BTCUSD TICK:"
-    puts btcusd
-    puts ""
+    Rails.logger.info(
+      {
+        message: "Fetched Last BTCUSD Tick.",
+        body: "#{btcusd}",
+        script: "lnmarkets_trader:check_market_indicators"
+      }.to_json
+    )
 
     # Implied volatility
     implied_volatility = 0.0
@@ -196,7 +201,12 @@ namespace :lnmarkets_trader do
     if lnmarkets_response[:status] == 'success'
       implied_volatility = lnmarkets_response[:body]['volatilityIndex']
     else
-      puts 'Error. Unable to get implied volatility from LnMarkets.'
+      Rails.logger.error(
+        {
+          message: "Error. Unable to get implied volatility from LnMarkets.",
+          script: "lnmarkets_trader:check_market_indicators"
+        }.to_json
+      )
       data_errors += 1
     end
 
@@ -227,8 +237,13 @@ namespace :lnmarkets_trader do
         implied_volatility: implied_volatility
       )
     rescue => e
-      puts e
-      puts 'Error saving market_data_log record'
+      Rails.logger.error(
+        {
+          message: "Error. Unable to save market_data_log record.",
+          body: "#{e}",
+          script: "lnmarkets_trader:check_market_indicators"
+        }.to_json
+      )
       market_data_log = MarketDataLog.create(
         recorded_date: DateTime.now
       )
