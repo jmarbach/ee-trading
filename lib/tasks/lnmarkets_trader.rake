@@ -1023,16 +1023,29 @@ namespace :lnmarkets_trader do
     if lnmarkets_response[:status] == 'success'
       running_futures = lnmarkets_response[:body]
       if running_futures.count > 0
-        puts "Running Futures: #{running_futures.count}"
+        Rails.logger.info(
+          {
+            message: "Running Futures: #{running_futures.count}",
+            script: "lnmarkets_trader:check_stops"
+          }.to_json
+        )
       end
     else
-      puts 'Error. Unable to get running futures trades.'
+      Rails.logger.fatal(
+        {
+          message: "Error. Unable to get running futures trades.",
+          script: "lnmarkets_trader:check_stops"
+        }.to_json
+      )
     end
 
     if running_futures.any?
-      puts ""
-      puts "Evaluate if each running futures trade needs its stop-loss updated..."
-      puts ""
+      Rails.logger.info(
+        {
+          message: "Evaluate if each running futures trade needs its stop-loss updated...",
+          script: "lnmarkets_trader:check_stops"
+        }.to_json
+      )
       #
       # Iterate through each futures trade
       #
@@ -1041,8 +1054,12 @@ namespace :lnmarkets_trader do
         puts '---------------------------------------------------'
         puts '---------------------------------------------------'
         puts ''
-        puts 'Futures Trade ID:'
-        puts f['id']
+        Rails.logger.info(
+          {
+            message: "Futures Trade ID: #{f['id']}",
+            script: "lnmarkets_trader:check_stops"
+          }.to_json
+        )
         #
         # 2. Check trade direction, long/short
         #
@@ -1052,8 +1069,12 @@ namespace :lnmarkets_trader do
         elsif f['side'] == 's'
           trade_direction = 'short'
         end
-        puts ''
-        puts "Trade Direction: #{trade_direction}"
+        Rails.logger.info(
+          {
+            message: "Trade Direction: #{trade_direction}",
+            script: "lnmarkets_trader:check_stops"
+          }.to_json
+        )
         #
         # 3. Check if position is 'in the money'
         #
@@ -1066,24 +1087,41 @@ namespace :lnmarkets_trader do
           index_price_btcusd = lnmarkets_response[:body]['index']
           ask_price_btcusd = lnmarkets_response[:body]['askPrice']
           bid_price_btcusd = lnmarkets_response[:body]['bidPrice']
-          puts "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}"
+          Rails.logger.info(
+            {
+              message: "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
         else
-          puts 'Error. Unable to fetch latest price for BTCUSD... skip trade.'
+          Rails.logger.fatal(
+            {
+              message: "Error. Unable to fetch latest price for BTCUSD... skip trade.",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
           abort 'Unable to proceed with creating a long trade without BTCUSD price.'
         end
 
         update_trade_stoploss_price = false
         entry_price = f['entry_price']
-        puts ""
-        puts "Trade Entry Price: #{entry_price.to_fs(:delimited)}"
-        puts ""
+        Rails.logger.info(
+          {
+            message: "Trade Entry Price: #{entry_price.to_fs(:delimited)}",
+            script: "lnmarkets_trader:check_stops"
+          }.to_json
+        )
         if trade_direction == 'long'
           if index_price_btcusd > entry_price
             #
             # Update the position's stop-loss
             #
-            puts "Update stop-loss for #{f['id']}"
-            puts ""
+            Rails.logger.info(
+              {
+                message: "Update stop-loss for #{f['id']}",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
             update_trade_stoploss_price = true
           else
             next
@@ -1093,13 +1131,23 @@ namespace :lnmarkets_trader do
             #
             # Update the position's stop-loss
             #
-            puts "Update stop-loss for #{f['id']}"
-            puts ""
+            Rails.logger.info(
+              {
+                message: "Update stop-loss for #{f['id']}",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
             update_trade_stoploss_price = true
           else
             next
           end
         else
+          Rails.logger.fatal(
+            {
+              message: "Invalid trade direction argument.",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
           abort 'Invalid trade direction.'
         end
 
@@ -1107,7 +1155,12 @@ namespace :lnmarkets_trader do
         # 4. Update the position's stop-loss
         #
         if update_trade_stoploss_price == true
-          puts "Attempt to update futures trade..."
+          Rails.logger.info(
+            {
+              message: "Attempt to update futures trade...",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
           #
           # Calcualte new stoploss
           #
@@ -1132,19 +1185,37 @@ namespace :lnmarkets_trader do
               new_stoploss = (index_price_btcusd * 1.03).round(0)
             end
           end
-          puts "New stoploss: #{new_stoploss.to_fs(:delimited)}"
+          Rails.logger.info(
+            {
+              message: "New stoploss: #{new_stoploss.to_fs(:delimited)}",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
 
           lnmarkets_response = lnmarkets_client.update_futures_trade(f['id'], 'stoploss', new_stoploss)
           if lnmarkets_response[:status] == 'success'
-            puts ""
-            puts "Updated stoploss for #{f['id']}:"
-            puts lnmarkets_response[:body]
-            puts ""
+            Rails.logger.info(
+              {
+                message: "Updated stoploss for #{f['id']}:",
+                body: "#{lnmarkets_response[:body]}",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
           else
-            puts 'Error. Unable to update futures trade.'
+            Rails.logger.error(
+              {
+                message: "Error. Unable to update futures trade.",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
           end
         else
-          puts 'Trade is not in the money. Do no update stoploss.'
+          Rails.logger.info(
+            {
+              message: "Trade is not in the money. Do no update stoploss.",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
         end
       end
       puts '---------------------------------------------------'
