@@ -849,7 +849,12 @@ namespace :lnmarkets_trader do
       if ['long', 'short'].include?(args[:direction])
         direction = args[:direction]
       else
-        puts 'Error. Invalid trade direction parameter.'
+        Rails.logger.fatal(
+          {
+            message: "Error. Invalid trade direction parameter.",
+            script: "lnmarkets_trader:open_options_contract"
+          }.to_json
+        )
         abort 'Unable to invoke open_options_contract script.'
       end
 
@@ -885,8 +890,12 @@ namespace :lnmarkets_trader do
         # Establish balance available to trade
         #
         sats_balance = lnmarkets_response[:body]['balance'].to_f.round(2)
-        puts "Sats Balance Available: #{sats_balance.to_fs(:delimited)}"
-        puts ""
+        Rails.logger.info(
+          {
+            message: "Sats Balance Available: #{sats_balance.to_fs(:delimited)}",
+            script: "lnmarkets_trader:open_options_contract"
+          }.to_json
+        )
 
         #
         # Fetch latest price of BTCUSD
@@ -897,14 +906,28 @@ namespace :lnmarkets_trader do
           index_price_btcusd = lnmarkets_response[:body]['index']
           ask_price_btcusd = lnmarkets_response[:body]['askPrice']
           bid_price_btcusd = lnmarkets_response[:body]['bidPrice']
-          puts "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}"
+          Rails.logger.info(
+            {
+              message: "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}",
+              script: "lnmarkets_trader:open_options_contract"
+            }.to_json
+          )
 
           price_sat_usd = (index_price_btcusd/100000000.0).round(5)
           balance_usd = (sats_balance * price_sat_usd).round(2)
-          puts ""
-          puts "Balance USD: #{balance_usd.to_fs(:delimited)}"
+          Rails.logger.info(
+            {
+              message: "Balance USD: #{balance_usd.to_fs(:delimited)}",
+              script: "lnmarkets_trader:open_options_contract"
+            }.to_json
+          )
         else
-          puts 'Error. Unable to fetch latest price for BTCUSD... skip trade.'
+          Rails.logger.fatal(
+            {
+              message: "Error. Unable to fetch latest price for BTCUSD... skip trade.",
+              script: "lnmarkets_trader:open_options_contract"
+            }.to_json
+          )
           abort 'Unable to proceed with creating a long trade without BTCUSD price.'
         end
 
@@ -914,6 +937,12 @@ namespace :lnmarkets_trader do
         #
         approx_margin_requirement_usd = (capital_waged_usd * 0.02).round(2)
         if approx_margin_requirement_usd > balance_usd
+          Rails.logger.fatal(
+            {
+              message: "Not enough margin balance available to attempt trade.",
+              script: "lnmarkets_trader:open_options_contract"
+            }.to_json
+          )
           abort 'Error. Not enough balance available to attempt trade.'
         end
 
@@ -932,6 +961,12 @@ namespace :lnmarkets_trader do
             filtered_instruments = filtered_instruments.select { |y| y.include?((index_price_btcusd).ceil(-3).to_s) }
           end
         else
+          Rails.logger.fatal(
+            {
+              message: "Unable to fetch options instruments.",
+              script: "lnmarkets_trader:open_options_contract"
+            }.to_json
+          )
           abort 'Error. Unable to fetch options instruments.'
         end
 
@@ -943,6 +978,12 @@ namespace :lnmarkets_trader do
             }.to_json
           )
         else
+          Rails.logger.error(
+            {
+              message: "Unable to find suitable options instrument.",
+              script: "lnmarkets_trader:open_options_contract"
+            }.to_json
+          )
           abort 'No viable options instruments found.'
         end
 
@@ -955,9 +996,13 @@ namespace :lnmarkets_trader do
         instrument_name = filtered_instruments[0]
         lnmarkets_response = lnmarkets_client.open_option_contract(side, quantity, settlement, instrument_name)
         if lnmarkets_response[:status] == 'success'
-          puts "New Options Trade Created:"
-          puts lnmarkets_response[:body]
-          puts ""
+          Rails.logger.info(
+            {
+              message: "New Options Trade Created:",
+              body: "#{lnmarkets_response[:body]}",
+              script: "lnmarkets_trader:open_options_contract"
+            }.to_json
+          )
           #
           # Create new record in TradeLogs table
           #
