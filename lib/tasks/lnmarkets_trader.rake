@@ -795,14 +795,28 @@ namespace :lnmarkets_trader do
         index_price_btcusd = lnmarkets_response[:body]['index']
         ask_price_btcusd = lnmarkets_response[:body]['askPrice']
         bid_price_btcusd = lnmarkets_response[:body]['bidPrice']
-        puts "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}"
+        Rails.logger.info(
+          {
+            message: "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}",
+            script: "lnmarkets_trader:create_short_trade"
+          }.to_json
+        )
 
         price_sat_usd = (index_price_btcusd/100000000.0).round(5)
         balance_usd = (sats_balance * price_sat_usd).round(2)
-        puts ""
-        puts "Balance USD: #{balance_usd.to_fs(:delimited)}"
+        Rails.logger.info(
+          {
+            message: "Balance USD: #{balance_usd.to_fs(:delimited)}",
+            script: "lnmarkets_trader:create_short_trade"
+          }.to_json
+        )
       else
-        puts 'Error. Unable to fetch latest price for BTCUSD... abort create_short_trade script.'
+        Rails.logger.fatal(
+          {
+            message: "Error. Unable to fetch latest price for BTCUSD... abort create_short_trade script.",
+            script: "lnmarkets_trader:create_short_trade"
+          }.to_json
+        )
         abort 'Unable to proceed with creating a long trade without BTCUSD price.'
       end
 
@@ -810,14 +824,23 @@ namespace :lnmarkets_trader do
       # Define leverage factor
       #
       leverage_factor = 2.50
-      puts "Leverage: #{leverage_factor}"
+      Rails.logger.info(
+        {
+          message: "Leverage: #{leverage_factor}",
+          script: "lnmarkets_trader:create_short_trade"
+        }.to_json
+      )
 
       #
       # Determine capital waged
       #
       capital_waged_usd = (balance_usd * leverage_factor).round(2)
-      puts "Capital Waged with Leverage: #{capital_waged_usd.to_fs(:delimited)}"
-      puts ""
+      Rails.logger.info(
+        {
+          message: "Capital Waged with Leverage: #{capital_waged_usd.to_fs(:delimited)}",
+          script: "lnmarkets_trader:create_short_trade"
+        }.to_json
+      )
 
       #
       # Execute Short Limit order
