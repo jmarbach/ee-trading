@@ -1069,6 +1069,7 @@ namespace :lnmarkets_trader do
             margin_quantity: lnmarkets_response[:body]['margin'],
             open_price: lnmarkets_response[:body]['forward'],
             creation_timestamp: lnmarkets_response[:body]['creation_ts'],
+            instrument: instrument_name,
             running: true,
             closed: false
           )
