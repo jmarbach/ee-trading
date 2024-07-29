@@ -912,7 +912,8 @@ namespace :lnmarkets_trader do
         capital_waged_usd = args[:amount]
         Rails.logger.info(
           {
-            message: "Found options instrument: #{filtered_instruments[0]}",
+            message: "Var capital_waged_usd assigned.",
+            body: "#{capital_waged_usd}",
             script: "lnmarkets_trader:open_options_contract"
           }.to_json
         )
