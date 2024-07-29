@@ -371,9 +371,12 @@ namespace :lnmarkets_trader do
     #
     # Save ScoreLog
     #
-    puts ""
-    puts "Final Score: #{trade_direction_score}"
-    puts ""
+    Rails.logger.info(
+      {
+        message: "Final Trade Direction Score: #{trade_direction_score}",
+        script: "lnmarkets_trader:check_market_indicators"
+      }.to_json
+    )
     begin
       score_log = ScoreLog.create(
         recorded_date: DateTime.now,
@@ -381,8 +384,13 @@ namespace :lnmarkets_trader do
         score: trade_direction_score
       )
     rescue => e
-      puts e
-      puts 'Error saving score_log record'
+      Rails.logger.error(
+        {
+          message: "Error saving score_log record",
+          body: e,
+          script: "lnmarkets_trader:check_market_indicators"
+        }.to_json
+      )
       score_log = ScoreLog.create(
         recorded_date: DateTime.now
       )
