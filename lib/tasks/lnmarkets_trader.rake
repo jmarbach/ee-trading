@@ -400,8 +400,13 @@ namespace :lnmarkets_trader do
       elsif trade_direction_score < 0.0
         trade_direction = 'sell'
       end
-      puts ""
-      puts "Proceed with new trade direction: #{trade_direction}"
+      Rails.logger.info(
+        {
+          message: "Proceed with new trade direction.",
+          body: "#{trade_direction}",
+          script: "lnmarkets_trader:check_market_indicators"
+        }.to_json
+      )
 
       #
       # Close existing futures and options contracts
@@ -418,7 +423,12 @@ namespace :lnmarkets_trader do
           puts "Running Options Contracts: #{running_contracts.count}"       
         end
       else
-        puts 'Error. Unable to get running contracts.'
+        Rails.logger.error(
+          {
+            message: "Error. Unable to get running contracts.",
+            script: "lnmarkets_trader:check_market_indicators"
+          }.to_json
+        )
       end
 
       if running_contracts.any?
@@ -449,16 +459,29 @@ namespace :lnmarkets_trader do
                 closed: true
               )
             else
-              puts "Error. Unable to find trade log for trade: #{c['id']}"
+              Rails.logger.error(
+              {
+                message: "Error. Unable to find trade log for trade: #{c['id']}",
+                script: "lnmarkets_trader:check_market_indicators"
+              }.to_json
+            )
             end
           else
-            puts "Error. Unable to close open options contracts: #{c['id']}"
+            Rails.logger.error(
+              {
+                message: "Error. Unable to close open options contracts: #{c['id']}",
+                script: "lnmarkets_trader:check_market_indicators"
+              }.to_json
+            )
           end
         end
       else
-        puts ""
-        puts "Skip. No running contracts."
-        puts ""
+        Rails.logger.info(
+          {
+            message: "Skip. No running contracts.",
+            script: "lnmarkets_trader:check_market_indicators"
+          }.to_json
+        )
       end
 
       puts ""
@@ -472,13 +495,21 @@ namespace :lnmarkets_trader do
           puts "Open Futures: #{open_futures.count}"          
         end
       else
-        puts 'Error. Unable to get open futures trades.'
+        Rails.logger.error(
+          {
+            message: "Error. Unable to get open futures trades.",
+            script: "lnmarkets_trader:check_market_indicators"
+          }.to_json
+        )
       end
 
       if open_futures.any?
-        puts ""
-        puts "Cancel all open futures trades from prior trading interval..."
-        puts ""
+        Rails.logger.info(
+          {
+            message: "Cancel all open futures trades from prior trading interval...",
+            script: "lnmarkets_trader:check_market_indicators"
+          }.to_json
+        )
         #
         # Cancel all open futures trades
         #
@@ -507,9 +538,12 @@ namespace :lnmarkets_trader do
           end
         end
       else
-        puts ""
-        puts "Skip. No open futures trades."
-        puts ""
+        Rails.logger.info(
+          {
+            message: "Skip. No open futures trades.",
+            script: "lnmarkets_trader:check_market_indicators"
+          }.to_json
+        )
       end
 
       running_futures = []
