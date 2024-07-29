@@ -1070,6 +1070,7 @@ namespace :lnmarkets_trader do
             open_price: lnmarkets_response[:body]['forward'],
             creation_timestamp: lnmarkets_response[:body]['creation_ts'],
             instrument: instrument_name,
+            settlement: settlement,
             running: true,
             closed: false
           )
