@@ -444,7 +444,7 @@ namespace :lnmarkets_trader do
                 close_price: lnmarkets_response[:body]['fixing_price'],
                 closed_timestamp: lnmarkets_response[:body]['closed_ts'],
                 close_fee: lnmarkets_response[:body]['closing_fee'],
-                absolute_net_proceeds: lnmarkets_response[:body]['pl'],
+                gross_proceeds_absolute: lnmarkets_response[:body]['pl'],
                 running: false,
                 closed: true
               )
@@ -545,7 +545,7 @@ namespace :lnmarkets_trader do
                 close_price: lnmarkets_response[:body]['fixing_price'],
                 closed_timestamp: lnmarkets_response[:body]['closed_ts'],
                 close_fee: lnmarkets_response[:body]['closing_fee'],
-                absolute_net_proceeds: lnmarkets_response[:body]['pl'],
+                gross_proceeds_absolute: lnmarkets_response[:body]['pl'],
                 open: false,
                 running: false,
                 closed: true,
