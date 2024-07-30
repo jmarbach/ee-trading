@@ -45,7 +45,7 @@ class TradeLog < ApplicationRecord
   def get_final_trade_stats
     Rails.logger.info(
       {
-        message: "TradeLog - get_final_trade_stats",
+        message: "TradeLog - get_final_trade_stats - #{self.id}",
         script: "TradeLog:get_final_trade_stats"
       }.to_json
     )
@@ -56,8 +56,13 @@ class TradeLog < ApplicationRecord
     if self.derivative_type == 'futures'
       lnmarkets_response = lnmarkets_client.get_futures_trade(self.external_id)
       if lnmarkets_response[:status] == 'success'
-        puts 'Parse trade:'
-        puts lnmarkets_response[:body]
+        Rails.logger.info(
+          {
+            message: "Parse trade response from LnMarkets",
+            body: "#{lnmarkets_response[:body]}",
+            script: "TradeLog:get_final_trade_stats"
+          }.to_json
+        )
         #
         # Update TradeLog
         #
@@ -86,13 +91,23 @@ class TradeLog < ApplicationRecord
           last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
         )
       else
-        puts 'Error. Unable to get futures trade.'
+        Rails.logger.fatal(
+          {
+            message: "Error. Unable to get futures trade.",
+            script: "TradeLog:get_final_trade_stats"
+          }.to_json
+        )
       end
     elsif self.derivative_type == 'options'
       lnmarkets_response = lnmarkets_client.get_options_trade(self.external_id)
       if lnmarkets_response[:status] == 'success'
-        puts 'Parse trade:'
-        puts lnmarkets_response[:body]
+        Rails.logger.info(
+          {
+            message: "Parse trade response from LnMarkets",
+            body: "#{lnmarkets_response[:body]}",
+            script: "TradeLog:get_final_trade_stats"
+          }.to_json
+        )
         #
         # Update TradeLog
         #
@@ -129,7 +144,12 @@ class TradeLog < ApplicationRecord
         # )
 
       else
-        puts 'Error. Unable to get options trade.'
+        Rails.logger.fatal(
+          {
+            message: "Error. Unable to get options trade.",
+            script: "TradeLog:get_final_trade_stats"
+          }.to_json
+        )
       end
     end
   end
