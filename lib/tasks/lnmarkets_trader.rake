@@ -48,6 +48,7 @@ namespace :lnmarkets_trader do
     if response_volume[:status] == 'success'
       volume_values = response_volume[:body]['results']
 
+      seven_days_ago_volume = volume_values[7]['v'].to_f
       six_days_ago_volume = volume_values[6]['v'].to_f
       five_days_ago_volume = volume_values[5]['v'].to_f
       four_days_ago_volume = volume_values[4]['v'].to_f
@@ -217,13 +218,13 @@ namespace :lnmarkets_trader do
       market_data_log = MarketDataLog.create(
         recorded_date: DateTime.now,
         price_btcusd: btcusd,
-        prior_day_volume: current_day_volume,
-        two_days_ago_volume: prior_day_volume,
-        three_days_ago_volume: two_days_ago_volume,
-        four_days_ago_volume: three_days_ago_volume,
-        five_days_ago_volume: four_days_ago_volume,
-        six_days_ago_volume: five_days_ago_volume,
-        seven_days_ago_volume: six_days_ago_volume,
+        prior_day_volume: prior_day_volume,
+        two_days_ago_volume: two_days_ago_volume,
+        three_days_ago_volume: three_days_ago_volume,
+        four_days_ago_volume: four_days_ago_volume,
+        five_days_ago_volume: five_days_ago_volume,
+        six_days_ago_volume: six_days_ago_volume,
+        seven_days_ago_volume: seven_days_ago_volume,
         rsi: rsi_values[0]['value'],
         simple_moving_average: simple_moving_average_values[0]['value'],
         exponential_moving_average: exponential_moving_average_values[0]['value'],
