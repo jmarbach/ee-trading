@@ -588,6 +588,7 @@ namespace :lnmarkets_trader do
             #
             trade_log = TradeLog.find_by_external_id(f['id'])
             if trade_log.present?
+              trade_log.update(
                 open: false,
                 running: false,
                 closed: true
