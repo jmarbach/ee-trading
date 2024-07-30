@@ -653,11 +653,19 @@ namespace :lnmarkets_trader do
     puts ''
     puts 'Run lnmarkets_trader:create_long_trade...'
     puts ''
-    puts "args[:score_log_id]: #{args[:score_log_id]}"
+    Rails.logger.info(
+      {
+        message: "args[:score_log_id]: #{args[:score_log_id]}",
+        script: "lnmarkets_trader:create_long_trade"
+      }.to_json
+    )
     if !args[:score_log_id].present?
-      puts ""
-      puts "Error. Invocation missing required params."
-      puts ""
+      Rails.logger.fatal(
+        {
+          message: "Error. Invocation missing required params.",
+          script: "lnmarkets_trader:create_long_trade"
+        }.to_json
+      )
       abort 'Unable to invoke create_long_trade script.'
     else
       score_log_id = args[:score_log_id]
@@ -674,8 +682,12 @@ namespace :lnmarkets_trader do
       # Establish balance available to trade
       #
       sats_balance = lnmarkets_response[:body]['balance'].to_f.round(2)
-      puts "Sats Available: #{sats_balance.to_fs(:delimited)}"
-      puts ""
+      Rails.logger.info(
+        {
+          message: "Sats Available: #{sats_balance.to_fs(:delimited)}",
+          script: "lnmarkets_trader:create_long_trade"
+        }.to_json
+      )
 
       #
       # Fetch latest price of BTCUSD
@@ -686,14 +698,28 @@ namespace :lnmarkets_trader do
         index_price_btcusd = lnmarkets_response[:body]['index']
         ask_price_btcusd = lnmarkets_response[:body]['askPrice']
         bid_price_btcusd = lnmarkets_response[:body]['bidPrice']
-        puts "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}"
+        Rails.logger.info(
+          {
+            message: "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}",
+            script: "lnmarkets_trader:create_long_trade"
+          }.to_json
+        )
 
         price_sat_usd = (index_price_btcusd/100000000.0).round(5)
         balance_usd = (sats_balance * price_sat_usd).round(2)
-        puts ""
-        puts "Balance USD: #{balance_usd.to_fs(:delimited)}"
+        Rails.logger.info(
+          {
+            message: "Balance USD: #{balance_usd.to_fs(:delimited)}",
+            script: "lnmarkets_trader:create_long_trade"
+          }.to_json
+        )
       else
-        puts 'Error. Unable to fetch latest price for BTCUSD... abort create_long_trade script.'
+        Rails.logger.fatal(
+          {
+            message: "Error. Unable to fetch latest price for BTCUSD... abort create_long_trade script.",
+            script: "lnmarkets_trader:create_long_trade"
+          }.to_json
+        )
         abort 'Unable to proceed with creating a long trade without BTCUSD price.'
       end
 
@@ -702,14 +728,23 @@ namespace :lnmarkets_trader do
       #
       # TODO - modify leverage factor by implied volatility... more leverage with less volatility
       leverage_factor = 2.65
-      puts "Leverage: #{leverage_factor}"
+      Rails.logger.info(
+        {
+          message: "Leverage: #{leverage_factor}",
+          script: "lnmarkets_trader:create_long_trade"
+        }.to_json
+      )
 
       #
       # Determine capital waged
       #
       capital_waged_usd = (balance_usd * leverage_factor).round(2)
-      puts "Capital Waged with Leverage: #{capital_waged_usd.to_fs(:delimited)}"
-      puts ""
+      Rails.logger.info(
+        {
+          message: "Capital Waged with Leverage: #{capital_waged_usd.to_fs(:delimited)}",
+          script: "lnmarkets_trader:create_long_trade"
+        }.to_json
+      )
 
       #
       # Execute Buy Limit order
@@ -725,9 +760,13 @@ namespace :lnmarkets_trader do
 
       lnmarkets_response = lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
       if lnmarkets_response[:status] == 'success'
-        puts "New Futures Trade Created:"
-        puts lnmarkets_response[:body]
-        puts ""
+        Rails.logger.info(
+          {
+            message: "New Futures Trade Created",
+            body: lnmarkets_response[:body],
+            script: "lnmarkets_trader:create_long_trade"
+          }.to_json
+        )
         #
         # Create new record in TradeLogs table
         #
@@ -770,11 +809,20 @@ namespace :lnmarkets_trader do
     puts ''
     puts 'Run lnmarkets_trader:create_short_trade...'
     puts ''
-    puts "args[:score_log_id]: #{args[:score_log_id]}"
+    puts 
+    Rails.logger.info(
+      {
+        message: "args[:score_log_id]: #{args[:score_log_id]}",
+        script: "lnmarkets_trader:create_short_trade"
+      }.to_json
+    )
     if !args[:score_log_id].present?
-      puts ""
-      puts "Error. Invocation missing required params."
-      puts ""
+      Rails.logger.fatal(
+        {
+          message: "Error. Invocation missing required params.",
+          script: "lnmarkets_trader:create_short_trade"
+        }.to_json
+      )
       abort 'Unable to invoke create_short_trade script.'
     else
       score_log_id = args[:score_log_id]
@@ -864,9 +912,13 @@ namespace :lnmarkets_trader do
 
       lnmarkets_response = lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
       if lnmarkets_response[:status] == 'success'
-        puts "New Futures Trade Created:"
-        puts lnmarkets_response[:body]
-        puts ""
+        Rails.logger.info(
+          {
+            message: "New Futures Trade Created",
+            body: lnmarkets_response[:body],
+            script: "lnmarkets_trader:create_short_trade"
+          }.to_json
+        )
         #
         # Create new record in TradeLogs table
         #
@@ -891,14 +943,20 @@ namespace :lnmarkets_trader do
         #
         Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'long', amount: quantity, score_log_id: score_log_id})
       else
-        puts ''
-        puts 'Error. Unable to create futures trade.'
-        puts ''
+        Rails.logger.error(
+          {
+            message: "Error. Unable to create futures trade.",
+            script: "lnmarkets_trader:create_short_trade"
+          }.to_json
+        )
       end
     else
-      puts ''
-      puts 'Error. Unable to fetch account balance info... skip trade.'
-      puts ''
+      Rails.logger.error(
+        {
+          message: "Error. Unable to fetch account balance info... skip trade.",
+          script: "lnmarkets_trader:create_short_trade"
+        }.to_json
+      )
     end
     puts 'End lnmarkets_trader:create_short_trade...'
     puts ''
