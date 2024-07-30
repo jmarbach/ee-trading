@@ -428,7 +428,12 @@ namespace :lnmarkets_trader do
         all_contracts = lnmarkets_response[:body]
         if all_contracts.count > 0
           running_contracts = all_contracts.select { |a| a['running'] == true }
-          puts "Running Options Contracts: #{running_contracts.count}"       
+          Rails.logger.info(
+            {
+              message: "Running Options Contracts: #{running_contracts.count}",
+              script: "lnmarkets_trader:check_market_indicators"
+            }.to_json
+          )
         end
       else
         Rails.logger.error(
@@ -500,7 +505,12 @@ namespace :lnmarkets_trader do
       if lnmarkets_response[:status] == 'success'
         open_futures = lnmarkets_response[:body]
         if open_futures.count > 0
-          puts "Open Futures: #{open_futures.count}"          
+          Rails.logger.info(
+            {
+              message: "Open Futures: #{open_futures.count}",
+              script: "lnmarkets_trader:check_market_indicators"
+            }.to_json
+          )
         end
       else
         Rails.logger.error(
