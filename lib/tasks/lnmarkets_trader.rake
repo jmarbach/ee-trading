@@ -465,10 +465,6 @@ namespace :lnmarkets_trader do
             trade_log = TradeLog.find_by_external_id(c['id'])
             if trade_log.present?
               trade_log.update(
-                close_price: lnmarkets_response[:body]['fixing_price'],
-                closed_timestamp: lnmarkets_response[:body]['closed_ts'],
-                close_fee: lnmarkets_response[:body]['closing_fee'],
-                gross_proceeds_absolute: lnmarkets_response[:body]['pl'],
                 running: false,
                 closed: true
               )
@@ -536,7 +532,7 @@ namespace :lnmarkets_trader do
           lnmarkets_response = lnmarkets_client.cancel_futures_trade(f['id'])
           if lnmarkets_response[:status] == 'success'
             puts ""
-            puts "Finished closing futures trade: #{f['id']}."
+            puts "Finished closing open futures trade: #{f['id']}."
             puts ""
             #
             # Update Trade Log
@@ -545,9 +541,7 @@ namespace :lnmarkets_trader do
             if trade_log.present?
               trade_log.update(
                 open: false,
-                canceled: true,
-                closed_timestamp: lnmarkets_response[:body]['closed_ts'],
-                last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
+                canceled: true
               )
             else
               puts "Error. Unable to find trade log for trade: #{f['id']}"
@@ -594,15 +588,9 @@ namespace :lnmarkets_trader do
             #
             trade_log = TradeLog.find_by_external_id(f['id'])
             if trade_log.present?
-              trade_log.update(
-                close_price: lnmarkets_response[:body]['fixing_price'],
-                closed_timestamp: lnmarkets_response[:body]['closed_ts'],
-                close_fee: lnmarkets_response[:body]['closing_fee'],
-                gross_proceeds_absolute: lnmarkets_response[:body]['pl'],
                 open: false,
                 running: false,
-                closed: true,
-                last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
+                closed: true
               )
             else
               puts "Error. Unable to find trade log for trade: #{f['id']}"

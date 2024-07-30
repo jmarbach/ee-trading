@@ -42,6 +42,10 @@ class TradeLog < ApplicationRecord
     i.saved_change_to_attribute?(:closed, to: true) 
   }
 
+  after_update :get_final_trade_stats, if: Proc.new { |i| 
+    i.saved_change_to_attribute?(:canceled, to: true) 
+  }
+
   def get_final_trade_stats
     Rails.logger.info(
       {
@@ -120,6 +124,9 @@ class TradeLog < ApplicationRecord
         net_proceeds_percent = ((((net_proceeds_absolute + margin) - margin)/margin)*100.0).round(2)
 
         update_columns(
+          close_price: lnmarkets_response[:body]['fixing_price'],
+          closed_timestamp: lnmarkets_response[:body]['closed_ts'],
+          close_fee: lnmarkets_response[:body]['closing_fee'],
           gross_proceeds_absolute: gross_proceeds_absolute,
           gross_proceeds_percent: gross_proceeds_percent,
           net_proceeds_absolute: net_proceeds_absolute,
