@@ -43,7 +43,12 @@ class TradeLog < ApplicationRecord
   }
 
   def get_final_trade_stats
-  	puts 'TradeLog - get_final_trade_stats'
+    Rails.logger.info(
+      {
+        message: "TradeLog - get_final_trade_stats",
+        script: "TradeLog:get_final_trade_stats"
+      }.to_json
+    )
   	#
     # Get final trade stats from LnMarkets
     #
@@ -61,8 +66,8 @@ class TradeLog < ApplicationRecord
         gross_proceeds_percent = ((((gross_proceeds_absolute + entry_margin) - entry_margin)/entry_margin)*100.0).round(2)
 
         sum_fees = (lnmarkets_response[:body]['opening_fee'] + lnmarkets_response[:body]['closing_fee'] + lnmarkets_response[:body]['sum_carry_fees'])
-        net_proceeds_absolute = (absolute_gross_proceeds - sum_fees)
-        net_proceeds_percent = ((((absolute_net_proceeds + entry_margin) - entry_margin)/entry_margin)*100.0).round(2)
+        net_proceeds_absolute = (gross_proceeds_absolute - sum_fees)
+        net_proceeds_percent = ((((net_proceeds_absolute + entry_margin) - entry_margin)/entry_margin)*100.0).round(2)
 
         update_columns(
           open_fee: lnmarkets_response[:body]['opening_fee'],
@@ -77,7 +82,8 @@ class TradeLog < ApplicationRecord
           total_carry_fees: lnmarkets_response[:body]['sum_carry_fees'],
           open: false,
           running: false,
-          canceled: false
+          canceled: false,
+          last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
         )
       else
         puts 'Error. Unable to get futures trade.'
@@ -90,10 +96,23 @@ class TradeLog < ApplicationRecord
         #
         # Update TradeLog
         #
-        
         margin = lnmarkets_response[:body]['margin'].to_f
-        absolute_net_proceeds = lnmarkets_response[:body]['pl'].to_f
-        percent_net_proceeds = ((((absolute_net_proceeds + margin) - margin)/margin)*100.0).round(2)
+        gross_proceeds_absolute = lnmarkets_response[:body]['pl'].to_f
+        gross_proceeds_percent = ((((gross_proceeds_absolute + margin) - margin)/margin)*100.0).round(2)
+
+        sum_fees = (lnmarkets_response[:body]['opening_fee'].to_f + lnmarkets_response[:body]['closing_fee'].to_f)
+        net_proceeds_absolute = (gross_proceeds_absolute - (sum_fees))
+        net_proceeds_percent = ((((net_proceeds_absolute + margin) - margin)/margin)*100.0).round(2)
+
+        update_columns(
+          gross_proceeds_absolute: gross_proceeds_absolute,
+          gross_proceeds_percent: gross_proceeds_percent,
+          net_proceeds_absolute: net_proceeds_absolute,
+          net_proceeds_percent: net_proceeds_percent,
+          open: false,
+          running: false,
+          canceled: false
+        )
 
         # update_columns(
         #   open_fee: lnmarkets_response[:body]['opening_fee'],
