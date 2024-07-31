@@ -2,9 +2,12 @@ namespace :accountant do
   task save_trading_stats_daily: :environment do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
-    puts ''
-    puts 'Run accountant:save_trading_stats_daily...'
-    puts ''
+    Rails.logger.info(
+      {
+        message: "Run accountant:save_trading_stats_daily...",
+        script: "accountant:save_trading_stats_daily"
+      }.to_json
+    )
     # Initialize lnmarkets_client
     lnmarkets_client = LnmarketsAPI.new
 
@@ -71,17 +74,30 @@ namespace :accountant do
           last_100d_losses: nil
         )
       else
-        puts 'Error. Unable to fetch latest price for BTCUSD.'
+        Rails.logger.fatal(
+          {
+            message: "Error. Unable to fetch latest price for BTCUSD.",
+            script: "accountant:save_trading_stats_daily"
+          }.to_json
+        )
         abort 'Unable to proceed with saving USD attributes on TradingStatsDaily record.'
       end
     else
-      puts 'Error. Unable to fetch latest account info from Lnmarkets.'
+      Rails.logger.fatal(
+        {
+          message: "Error. Unable to fetch latest account info from Lnmarkets.",
+          script: "accountant:save_trading_stats_daily"
+        }.to_json
+      )
       abort 'Unable to proceed with creating TradingStatsDaily record.'
     end
 
-    puts ''
-    puts 'End accountant:save_trading_stats_daily...'
-    puts ''
+    Rails.logger.info(
+      {
+        message: "End accountant:save_trading_stats_daily...",
+        script: "accountant:save_trading_stats_daily"
+      }.to_json
+    )
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end

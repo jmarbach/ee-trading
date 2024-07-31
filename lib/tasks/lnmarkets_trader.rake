@@ -567,13 +567,21 @@ namespace :lnmarkets_trader do
           puts "Running Futures: #{running_futures.count}"
         end
       else
-        puts 'Error. Unable to get running futures trades.'
+        Rails.logger.error(
+          {
+            message: "Error. Unable to get running futures trades.",
+            script: "lnmarkets_trader:check_market_indicators"
+          }.to_json
+        )
       end
 
       if running_futures.any?
-        puts ""
-        puts "Close all running futures trades from prior trading interval..."
-        puts ""
+        Rails.logger.info(
+          {
+            message: "Close all running futures trades from prior trading interval...",
+            script: "lnmarkets_trader:check_market_indicators"
+          }.to_json
+        )
         #
         # Close all futures trades
         #
@@ -632,9 +640,12 @@ namespace :lnmarkets_trader do
       elsif trade_direction == 'sell'
         Rake::Task["lnmarkets_trader:create_short_trade"].execute({score_log_id: score_log.id})
       end
-      puts ""
-      puts "Finished creating new #{trade_direction} trade."
-      puts ""
+      Rails.logger.info(
+        {
+          message: "Finished creating new #{trade_direction} trade.",
+          script: "lnmarkets_trader:check_market_indicators"
+        }.to_json
+      )
       puts "********************************************"
       puts "********************************************"
     elsif trade_direction_score == 0.0
