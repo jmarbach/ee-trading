@@ -468,6 +468,7 @@ namespace :lnmarkets_trader do
                 running: false,
                 closed: true
               )
+              trade_log.get_final_trade_stats
             else
               Rails.logger.error(
               {
@@ -543,6 +544,7 @@ namespace :lnmarkets_trader do
                 open: false,
                 canceled: true
               )
+              trade_log.get_final_trade_stats
             else
               puts "Error. Unable to find trade log for trade: #{f['id']}"
             end
@@ -602,6 +604,7 @@ namespace :lnmarkets_trader do
                 running: false,
                 closed: true
               )
+              trade_log.get_final_trade_stats
             else
               Rails.logger.error(
                 {
