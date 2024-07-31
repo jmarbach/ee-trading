@@ -34,6 +34,29 @@ namespace :accountant do
         puts "Balance USD: #{balance_usd.to_fs(:delimited)}"
 
         #
+        # Fetch last TradingStatsDaily record to establish streaks
+        #
+        previous_trading_stats_daily = TradingStatsDaily.last
+
+        win_streak = previous_trading_stats_daily.win_streak
+        lose_streak = previous_trading_stats_daily.lose_streak
+
+        trade_result = ''
+        if balance_btc > previous_trading_stats_daily.balance_btc
+          trade_result = 'win'
+        else
+          trade_result = 'loss'
+        end
+
+        if trade_result == 'win'
+          win_streak += 1
+          lose_streak = 0
+        elsif trade_result = 'loss'
+          win_streak = 0
+          lose_streak += 1
+        end
+
+        #
         # Create new TradingStatsDaily record
         #
         trading_stats_daily = TradingStatsDaily.create(
@@ -42,8 +65,8 @@ namespace :accountant do
           balance_btc_sats: balance_btc_sats,
           balance_usd: balance_usd,
           balance_usd_cents: balance_usd_cents,
-          win_streak: nil,
-          lose_streak: nil,
+          win_streak: win_streak,
+          lose_streak: lose_streak,
           last_100d_wins: nil,
           last_100d_losses: nil
         )
