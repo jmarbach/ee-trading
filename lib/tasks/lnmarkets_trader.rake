@@ -1422,7 +1422,7 @@ namespace :lnmarkets_trader do
               Rails.logger.info(
                 {
                   message: "Updated stoploss for #{f['id']}:",
-                  body: "#{lnmarkets_response[:body]}",
+                  body: "#{lnmarkets_response[:body].inspect}",
                   script: "lnmarkets_trader:check_stops"
                 }.to_json
               )
