@@ -590,14 +590,25 @@ namespace :lnmarkets_trader do
             if trade_log.present?
               trade_log.update(
                 open: false,
+                canceled: false,
                 running: false,
                 closed: true
               )
             else
-              puts "Error. Unable to find trade log for trade: #{f['id']}"
+              Rails.logger.error(
+                {
+                  message: "Error. Unable to find trade log for trade: #{f['id']}",
+                  script: "lnmarkets_trader:check_market_indicators"
+                }.to_json
+              )
             end
           else
-            puts "Error. Unable to close futures trade: #{f['id']}"
+            Rails.logger.error(
+              {
+                message: "Error. Unable to close futures trade: #{f['id']}",
+                script: "lnmarkets_trader:check_market_indicators"
+              }.to_json
+            )
           end
         end
       else
