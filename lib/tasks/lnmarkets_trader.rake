@@ -1302,9 +1302,16 @@ namespace :lnmarkets_trader do
 
         update_trade_stoploss_price = false
         entry_price = f['entry_price']
+        previous_stoploss = f['stoploss']
         Rails.logger.info(
           {
             message: "Trade Entry Price: #{entry_price.to_fs(:delimited)}",
+            script: "lnmarkets_trader:check_stops"
+          }.to_json
+        )
+        Rails.logger.info(
+          {
+            message: "Trade Previous Stoploss: #{previous_stoploss.to_fs(:delimited)}",
             script: "lnmarkets_trader:check_stops"
           }.to_json
         )
@@ -1397,19 +1404,28 @@ namespace :lnmarkets_trader do
             }.to_json
           )
 
-          lnmarkets_response = lnmarkets_client.update_futures_trade(f['id'], 'stoploss', new_stoploss)
-          if lnmarkets_response[:status] == 'success'
-            Rails.logger.info(
-              {
-                message: "Updated stoploss for #{f['id']}:",
-                body: "#{lnmarkets_response[:body]}",
-                script: "lnmarkets_trader:check_stops"
-              }.to_json
-            )
+          if new_stoploss != previous_stoploss
+            lnmarkets_response = lnmarkets_client.update_futures_trade(f['id'], 'stoploss', new_stoploss)
+            if lnmarkets_response[:status] == 'success'
+              Rails.logger.info(
+                {
+                  message: "Updated stoploss for #{f['id']}:",
+                  body: "#{lnmarkets_response[:body]}",
+                  script: "lnmarkets_trader:check_stops"
+                }.to_json
+              )
+            else
+              Rails.logger.error(
+                {
+                  message: "Error. Unable to update futures trade.",
+                  script: "lnmarkets_trader:check_stops"
+                }.to_json
+              )
+            end
           else
             Rails.logger.error(
               {
-                message: "Error. Unable to update futures trade.",
+                message: "Error. New stoploss is equal to previous stoploss.",
                 script: "lnmarkets_trader:check_stops"
               }.to_json
             )
