@@ -1171,6 +1171,7 @@ namespace :lnmarkets_trader do
             creation_timestamp: lnmarkets_response[:body]['creation_ts'],
             instrument: instrument_name,
             settlement: settlement,
+            implied_volatility: lnmarkets_response[:body]['volatility'],
             running: true,
             closed: false
           )
