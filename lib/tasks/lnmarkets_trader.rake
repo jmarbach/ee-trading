@@ -532,9 +532,12 @@ namespace :lnmarkets_trader do
         open_futures.each do |f|
           lnmarkets_response = lnmarkets_client.cancel_futures_trade(f['id'])
           if lnmarkets_response[:status] == 'success'
-            puts ""
-            puts "Finished closing open futures trade: #{f['id']}."
-            puts ""
+            Rails.logger.info(
+              {
+                message: "Finished closing open futures trade: #{f['id']}.",
+                script: "lnmarkets_trader:check_market_indicators"
+              }.to_json
+            )
             #
             # Update Trade Log
             #
@@ -546,10 +549,20 @@ namespace :lnmarkets_trader do
               )
               trade_log.get_final_trade_stats
             else
-              puts "Error. Unable to find trade log for trade: #{f['id']}"
+              Rails.logger.error(
+                {
+                  message: "Error. Unable to find trade log for trade: #{f['id']}",
+                  script: "lnmarkets_trader:check_market_indicators"
+                }.to_json
+              )
             end
           else
-            puts "Error. Unable to close futures trade: #{f['id']}"
+            Rails.logger.error(
+              {
+                message: "Error. Unable to close futures trade: #{f['id']}",
+                script: "lnmarkets_trader:check_market_indicators"
+              }.to_json
+            )
           end
         end
       else
@@ -566,7 +579,12 @@ namespace :lnmarkets_trader do
       if lnmarkets_response[:status] == 'success'
         running_futures = lnmarkets_response[:body]
         if running_futures.count > 0
-          puts "Running Futures: #{running_futures.count}"
+          Rails.logger.info(
+            {
+              message: "Running Futures: #{running_futures.count}",
+              script: "lnmarkets_trader:check_market_indicators"
+            }.to_json
+          )
         end
       else
         Rails.logger.error(
@@ -590,9 +608,12 @@ namespace :lnmarkets_trader do
         running_futures.each do |f|
           lnmarkets_response = lnmarkets_client.close_futures_trade(f['id'])
           if lnmarkets_response[:status] == 'success'
-            puts ""
-            puts "Finished closing futures trade: #{f['id']}."
-            puts ""
+            Rails.logger.info(
+              {
+                message: "Finished closing futures trade: #{f['id']}.",
+                script: "lnmarkets_trader:check_market_indicators"
+              }.to_json
+            )
             #
             # Update Trade Log
             #
