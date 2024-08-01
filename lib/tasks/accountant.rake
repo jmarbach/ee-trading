@@ -60,10 +60,13 @@ namespace :accountant do
           trade_result = 'loss'
         end
 
+        bool_win, bool_loss = false, false
         if trade_result == 'win'
+          bool_win = true
           win_streak += 1
           lose_streak = 0
         elsif trade_result == 'loss'
+          bool_loss = true
           win_streak = 0
           lose_streak += 1
         end
@@ -80,7 +83,9 @@ namespace :accountant do
           win_streak: win_streak,
           lose_streak: lose_streak,
           last_100d_wins: nil,
-          last_100d_losses: nil
+          last_100d_losses: nil,
+          win: bool_win,
+          loss: bool_loss
         )
       else
         Rails.logger.fatal(

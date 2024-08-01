@@ -14,6 +14,8 @@
 #  last_100d_losses  :float
 #  created_at        :datetime
 #  updated_at        :datetime
+#  win               :boolean          default(FALSE)
+#  loss              :boolean          default(FALSE)
 #
 class TradingStatsDaily < ApplicationRecord
 end

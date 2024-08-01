@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_07_25_135919) do
+ActiveRecord::Schema[7.0].define(version: 2024_08_01_010307) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -97,6 +97,8 @@ ActiveRecord::Schema[7.0].define(version: 2024_07_25_135919) do
     t.float "last_100d_losses"
     t.datetime "created_at", default: -> { "now()" }
     t.datetime "updated_at", default: -> { "now()" }
+    t.boolean "win", default: false
+    t.boolean "loss", default: false
   end
 
   add_foreign_key "score_logs", "market_data_logs"
