@@ -41,8 +41,17 @@ namespace :accountant do
         #
         previous_trading_stats_daily = TradingStatsDaily.last
 
-        win_streak = previous_trading_stats_daily.win_streak
-        lose_streak = previous_trading_stats_daily.lose_streak
+        if previous_trading_stats_daily.win_streak != nil
+          win_streak = previous_trading_stats_daily.win_streak
+        else
+          win_streak = 0
+        end
+
+        if previous_trading_stats_daily.lose_streak != nil
+          lose_streak = previous_trading_stats_daily.lose_streak
+        else
+          lose_streak = 0
+        end
 
         trade_result = ''
         if balance_btc > previous_trading_stats_daily.balance_btc
