@@ -195,16 +195,33 @@ namespace :lnmarkets_trader do
       }.to_json
     )
 
-    # Implied volatility
-    implied_volatility = 0.0
+    # Implied volatility deribit
+    implied_volatility_deribit = 0.0
     lnmarkets_client = LnmarketsAPI.new
     lnmarkets_response = lnmarkets_client.get_options_volatility_index()
     if lnmarkets_response[:status] == 'success'
-      implied_volatility = lnmarkets_response[:body]['volatilityIndex']
+      implied_volatility_deribit = lnmarkets_response[:body]['volatilityIndex']
     else
       Rails.logger.error(
         {
           message: "Error. Unable to get implied volatility from LnMarkets.",
+          script: "lnmarkets_trader:check_market_indicators"
+        }.to_json
+      )
+      data_errors += 1
+    end
+
+    # Implied volatility t3
+    implied_volatility_t3 = 0.0
+    t3_client = T3IndexAPI.new
+    current_tick = DateTime.now.utc.strftime("%Y-%m-%d-00-00-00")
+    t3_response = t3_client.get_tick(current_tick)
+    if t3_response[:status] == 'success'
+      implied_volatility_t3 = t3_response[:body]['value']
+    else
+      Rails.logger.error(
+        {
+          message: "Error. Unable to get implied volatility from T3IndexAPI.",
           script: "lnmarkets_trader:check_market_indicators"
         }.to_json
       )
@@ -235,7 +252,8 @@ namespace :lnmarkets_trader do
         aggregate_open_interest: aggregate_open_interest,
         avg_last_10_candle_closes: last_10_candle_closes_average,
         avg_last_8_aggregate_open_interests: last_8_aggregate_open_interests_average,
-        implied_volatility: implied_volatility
+        implied_volatility_deribit: implied_volatility_deribit,
+        implied_volatility_t3: implied_volatility_t3
       )
     rescue => e
       Rails.logger.error(
