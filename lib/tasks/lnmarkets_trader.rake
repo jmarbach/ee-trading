@@ -229,6 +229,22 @@ namespace :lnmarkets_trader do
     end
 
     #
+    # Find average implied volatilities from T3
+    #
+    last_16_market_data_log_entries = nil
+    last_16_market_data_log_entries = MarketDataLog.last(16).pluck(:implied_volatility_t3)
+    if last_16_market_data_log_entries != nil
+      # Remote nil values from array
+      last_16_market_data_log_entries.compact!
+      if !last_16_market_data_log_entries.empty?
+        last_16_implied_volatilities_t3_average = last_16_market_data_log_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
+      end
+    else
+      last_16_implied_volatilities_t3_average = 0.0
+      data_errors += 1
+    end
+
+    #
     # Save MarketDataLog
     #
     begin
@@ -384,6 +400,18 @@ namespace :lnmarkets_trader do
         trade_direction_score += 1.0
       elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.60)
         trade_direction_score += 1.0
+      end
+    end
+
+    if last_16_implied_volatilities_t3_average != 0.0 && implied_volatility_t3 != 0.0
+      if implied_volatility_t3 > ((last_16_implied_volatilities_t3_average)*1.31) && implied_volatility_t3 < ((last_16_implied_volatilities_t3_average)*1.40)
+        trade_direction_score -= 1.0
+      elsif implied_volatility_t3 > ((last_16_implied_volatilities_t3_average)*1.49) && implied_volatility_t3 < ((last_16_implied_volatilities_t3_average)*1.79)
+        trade_direction_score -= 1.0
+      elsif implied_volatility_t3 < ((last_16_implied_volatilities_t3_average)*0.97) && implied_volatility_t3 > ((last_16_implied_volatilities_t3_average)*0.92)
+        trade_direction_score -= 1.0
+      elsif implied_volatility_t3 < ((last_16_implied_volatilities_t3_average)*0.89) && implied_volatility_t3 > ((last_16_implied_volatilities_t3_average)*0.75)
+        trade_direction_score -= 2.0
       end
     end
 
