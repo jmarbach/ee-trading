@@ -54,7 +54,7 @@ namespace :accountant do
         if trade_result == 'win'
           win_streak += 1
           lose_streak = 0
-        elsif trade_result = 'loss'
+        elsif trade_result == 'loss'
           win_streak = 0
           lose_streak += 1
         end
