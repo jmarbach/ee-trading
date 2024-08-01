@@ -38,14 +38,6 @@
 #
 class TradeLog < ApplicationRecord
 
-  after_update :get_final_trade_stats, if: Proc.new { |i| 
-    i.saved_change_to_attribute?(:closed, to: true) 
-  }
-
-  after_update :get_final_trade_stats, if: Proc.new { |i| 
-    i.saved_change_to_attribute?(:canceled, to: true) 
-  }
-
   def get_final_trade_stats
     Rails.logger.info(
       {
