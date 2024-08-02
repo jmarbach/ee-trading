@@ -607,26 +607,39 @@ class LnmarketsAPI
     end
   end
 
-  def get_futures_trades(trade_type)
+  def get_futures_trades(trade_type, from_time, to_time)
     hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
     begin
       time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = DateTime.now.to_i.in_milliseconds.to_s
+      timestamp = (Time.now.to_f * 1000).to_i.to_s
       path = '/v2/futures'
-      hash_params = { type: trade_type }
-      data = URI.encode_www_form(hash_params)
+      hash_params = { type: trade_type, from: from_time, to: to_time, limit: 1000 }
+
+      # Sort parameters alphabetically and create encoded query string
+      query_string = hash_params.sort.map { |k, v| "#{k}=#{URI.encode_www_form_component(v.to_s)}" }.join('&')
 
       lnm_signature = ''
       digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'GET' + path + data)
+      prehash_string = timestamp + 'GET' + path + query_string
+      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], prehash_string)
       lnm_signature = Base64.strict_encode64(hmac)
 
-      request_response = @conn.get(path, hash_params) do |req|
+      # Debug information
+      # puts "Timestamp: #{timestamp}"
+      # puts "Path: #{path}"
+      # puts "Query string: #{query_string}"
+      # puts "Prehash string: #{prehash_string}"
+      # puts "Signature: #{lnm_signature}"
+
+      request_response = @conn.get(path) do |req|
+        req.params = hash_params
         req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
         req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
       end
+
       time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       elapsed_time = (time_finish - time_start).round(6)
+
     rescue Faraday::ConnectionFailed => e
       puts e
       puts e.class
@@ -657,13 +670,17 @@ class LnmarketsAPI
     rescue => e
       puts "LnmarketsAPI Error!"
       puts e
-      hash_method_response[:message] = parsed_response_body['message']
+      puts e.response
+      hash_method_response[:status] = 'error'
+      if e.response != nil
+        parsed_response_body = JSON.parse(e.response[:body])
+        hash_method_response[:message] = parsed_response_body['message']
+      end
       return hash_method_response
     else
-      puts ''
       parsed_response_body = JSON.parse(request_response.body)
 
-      hash_method_response[:status] = 'success'
+      hash_method_response[:status] = request_response.status == 200 ? 'success' : 'error'
       hash_method_response[:body] = parsed_response_body
       hash_method_response[:elapsed_time] = elapsed_time
       return hash_method_response
@@ -1083,7 +1100,6 @@ class LnmarketsAPI
       return hash_method_response
     end
   end
-
   
   def get_price_btcusd_ticker()
     hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
