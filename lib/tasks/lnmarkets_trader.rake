@@ -145,7 +145,7 @@ namespace :lnmarkets_trader do
     # Find average open interest over last 8 days
     #
     last_8_market_data_log_entries = nil
-    last_8_market_data_log_entries = MarketDataLog.last(8).pluck(:aggregate_open_interest)
+    last_8_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(8).pluck(:aggregate_open_interest)
     if last_8_market_data_log_entries != nil
       # Remote nil values from array
       last_8_market_data_log_entries.compact!
@@ -233,7 +233,7 @@ namespace :lnmarkets_trader do
     # Find average implied volatilities from T3
     #
     last_16_market_data_log_entries = nil
-    last_16_market_data_log_entries = MarketDataLog.last(16).pluck(:implied_volatility_t3)
+    last_16_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(16).pluck(:implied_volatility_t3)
     if last_16_market_data_log_entries != nil
       # Remote nil values from array
       last_16_market_data_log_entries.compact!
