@@ -147,7 +147,7 @@ namespace :lnmarkets_trader do
     last_8_market_data_log_entries = nil
     last_8_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(8).pluck(:aggregate_open_interest)
     if last_8_market_data_log_entries != nil
-      # Remote nil values from array
+      # Remove nil values from array
       last_8_market_data_log_entries.compact!
       if !last_8_market_data_log_entries.empty?
         last_8_aggregate_open_interests_average = last_8_market_data_log_entries.sum.fdiv(last_8_market_data_log_entries.size).round(2)
@@ -885,8 +885,22 @@ namespace :lnmarkets_trader do
       #
       # Define leverage factor
       #
-      # TODO - modify leverage factor by implied volatility... more leverage with less volatility
-      leverage_factor = 2.65
+      last_16_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(16).pluck(:implied_volatility_t3)
+      if last_16_market_data_log_entries != nil
+        # Remove nil values from array
+        last_16_market_data_log_entries.compact!
+        if !last_16_market_data_log_entries.empty?
+          last_16_implied_volatilities_t3_average = last_16_market_data_log_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
+        end
+      else
+        last_16_implied_volatilities_t3_average = 0.0
+      end
+
+      if (last_16_market_data_log_entries[0] < (last_16_implied_volatilities_t3_average))
+        leverage_factor = 3.2
+      else
+        leverage_factor = 2.9
+      end
       Rails.logger.info(
         {
           message: "Leverage: #{leverage_factor}",
@@ -1038,7 +1052,22 @@ namespace :lnmarkets_trader do
       #
       # Define leverage factor
       #
-      leverage_factor = 2.50
+      last_16_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(16).pluck(:implied_volatility_t3)
+      if last_16_market_data_log_entries != nil
+        # Remove nil values from array
+        last_16_market_data_log_entries.compact!
+        if !last_16_market_data_log_entries.empty?
+          last_16_implied_volatilities_t3_average = last_16_market_data_log_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
+        end
+      else
+        last_16_implied_volatilities_t3_average = 0.0
+      end
+
+      if (last_16_market_data_log_entries[0] < (last_16_implied_volatilities_t3_average))
+        leverage_factor = 3.2
+      else
+        leverage_factor = 2.9
+      end
       Rails.logger.info(
         {
           message: "Leverage: #{leverage_factor}",
