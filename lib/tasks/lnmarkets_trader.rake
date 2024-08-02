@@ -3,7 +3,7 @@ namespace :lnmarkets_trader do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     timestamp_current = DateTime.now.utc.beginning_of_day.to_i.in_milliseconds
-    timestamp_yesterday = timestamp - 86400000
+    timestamp_yesterday = timestamp_current - 86400000
     Rails.logger.info(
       {
         message: "Run lnmarkets_trader:check_market_indicators...",
@@ -1363,6 +1363,8 @@ namespace :lnmarkets_trader do
   task check_stops: :environment do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    timestamp_current = DateTime.now.utc.beginning_of_day.to_i.in_milliseconds
+    timestamp_yesterday = timestamp_current - 86400000
     Rails.logger.info(
       {
         message: "Run lnmarkets_trader:check_stops...",
