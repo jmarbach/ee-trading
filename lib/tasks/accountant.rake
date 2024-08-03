@@ -54,7 +54,7 @@ namespace :accountant do
         end
 
         trade_result = ''
-        if balance_btc > previous_trading_stats_daily.balance_btc
+        if balance_btc >= previous_trading_stats_daily.balance_btc
           trade_result = 'win'
         else
           trade_result = 'loss'
