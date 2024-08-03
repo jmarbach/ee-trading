@@ -54,13 +54,15 @@ namespace :accountant do
         end
 
         trade_result = ''
-        if balance_btc >= previous_trading_stats_daily.balance_btc
+        if balance_btc > previous_trading_stats_daily.balance_btc
           trade_result = 'win'
+        elsif balance_btc == previous_trading_stats_daily.balance_btc
+          trade_result = 'draw'
         else
           trade_result = 'loss'
         end
 
-        bool_win, bool_loss = false, false
+        bool_win, bool_loss, bool_draw = false, false, false
         if trade_result == 'win'
           bool_win = true
           win_streak += 1
@@ -69,6 +71,10 @@ namespace :accountant do
           bool_loss = true
           win_streak = 0
           lose_streak += 1
+        elsif trade_result == 'draw'
+          bool_draw = true
+          win_streak = 0
+          lose_streak = 0
         end
 
         last_100d_wins,last_100d_losses = 0,0
@@ -92,7 +98,8 @@ namespace :accountant do
           last_100d_wins: last_100d_wins,
           last_100d_losses: last_100d_losses,
           win: bool_win,
-          loss: bool_loss
+          loss: bool_loss,
+          draw: bool_draw
         )
       else
         Rails.logger.fatal(
