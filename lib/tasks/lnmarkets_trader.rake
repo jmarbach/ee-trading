@@ -897,9 +897,9 @@ namespace :lnmarkets_trader do
       end
 
       if (last_16_market_data_log_entries[0] < (last_16_implied_volatilities_t3_average))
-        leverage_factor = 2.90
+        leverage_factor = 2.68
       else
-        leverage_factor = 2.65
+        leverage_factor = 2.55
       end
       Rails.logger.info(
         {
@@ -1064,9 +1064,9 @@ namespace :lnmarkets_trader do
       end
 
       if (last_16_market_data_log_entries[0] < (last_16_implied_volatilities_t3_average))
-        leverage_factor = 2.90
+        leverage_factor = 2.68
       else
-        leverage_factor = 2.65
+        leverage_factor = 2.55
       end
       Rails.logger.info(
         {
