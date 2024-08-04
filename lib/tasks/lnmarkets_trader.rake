@@ -1270,13 +1270,14 @@ namespace :lnmarkets_trader do
         #
         approx_margin_requirement_usd = (capital_waged_usd * 0.02).round(2)
         if approx_margin_requirement_usd > balance_usd
-          Rails.logger.fatal(
+          new_capital_waged_usd = (balance_usd/0.025).round(0)
+          Rails.logger.warn(
             {
-              message: "Not enough margin balance available to attempt trade.",
+              message: "Not enough margin balance available to attempt trade. Adjust capital_waged_usd from #{capital_waged_usd} to #{new_capital_waged_usd}.",
               script: "lnmarkets_trader:open_options_contract"
             }.to_json
           )
-          abort 'Error. Not enough balance available to attempt trade.'
+          capital_waged_usd = new_capital_waged_usd
         end
 
         #
