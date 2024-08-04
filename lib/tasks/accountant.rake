@@ -53,6 +53,12 @@ namespace :accountant do
           lose_streak = 0
         end
 
+        if previous_trading_stats_daily.draw_streak != nil
+          draw_streak = previous_trading_stats_daily.draw_streak
+        else
+          draw_streak = 0
+        end
+
         trade_result = ''
         if balance_btc > previous_trading_stats_daily.balance_btc
           trade_result = 'win'
@@ -67,21 +73,33 @@ namespace :accountant do
           bool_win = true
           win_streak += 1
           lose_streak = 0
+          draw_streak = 0
         elsif trade_result == 'loss'
           bool_loss = true
           win_streak = 0
           lose_streak += 1
+          draw_streak = 0
         elsif trade_result == 'draw'
           bool_draw = true
           win_streak = 0
           lose_streak = 0
+          draw_streak += 1
         end
 
-        last_100d_wins,last_100d_losses = 0,0
+        last_100d_wins, last_100d_losses, last_100d_draws = 0,0,0
         last_100d_records = TradingStatsDaily.order(recorded_date: :desc).limit(100)
         if last_100d_records.present? && !last_100d_records.empty?
           last_100d_wins = last_100d_records.where(win: true).count
           last_100d_losses = last_100d_records.where(loss: true).count
+          last_100d_draws = last_100d_records.where(draw: true).count
+
+          if trade_result == 'win'
+            last_100d_wins += 1
+          elsif trade_result == 'loss'
+            last_100d_losses += 1
+          elsif trade_result == 'draw'
+            last_100d_draws += 1
+          end
         end
 
         #
@@ -95,8 +113,10 @@ namespace :accountant do
           balance_usd_cents: balance_usd_cents,
           win_streak: win_streak,
           lose_streak: lose_streak,
+          draw_streak: draw_streak,
           last_100d_wins: last_100d_wins,
           last_100d_losses: last_100d_losses,
+          last_100d_draws: last_100d_draws,
           win: bool_win,
           loss: bool_loss,
           draw: bool_draw

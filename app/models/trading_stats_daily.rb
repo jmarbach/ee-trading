@@ -16,6 +16,9 @@
 #  updated_at        :datetime
 #  win               :boolean          default(FALSE)
 #  loss              :boolean          default(FALSE)
+#  draw              :boolean          default(FALSE)
+#  draw_streak       :float
+#  last_100d_draws   :float
 #
 class TradingStatsDaily < ApplicationRecord
 end

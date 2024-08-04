@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_08_03_012235) do
+ActiveRecord::Schema[7.0].define(version: 2024_08_04_015929) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -101,6 +101,8 @@ ActiveRecord::Schema[7.0].define(version: 2024_08_03_012235) do
     t.boolean "win", default: false
     t.boolean "loss", default: false
     t.boolean "draw", default: false
+    t.float "draw_streak"
+    t.float "last_100d_draws"
   end
 
   add_foreign_key "score_logs", "market_data_logs"
