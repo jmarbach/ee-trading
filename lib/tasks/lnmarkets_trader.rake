@@ -736,7 +736,6 @@ namespace :lnmarkets_trader do
       Rails.logger.info(
         {
           message: "Skip. No running futures trades.",
-          body: "#{trade_direction}",
           script: "lnmarkets_trader:check_market_indicators"
         }.to_json
       )
