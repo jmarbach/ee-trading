@@ -733,9 +733,13 @@ namespace :lnmarkets_trader do
         end
       end
     else
-      puts ""
-      puts "Skip. No running futures trades."
-      puts ""
+      Rails.logger.info(
+        {
+          message: "Skip. No running futures trades.",
+          body: "#{trade_direction}",
+          script: "lnmarkets_trader:check_market_indicators"
+        }.to_json
+      )
     end
 
     puts ""
@@ -793,9 +797,12 @@ namespace :lnmarkets_trader do
       )
     end
 
-    puts ""
-    puts "Data Errors: #{data_errors}"
-    puts ""
+    Rails.logger.info(
+      {
+        message: "Data Errors: #{data_errors}",
+        script: "lnmarkets_trader:check_market_indicators"
+      }.to_json
+    )
     if data_errors > 0
       market_data_log.update(int_data_errors: data_errors)
     end
@@ -1562,6 +1569,8 @@ namespace :lnmarkets_trader do
           if trade_direction == 'long'
             if index_price_btcusd > (entry_price * 1.035)
               new_stoploss = (entry_price * 1.035).round(0)
+            elsif index_price_btcusd > (entry_price * 1.026)
+              new_stoploss = (entry_price * 1.026).round(0)
             elsif index_price_btcusd > (entry_price * 1.025)
               new_stoploss = (entry_price * 1.025).round(0)
             elsif index_price_btcusd > (entry_price * 1.02)
@@ -1576,6 +1585,8 @@ namespace :lnmarkets_trader do
           elsif trade_direction == 'short'
             if index_price_btcusd < (entry_price * 0.965)
               new_stoploss = (entry_price * 0.965).round(0)
+            elsif index_price_btcusd < (entry_price * 0.974)
+              new_stoploss = (entry_price * 0.974).round(0)
             elsif index_price_btcusd < (entry_price * 0.975)
               new_stoploss = (entry_price * 0.975).round(0)
             elsif index_price_btcusd < (entry_price * 0.98)
