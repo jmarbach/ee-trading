@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_08_04_015929) do
+ActiveRecord::Schema[7.0].define(version: 2024_08_04_192721) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -58,8 +58,8 @@ ActiveRecord::Schema[7.0].define(version: 2024_08_04_015929) do
     t.string "exchange_name"
     t.string "trade_type"
     t.string "trade_direction"
-    t.float "quantity", default: 0.0
-    t.float "margin_quantity", default: 0.0
+    t.float "quantity_usd_cents", default: 0.0
+    t.float "margin_quantity_btc_sats", default: 0.0
     t.float "open_price", default: 0.0
     t.float "close_price", default: 0.0
     t.float "open_fee", default: 0.0
@@ -83,6 +83,9 @@ ActiveRecord::Schema[7.0].define(version: 2024_08_04_015929) do
     t.float "total_carry_fees"
     t.float "gross_proceeds_absolute", default: 0.0
     t.float "gross_proceeds_percent", default: 0.0
+    t.float "margin_quantity_usd_cents"
+    t.float "quantity_btc_sats"
+    t.float "margin_percent_of_quantity"
     t.index ["score_log_id"], name: "index_trade_logs_on_score_log_id"
   end
 

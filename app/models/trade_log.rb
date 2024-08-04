@@ -2,39 +2,42 @@
 #
 # Table name: trade_logs
 #
-#  id                      :bigint           not null, primary key
-#  score_log_id            :bigint
-#  created_at              :datetime
-#  updated_at              :datetime
-#  external_id             :string
-#  exchange_name           :string
-#  trade_type              :string
-#  trade_direction         :string
-#  quantity                :float            default(0.0)
-#  margin_quantity         :float            default(0.0)
-#  open_price              :float            default(0.0)
-#  close_price             :float            default(0.0)
-#  open_fee                :float            default(0.0)
-#  close_fee               :float            default(0.0)
-#  creation_timestamp      :bigint
-#  market_filled_timestamp :bigint
-#  closed_timestamp        :bigint
-#  net_proceeds_absolute   :float            default(0.0)
-#  net_proceeds_percent    :float            default(0.0)
-#  strike                  :float            default(0.0)
-#  settlement              :string
-#  instrument              :string
-#  derivative_type         :string
-#  leverage_quantity       :float            default(0.0)
-#  open                    :boolean
-#  running                 :boolean
-#  canceled                :boolean
-#  closed                  :boolean
-#  last_update_timestamp   :bigint
-#  implied_volatility      :float
-#  total_carry_fees        :float
-#  gross_proceeds_absolute :float            default(0.0)
-#  gross_proceeds_percent  :float            default(0.0)
+#  id                         :bigint           not null, primary key
+#  score_log_id               :bigint
+#  created_at                 :datetime
+#  updated_at                 :datetime
+#  external_id                :string
+#  exchange_name              :string
+#  trade_type                 :string
+#  trade_direction            :string
+#  quantity_usd_cents         :float            default(0.0)
+#  margin_quantity_btc_sats   :float            default(0.0)
+#  open_price                 :float            default(0.0)
+#  close_price                :float            default(0.0)
+#  open_fee                   :float            default(0.0)
+#  close_fee                  :float            default(0.0)
+#  creation_timestamp         :bigint
+#  market_filled_timestamp    :bigint
+#  closed_timestamp           :bigint
+#  net_proceeds_absolute      :float            default(0.0)
+#  net_proceeds_percent       :float            default(0.0)
+#  strike                     :float            default(0.0)
+#  settlement                 :string
+#  instrument                 :string
+#  derivative_type            :string
+#  leverage_quantity          :float            default(0.0)
+#  open                       :boolean
+#  running                    :boolean
+#  canceled                   :boolean
+#  closed                     :boolean
+#  last_update_timestamp      :bigint
+#  implied_volatility         :float
+#  total_carry_fees           :float
+#  gross_proceeds_absolute    :float            default(0.0)
+#  gross_proceeds_percent     :float            default(0.0)
+#  margin_quantity_usd_cents  :float
+#  quantity_btc_sats          :float
+#  margin_percent_of_quantity :float
 #
 class TradeLog < ApplicationRecord
 

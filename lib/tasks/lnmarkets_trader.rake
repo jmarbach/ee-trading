@@ -949,6 +949,10 @@ namespace :lnmarkets_trader do
         #
         # Create new record in TradeLogs table
         #
+        quantity_btc_sats = ((lnmarkets_response[:body]['quantity']/index_price_btcusd)*100000000.0).round(0)
+        margin_quantity_usd_cents = (price_sat_usd * lnmarkets_response[:body]['margin']).round(0)
+        margin_percent_of_quantity = (lnmarkets_response[:body]['margin']/quantity_btc_sats).round(4)
+
         trade_log = TradeLog.create(
           score_log_id: score_log_id,
           external_id: lnmarkets_response[:body]['id'],
@@ -956,14 +960,17 @@ namespace :lnmarkets_trader do
           derivative_type: 'futures',
           trade_type: 'buy',
           trade_direction: 'long',
-          quantity: lnmarkets_response[:body]['quantity'],
+          quantity_usd_cents: (lnmarkets_response[:body]['quantity'] * 100.0),
+          quantity_btc_sats: quantity_btc_sats,
           open_fee: lnmarkets_response[:body]['opening_fee'],
           close_fee: lnmarkets_response[:body]['closing_fee'],
-          margin_quantity: lnmarkets_response[:body]['margin'],
+          margin_quantity_sats: lnmarkets_response[:body]['margin'],
+          margin_quantity_usd_cents: margin_quantity_usd_cents,
           leverage_quantity: lnmarkets_response[:body]['leverage'],
           open_price: lnmarkets_response[:body]['price'],
           creation_timestamp: lnmarkets_response[:body]['creation_ts'],
-          last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
+          last_update_timestamp: lnmarkets_response[:body]['last_update_ts'],
+          margin_percent_of_quantity: margin_percent_of_quantity
         )
         #
         # Open directional hedge by buying options contract in the inverse direction
@@ -1116,6 +1123,10 @@ namespace :lnmarkets_trader do
         #
         # Create new record in TradeLogs table
         #
+        quantity_btc_sats = ((lnmarkets_response[:body]['quantity']/index_price_btcusd)*100000000.0).round(0)
+        margin_quantity_usd_cents = (price_sat_usd * lnmarkets_response[:body]['margin']).round(0)
+        margin_percent_of_quantity = (lnmarkets_response[:body]['margin']/quantity_btc_sats).round(4)
+
         trade_log = TradeLog.create(
           score_log_id: args[:score_log_id],
           external_id: lnmarkets_response[:body]['id'],
@@ -1123,14 +1134,17 @@ namespace :lnmarkets_trader do
           derivative_type: 'futures',
           trade_type: 'sell',
           trade_direction: 'short',
-          quantity: lnmarkets_response[:body]['quantity'],
+          quantity_usd_cents: (lnmarkets_response[:body]['quantity'] * 100.0),
+          quantity_btc_sats: quantity_btc_sats,
           open_fee: lnmarkets_response[:body]['opening_fee'],
           close_fee: lnmarkets_response[:body]['closing_fee'],
-          margin_quantity: lnmarkets_response[:body]['margin'],
+          margin_quantity_sats: lnmarkets_response[:body]['margin'],
+          margin_quantity_usd_cents: margin_quantity_usd_cents,
           leverage_quantity: lnmarkets_response[:body]['leverage'],
           open_price: lnmarkets_response[:body]['price'],
           creation_timestamp: lnmarkets_response[:body]['creation_ts'],
-          last_update_timestamp: lnmarkets_response[:body]['last_update_ts']
+          last_update_timestamp: lnmarkets_response[:body]['last_update_ts'],
+          margin_percent_of_quantity: margin_percent_of_quantity
         )
         #
         # Open directional hedge by buying options contract in the inverse direction
@@ -1340,6 +1354,10 @@ namespace :lnmarkets_trader do
           #
           # Create new record in TradeLogs table
           #
+          quantity_btc_sats = ((lnmarkets_response[:body]['quantity']/index_price_btcusd)*100000000.0).round(0)
+          margin_quantity_usd_cents = (price_sat_usd * lnmarkets_response[:body]['margin']).round(0)
+          margin_percent_of_quantity = (lnmarkets_response[:body]['margin']/quantity_btc_sats).round(4)
+
           trade_log = TradeLog.create(
             score_log_id: args[:score_log_id],
             external_id: lnmarkets_response[:body]['id'],
@@ -1347,17 +1365,20 @@ namespace :lnmarkets_trader do
             derivative_type: 'options',
             trade_type: 'buy',
             trade_direction: direction,
-            quantity: lnmarkets_response[:body]['quantity'],
+            quantity_usd_cents: (lnmarkets_response[:body]['quantity'] * 100.0),
+            quantity_btc_sats: quantity_btc_sats,
             open_fee: lnmarkets_response[:body]['opening_fee'],
             close_fee: lnmarkets_response[:body]['closing_fee'],
-            margin_quantity: lnmarkets_response[:body]['margin'],
+            margin_quantity_sats: lnmarkets_response[:body]['margin'],
+            margin_quantity_usd_cents: margin_quantity_usd_cents,
             open_price: lnmarkets_response[:body]['forward'],
             creation_timestamp: lnmarkets_response[:body]['creation_ts'],
             instrument: instrument_name,
             settlement: settlement,
             implied_volatility: lnmarkets_response[:body]['volatility'],
             running: true,
-            closed: false
+            closed: false,
+            margin_percent_of_quantity: margin_percent_of_quantity
           )
         else
           Rails.logger.error(
