@@ -950,8 +950,8 @@ namespace :lnmarkets_trader do
         # Create new record in TradeLogs table
         #
         quantity_btc_sats = ((lnmarkets_response[:body]['quantity']/index_price_btcusd)*100000000.0).round(0)
-        margin_quantity_usd_cents = (price_sat_usd * lnmarkets_response[:body]['margin']).round(0)
-        margin_percent_of_quantity = (lnmarkets_response[:body]['margin']/quantity_btc_sats).round(4)
+        margin_quantity_usd_cents = ((price_sat_usd * lnmarkets_response[:body]['margin']).round(0) * 100.0).round(0)
+        margin_percent_of_quantity = (lnmarkets_response[:body]['margin'].to_f/quantity_btc_sats.to_f).round(4)
 
         trade_log = TradeLog.create(
           score_log_id: score_log_id,
@@ -1124,8 +1124,8 @@ namespace :lnmarkets_trader do
         # Create new record in TradeLogs table
         #
         quantity_btc_sats = ((lnmarkets_response[:body]['quantity']/index_price_btcusd)*100000000.0).round(0)
-        margin_quantity_usd_cents = (price_sat_usd * lnmarkets_response[:body]['margin']).round(0)
-        margin_percent_of_quantity = (lnmarkets_response[:body]['margin']/quantity_btc_sats).round(4)
+        margin_quantity_usd_cents = ((price_sat_usd * lnmarkets_response[:body]['margin']).round(0) * 100.0).round(0)
+        margin_percent_of_quantity = (lnmarkets_response[:body]['margin'].to_f/quantity_btc_sats.to_f).round(4)
 
         trade_log = TradeLog.create(
           score_log_id: args[:score_log_id],
@@ -1355,8 +1355,8 @@ namespace :lnmarkets_trader do
           # Create new record in TradeLogs table
           #
           quantity_btc_sats = ((lnmarkets_response[:body]['quantity']/index_price_btcusd)*100000000.0).round(0)
-          margin_quantity_usd_cents = (price_sat_usd * lnmarkets_response[:body]['margin']).round(0)
-          margin_percent_of_quantity = (lnmarkets_response[:body]['margin']/quantity_btc_sats).round(4)
+          margin_quantity_usd_cents = ((price_sat_usd * lnmarkets_response[:body]['margin']).round(0) * 100.0).round(0)
+          margin_percent_of_quantity = (lnmarkets_response[:body]['margin'].to_f/quantity_btc_sats.to_f).round(4)
 
           trade_log = TradeLog.create(
             score_log_id: args[:score_log_id],
