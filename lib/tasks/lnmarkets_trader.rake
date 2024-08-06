@@ -1691,7 +1691,7 @@ namespace :lnmarkets_trader do
     if running_contracts.any?
       Rails.logger.info(
         {
-          message: "Evaluate if each running options contract ended early...",
+          message: "Evaluate if each running options contract should close early...",
           script: "lnmarkets_trader:check_stops"
         }.to_json
       )
