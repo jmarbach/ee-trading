@@ -1463,6 +1463,29 @@ namespace :lnmarkets_trader do
         }.to_json
       )
       #
+      # Fetch latest price of BTCUSD
+      #
+      index_price_btcusd, ask_price_btcusd, bid_price_btcusd = 0.0, 0.0, 0.0
+      lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
+      if lnmarkets_response[:status] == 'success'
+        index_price_btcusd = lnmarkets_response[:body]['index']
+        Rails.logger.info(
+          {
+            message: "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}",
+            script: "lnmarkets_trader:check_stops"
+          }.to_json
+        )
+      else
+        Rails.logger.fatal(
+          {
+            message: "Error. Unable to fetch latest price for BTCUSD... abort check_stops script.",
+            script: "lnmarkets_trader:check_stops"
+          }.to_json
+        )
+        abort 'Unable to proceed with updating Stops without BTCUSD price.'
+      end
+
+      #
       # Iterate through each futures trade
       #
       running_futures.each do |f|
@@ -1494,31 +1517,6 @@ namespace :lnmarkets_trader do
         #
         # Check if position is 'in the money'
         #
-        #
-        # Fetch latest price of BTCUSD
-        #
-        index_price_btcusd, ask_price_btcusd, bid_price_btcusd = 0.0, 0.0, 0.0
-        lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
-        if lnmarkets_response[:status] == 'success'
-          index_price_btcusd = lnmarkets_response[:body]['index']
-          ask_price_btcusd = lnmarkets_response[:body]['askPrice']
-          bid_price_btcusd = lnmarkets_response[:body]['bidPrice']
-          Rails.logger.info(
-            {
-              message: "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}",
-              script: "lnmarkets_trader:check_stops"
-            }.to_json
-          )
-        else
-          Rails.logger.fatal(
-            {
-              message: "Error. Unable to fetch latest price for BTCUSD... abort check_stops script.",
-              script: "lnmarkets_trader:check_stops"
-            }.to_json
-          )
-          abort 'Unable to proceed with updating Stops without BTCUSD price.'
-        end
-
         update_trade_stoploss_price = false
         entry_price = f['entry_price']
         previous_stoploss = f['stoploss']
@@ -1697,6 +1695,29 @@ namespace :lnmarkets_trader do
           script: "lnmarkets_trader:check_stops"
         }.to_json
       )
+      #
+      # Fetch latest price of BTCUSD
+      #
+      index_price_btcusd, ask_price_btcusd, bid_price_btcusd = 0.0, 0.0, 0.0
+      lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
+      if lnmarkets_response[:status] == 'success'
+        index_price_btcusd = lnmarkets_response[:body]['index']
+        Rails.logger.info(
+          {
+            message: "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}",
+            script: "lnmarkets_trader:check_stops"
+          }.to_json
+        )
+      else
+        Rails.logger.fatal(
+          {
+            message: "Error. Unable to fetch latest price for BTCUSD... abort check_stops script.",
+            script: "lnmarkets_trader:check_stops"
+          }.to_json
+        )
+        abort 'Unable to proceed with updating Stops without BTCUSD price.'
+      end
+
       #
       # Iterate through each options contract
       #
