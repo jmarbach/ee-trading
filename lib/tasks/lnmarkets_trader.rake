@@ -1745,7 +1745,7 @@ namespace :lnmarkets_trader do
         end
 
         if trade_direction == 'long'
-          if index_price_btcusd > (entry_price * 1.355)
+          if index_price_btcusd > (entry_price * 1.0355)
             #
             # Update the position's stop-loss
             #
