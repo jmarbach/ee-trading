@@ -1756,38 +1756,37 @@ namespace :lnmarkets_trader do
         end
 
         if close_running_contract == true
-            lnmarkets_response = lnmarkets_client.close_options_contract(c['id'])
+          lnmarkets_response = lnmarkets_client.close_options_contract(c['id'])
 
-            if lnmarkets_response[:status] == 'success'
-              puts ""
-              puts "Finished closing open options contract: #{c['id']}."
-              puts ""
-              #
-              # Update Trade Log
-              #
-              trade_log = TradeLog.find_by_external_id(c['id'])
-              if trade_log.present?
-                trade_log.update(
-                  running: false,
-                  closed: true
-                )
-                trade_log.get_final_trade_stats
-              else
-                Rails.logger.error(
-                  {
-                    message: "Error. Unable to find trade log for trade: #{c['id']}",
-                    script: "lnmarkets_trader:check_stops"
-                  }.to_json
-                )
-              end
+          if lnmarkets_response[:status] == 'success'
+            puts ""
+            puts "Finished closing open options contract: #{c['id']}."
+            puts ""
+            #
+            # Update Trade Log
+            #
+            trade_log = TradeLog.find_by_external_id(c['id'])
+            if trade_log.present?
+              trade_log.update(
+                running: false,
+                closed: true
+              )
+              trade_log.get_final_trade_stats
             else
               Rails.logger.error(
                 {
-                  message: "Error. Unable to close open options contracts: #{c['id']}",
+                  message: "Error. Unable to find trade log for trade: #{c['id']}",
                   script: "lnmarkets_trader:check_stops"
                 }.to_json
               )
             end
+          else
+            Rails.logger.error(
+              {
+                message: "Error. Unable to close open options contracts: #{c['id']}",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
           end
         else
           Rails.logger.info(
