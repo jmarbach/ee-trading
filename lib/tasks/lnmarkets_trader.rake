@@ -1717,9 +1717,9 @@ namespace :lnmarkets_trader do
         )
 
         trade_direction = ''
-        if f['type'] == 'c'
+        if c['type'] == 'c'
           trade_direction = 'long'
-        elsif f['type'] == 'p'
+        elsif c['type'] == 'p'
           trade_direction = 'short'
         end
 
