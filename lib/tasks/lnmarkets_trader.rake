@@ -1465,7 +1465,7 @@ namespace :lnmarkets_trader do
       #
       # Fetch latest price of BTCUSD
       #
-      index_price_btcusd, ask_price_btcusd, bid_price_btcusd = 0.0, 0.0, 0.0
+      index_price_btcusd = 0.0
       lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
       if lnmarkets_response[:status] == 'success'
         index_price_btcusd = lnmarkets_response[:body]['index']
@@ -1698,7 +1698,7 @@ namespace :lnmarkets_trader do
       #
       # Fetch latest price of BTCUSD
       #
-      index_price_btcusd, ask_price_btcusd, bid_price_btcusd = 0.0, 0.0, 0.0
+      index_price_btcusd = 0.0
       lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
       if lnmarkets_response[:status] == 'success'
         index_price_btcusd = lnmarkets_response[:body]['index']
