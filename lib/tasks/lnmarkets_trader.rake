@@ -1477,7 +1477,7 @@ namespace :lnmarkets_trader do
           }.to_json
         )
         #
-        # 2. Check trade direction, long/short
+        # Check trade direction, long/short
         #
         trade_direction = ''
         if f['side'] == 'b'
@@ -1492,7 +1492,7 @@ namespace :lnmarkets_trader do
           }.to_json
         )
         #
-        # 3. Check if position is 'in the money'
+        # Check if position is 'in the money'
         #
         #
         # Fetch latest price of BTCUSD
@@ -1564,14 +1564,6 @@ namespace :lnmarkets_trader do
           else
             next
           end
-        else
-          Rails.logger.fatal(
-            {
-              message: "Invalid trade direction argument.",
-              script: "lnmarkets_trader:check_stops"
-            }.to_json
-          )
-          abort 'Invalid trade direction.'
         end
 
         #
@@ -1672,6 +1664,149 @@ namespace :lnmarkets_trader do
         }.to_json
       )
     end
+
+    #
+    # 2. Check for any running options contracts...
+    #
+    running_contracts = []
+    lnmarkets_response = lnmarkets_client.get_options_trades()
+    if lnmarkets_response[:status] == 'success'
+      all_contracts = lnmarkets_response[:body]
+      if all_contracts.count > 0
+        running_contracts = all_contracts.select { |a| a['running'] == true }
+        Rails.logger.info(
+          {
+            message: "Running Options Contracts: #{running_contracts.count}",
+            script: "lnmarkets_trader:check_stops"
+          }.to_json
+        )
+      end
+    else
+      Rails.logger.error(
+        {
+          message: "Error. Unable to get running contracts.",
+          script: "lnmarkets_trader:check_stops"
+        }.to_json
+      )
+    end
+
+    if running_contracts.any?
+      Rails.logger.info(
+        {
+          message: "Evaluate if each running options contract ended early...",
+          script: "lnmarkets_trader:check_stops"
+        }.to_json
+      )
+      #
+      # Iterate through each options contract
+      #
+      running_contracts.each do |c|
+        Rails.logger.info(
+          {
+            message: "Options Contract ID: #{c['id']}",
+            script: "lnmarkets_trader:check_stops"
+          }.to_json
+        )
+        close_running_contract = false
+        entry_price = c['forward']
+        Rails.logger.info(
+          {
+            message: "Trade Entry Price: #{entry_price.to_fs(:delimited)}",
+            script: "lnmarkets_trader:check_stops"
+          }.to_json
+        )
+
+        trade_direction = ''
+        if f['type'] == 'c'
+          trade_direction = 'long'
+        elsif f['type'] == 'p'
+          trade_direction = 'short'
+        end
+
+        if trade_direction == 'long'
+          if index_price_btcusd > (entry_price * 1.355)
+            #
+            # Update the position's stop-loss
+            #
+            Rails.logger.info(
+              {
+                message: "Close In-the-Money options contract #{c['id']}",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
+            close_running_contract = true
+          else
+            next
+          end
+        elsif trade_direction == 'short'
+          if index_price_btcusd < (entry_price * 0.9645)
+            #
+            # Update the position's stop-loss
+            #
+            Rails.logger.info(
+              {
+                message: "Close In-the-Money options contract #{c['id']}",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
+            close_running_contract = true
+          else
+            next
+          end
+        end
+
+        if close_running_contract == true
+            lnmarkets_response = lnmarkets_client.close_options_contract(c['id'])
+
+            if lnmarkets_response[:status] == 'success'
+              puts ""
+              puts "Finished closing open options contract: #{c['id']}."
+              puts ""
+              #
+              # Update Trade Log
+              #
+              trade_log = TradeLog.find_by_external_id(c['id'])
+              if trade_log.present?
+                trade_log.update(
+                  running: false,
+                  closed: true
+                )
+                trade_log.get_final_trade_stats
+              else
+                Rails.logger.error(
+                  {
+                    message: "Error. Unable to find trade log for trade: #{c['id']}",
+                    script: "lnmarkets_trader:check_stops"
+                  }.to_json
+                )
+              end
+            else
+              Rails.logger.error(
+                {
+                  message: "Error. Unable to close open options contracts: #{c['id']}",
+                  script: "lnmarkets_trader:check_stops"
+                }.to_json
+              )
+            end
+          end
+        else
+          Rails.logger.info(
+            {
+              message: "Allow options contract to continue running. #{c['id']}",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
+        end
+      end
+    else
+      Rails.logger.info(
+        {
+          message: "Skip. No running options contracts.",
+          script: "lnmarkets_trader:check_stops"
+        }.to_json
+      )
+    end
+
     Rails.logger.info(
       {
         message: "End lnmarkets_trader:check_stops...",
