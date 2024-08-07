@@ -87,7 +87,7 @@ namespace :accountant do
         end
 
         last_100d_wins, last_100d_losses, last_100d_draws = 0,0,0
-        last_100d_records = TradingStatsDaily.order(recorded_date: :desc).limit(100)
+        last_100d_records = TradingStatsDaily.order(recorded_date: :desc).limit(99)
         if last_100d_records.present? && !last_100d_records.empty?
           last_100d_wins = last_100d_records.where(win: true).count
           last_100d_losses = last_100d_records.where(loss: true).count
