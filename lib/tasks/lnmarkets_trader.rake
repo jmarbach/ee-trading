@@ -903,7 +903,7 @@ namespace :lnmarkets_trader do
       end
 
       if (last_16_market_data_log_entries[0] < (last_16_implied_volatilities_t3_average))
-        leverage_factor = 2.70
+        leverage_factor = 2.69
       else
         leverage_factor = 2.55
       end
@@ -1613,6 +1613,13 @@ namespace :lnmarkets_trader do
           Rails.logger.info(
             {
               message: "New stoploss: #{new_stoploss.to_fs(:delimited)}",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
+
+          Rails.logger.info(
+            {
+              message: "New stoploss / Old Stoploss - #{new_stoploss} / #{previous_stoploss}",
               script: "lnmarkets_trader:check_stops"
             }.to_json
           )
