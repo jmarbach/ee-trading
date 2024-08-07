@@ -1612,14 +1612,7 @@ namespace :lnmarkets_trader do
           end
           Rails.logger.info(
             {
-              message: "New stoploss: #{new_stoploss.to_fs(:delimited)}",
-              script: "lnmarkets_trader:check_stops"
-            }.to_json
-          )
-
-          Rails.logger.info(
-            {
-              message: "New stoploss / Old Stoploss - #{new_stoploss} / #{previous_stoploss}",
+              message: "New stoploss: #{new_stoploss.to_fs(:delimited)}  (Previously: #{previous_stoploss})",
               script: "lnmarkets_trader:check_stops"
             }.to_json
           )
@@ -1643,9 +1636,9 @@ namespace :lnmarkets_trader do
               )
             end
           else
-            Rails.logger.error(
+            Rails.logger.warn(
               {
-                message: "Error. New stoploss is equal to previous stoploss.",
+                message: "Warning. New stoploss is equal to previous stoploss. Skipped updating futures trade.",
                 script: "lnmarkets_trader:check_stops"
               }.to_json
             )
