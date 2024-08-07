@@ -903,7 +903,7 @@ namespace :lnmarkets_trader do
       end
 
       if (last_16_market_data_log_entries[0] < (last_16_implied_volatilities_t3_average))
-        leverage_factor = 2.68
+        leverage_factor = 2.70
       else
         leverage_factor = 2.55
       end
