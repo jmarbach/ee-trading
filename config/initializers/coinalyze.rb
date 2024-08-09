@@ -347,6 +347,61 @@ class CoinalyzeAPI
     end
   end
 
+  def get_long_short_ratio_history(symbol, interval, start_time, end_time)
+    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
+    begin
+      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      request_response = @conn.get("long-short-ratio-history?symbols=#{symbol}&interval=#{interval}&from=#{start_time}&to=#{end_time}")
+      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      elapsed_time = (time_finish - time_start).round(6)
+    rescue Faraday::ConnectionFailed => e
+      puts e
+      puts e.class
+      puts e.inspect
+      puts "Faraday Connection Failed Error!"
+
+      hash_method_response[:status] = 'error'
+      hash_method_response[:message] = 'ConnectionFailed'
+      return hash_method_response
+    rescue Faraday::ResourceNotFound => e
+      puts e
+      puts e.class
+      puts e.inspect
+      puts "Faraday ResourceNotFound error!"
+
+      hash_method_response[:status] = 'error'
+      hash_method_response[:message] = 'ResourceNotFound'
+      return hash_method_response
+    rescue Faraday::SSLError => e
+      puts e
+      puts e.class
+      puts e.inspect
+      puts "Faraday SSLError error!"
+
+      hash_method_response[:status] = 'error'
+      hash_method_response[:message] = 'SSLError'
+      return hash_method_response
+    rescue => e
+      puts "Coinalyze Error!"
+      puts e
+      puts e.response
+      hash_method_response[:status] = 'error'
+      if e.response != nil
+        parsed_response_body = JSON.parse(e.response[:body])
+        hash_method_response[:message] = parsed_response_body['message']
+      end
+      return hash_method_response
+    else
+      puts ''
+      parsed_response_body = JSON.parse(request_response.body)
+
+      hash_method_response[:status] = 'success'
+      hash_method_response[:body] = parsed_response_body
+      hash_method_response[:elapsed_time] = elapsed_time
+      return hash_method_response
+    end
+  end
+
   def parse(response)
     JSON.parse(response.body)
   end
