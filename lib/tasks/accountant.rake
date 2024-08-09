@@ -109,18 +109,18 @@ namespace :accountant do
         net_balance_change_usd_absolute, net_balance_change_usd_cents_absolute = 0.0, 0.0
         net_balance_change_btc_percent, net_balance_change_usd_percent = 0.0, 0.0
         if previous_trading_stats_daily.balance_btc != nil
-          net_balance_change_btc_absolute = (balance_btc - previous_trading_stats_daily.balance_btc)
+          net_balance_change_btc_absolute = (balance_btc - previous_trading_stats_daily.balance_btc).round(8)
           net_balance_change_btc_percent = (((balance_btc - previous_trading_stats_daily.balance_btc)/previous_trading_stats_daily.balance_btc)*100.0).round(2)
         end
         if previous_trading_stats_daily.balance_btc_sats != nil
           net_balance_change_btc_sats_absolute = (balance_btc_sats - previous_trading_stats_daily.balance_btc_sats)
         end
         if previous_trading_stats_daily.balance_usd != nil
-          net_balance_change_usd_absolute = (balance_usd - previous_trading_stats_daily.balance_usd)
+          net_balance_change_usd_absolute = (balance_usd - previous_trading_stats_daily.balance_usd).round(2)
           net_balance_change_usd_percent = (((balance_usd - previous_trading_stats_daily.balance_usd)/previous_trading_stats_daily.balance_usd)*100.0).round(2)
         end
         if previous_trading_stats_daily.balance_usd_cents != nil
-          net_balance_change_usd_cents_absolute = (balance_usd - previous_trading_stats_daily.balance_usd_cents)
+          net_balance_change_usd_cents_absolute = (balance_usd_cents - previous_trading_stats_daily.balance_usd_cents)
         end
 
         #
