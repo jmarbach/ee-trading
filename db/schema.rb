@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_08_04_192721) do
+ActiveRecord::Schema[7.0].define(version: 2024_08_09_234415) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -39,6 +39,7 @@ ActiveRecord::Schema[7.0].define(version: 2024_08_04_192721) do
     t.integer "int_data_errors", default: 0
     t.float "implied_volatility_deribit"
     t.float "implied_volatility_t3"
+    t.float "avg_long_short_ratio"
   end
 
   create_table "score_logs", force: :cascade do |t|
@@ -106,6 +107,12 @@ ActiveRecord::Schema[7.0].define(version: 2024_08_04_192721) do
     t.boolean "draw", default: false
     t.float "draw_streak"
     t.float "last_100d_draws"
+    t.float "net_balance_change_btc_absolute"
+    t.float "net_balance_change_btc_sats_absolute"
+    t.float "net_balance_change_usd_absolute"
+    t.float "net_balance_change_usd_cents_absolute"
+    t.float "net_balance_change_btc_percent"
+    t.float "net_balance_change_usd_percent"
   end
 
   add_foreign_key "score_logs", "market_data_logs"

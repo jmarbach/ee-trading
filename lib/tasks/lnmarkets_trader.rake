@@ -245,6 +245,49 @@ namespace :lnmarkets_trader do
       data_errors += 1
     end
 
+    # Long/Short data
+    avg_long_short_ratio = 0.0
+    begin
+      coinalyze_client = CoinalyzeAPI.new
+      start_time = (DateTime.now.utc.beginning_of_day.to_i - 86400)
+      end_time = DateTime.now.utc.beginning_of_day.to_i
+      symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
+      coinalyze_response = coinalyze_client.get_long_short_ratio_history(symbols, 'daily', start_time, end_time)
+
+      if coinalyze_response[:body].count > 0
+        count_of_records = 0.0
+        coinalyze_response[:body].each_with_index do |f, index|
+          coinalyze_response[:body][index]['history'].each do |o|
+            count_of_records += 1.0
+            avg_long_short_ratio += o['r']
+          end
+        end
+        avg_long_short_ratio = (avg_long_short_ratio / count_of_records).round(3)
+      end
+    rescue => e
+      puts e
+      puts 'Error fetching long/short ratio data'
+    end
+    puts "LONG/SHORT RATIO:"
+    puts avg_long_short_ratio
+    puts ""
+
+    #
+    # Find average long/short ratios
+    #
+    last_30_market_data_log_entries = nil
+    last_30_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(30).pluck(:avg_long_short_ratio)
+    if last_30_market_data_log_entries != nil
+      # Remote nil values from array
+      last_30_market_data_log_entries.compact!
+      if !last_30_market_data_log_entries.empty?
+        last_30_long_short_ratios_average = last_30_market_data_log_entries.sum.fdiv(last_30_market_data_log_entries.size).round(2)
+      end
+    else
+      last_30_long_short_ratios_average = 0.0
+      data_errors += 1
+    end
+
     #
     # Save MarketDataLog
     #
@@ -270,7 +313,8 @@ namespace :lnmarkets_trader do
         avg_last_10_candle_closes: last_10_candle_closes_average,
         avg_last_8_aggregate_open_interests: last_8_aggregate_open_interests_average,
         implied_volatility_deribit: implied_volatility_deribit,
-        implied_volatility_t3: implied_volatility_t3
+        implied_volatility_t3: implied_volatility_t3,
+        avg_long_short_ratio: avg_long_short_ratio
       )
     rescue => e
       Rails.logger.error(

@@ -27,6 +27,7 @@
 #  int_data_errors                     :integer          default(0)
 #  implied_volatility_deribit          :float
 #  implied_volatility_t3               :float
+#  avg_long_short_ratio                :float
 #
 class MarketDataLog < ApplicationRecord
 end
