@@ -136,6 +136,7 @@ namespace :lnmarkets_trader do
     rescue => e
       puts e
       puts 'Error fetching open interest data'
+      data_errors += 1
     end
     puts "OPEN INTEREST:"
     puts aggregate_open_interest
@@ -267,6 +268,7 @@ namespace :lnmarkets_trader do
     rescue => e
       puts e
       puts 'Error fetching long/short ratio data'
+      data_errors += 1
     end
     puts "LONG/SHORT RATIO:"
     puts avg_long_short_ratio
