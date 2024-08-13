@@ -1715,7 +1715,7 @@ namespace :lnmarkets_trader do
         else
           Rails.logger.info(
             {
-              message: "Trade is not in the money. Do no update stoploss.",
+              message: "Futures Position is not In-the-Money. Do no update stoploss.",
               script: "lnmarkets_trader:check_stops"
             }.to_json
           )
@@ -1826,6 +1826,12 @@ namespace :lnmarkets_trader do
             )
             close_running_contract = true
           else
+            Rails.logger.info(
+              {
+                message: "Options position requires no changes.",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
             next
           end
         elsif trade_direction == 'short'
@@ -1841,6 +1847,12 @@ namespace :lnmarkets_trader do
             )
             close_running_contract = true
           else
+            Rails.logger.info(
+              {
+                message: "Options position requires no changes.",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
             next
           end
         end
@@ -1849,9 +1861,12 @@ namespace :lnmarkets_trader do
           lnmarkets_response = lnmarkets_client.close_options_contract(c['id'])
 
           if lnmarkets_response[:status] == 'success'
-            puts ""
-            puts "Finished closing open options contract: #{c['id']}."
-            puts ""
+            Rails.logger.info(
+              {
+                message: "Finished closing open options contract: #{c['id']}.",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
             #
             # Update Trade Log
             #
