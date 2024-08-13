@@ -978,7 +978,7 @@ namespace :lnmarkets_trader do
       #
       side = 'b'
       type = 'l'
-      leverage = 3
+      leverage = 4
       price = (bid_price_btcusd * 0.999925).round(0)
       quantity = capital_waged_usd
       takeprofit = (index_price_btcusd * 1.07).round(0)
