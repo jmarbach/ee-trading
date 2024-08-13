@@ -1686,10 +1686,11 @@ namespace :lnmarkets_trader do
           if new_stoploss != previous_stoploss
             lnmarkets_response = lnmarkets_client.update_futures_trade(f['id'], 'stoploss', new_stoploss)
             if lnmarkets_response[:status] == 'success'
+              parsed_response = JSON.parse(lnmarkets_response[:body])
               Rails.logger.info(
                 {
                   message: "Updated stoploss for #{f['id']}:",
-                  body: "#{lnmarkets_response[:body].inspect}",
+                  body: lnmarkets_response[:body],
                   script: "lnmarkets_trader:check_stops"
                 }.to_json
               )
