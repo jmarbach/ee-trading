@@ -989,7 +989,7 @@ namespace :lnmarkets_trader do
         Rails.logger.info(
           {
             message: "New Futures Trade Created",
-            body: lnmarkets_response[:body],
+            body: lnmarkets_response[:body]['id'],
             script: "lnmarkets_trader:create_long_trade"
           }.to_json
         )
@@ -1163,7 +1163,7 @@ namespace :lnmarkets_trader do
         Rails.logger.info(
           {
             message: "New Futures Trade Created",
-            body: lnmarkets_response[:body],
+            body: lnmarkets_response[:body]['id'],
             script: "lnmarkets_trader:create_short_trade"
           }.to_json
         )
@@ -1394,7 +1394,7 @@ namespace :lnmarkets_trader do
           Rails.logger.info(
             {
               message: "New Options Trade Created:",
-              body: "#{lnmarkets_response[:body]}",
+              body: lnmarkets_response[:body]['id'],
               script: "lnmarkets_trader:open_options_contract"
             }.to_json
           )
@@ -1604,7 +1604,6 @@ namespace :lnmarkets_trader do
             next
           end
         elsif trade_direction == 'short'
-          puts "index_price_btcusd - entry_price | #{index_price_btcusd} - #{entry_price}"
           if index_price_btcusd < entry_price
             #
             # Update the position's stop-loss
@@ -1693,7 +1692,7 @@ namespace :lnmarkets_trader do
               Rails.logger.info(
                 {
                   message: "Updated stoploss for #{f['id']}:",
-                  body: lnmarkets_response[:body],
+                  body: lnmarkets_response[:body]['stoploss'],
                   script: "lnmarkets_trader:check_stops"
                 }.to_json
               )
