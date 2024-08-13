@@ -1592,9 +1592,19 @@ namespace :lnmarkets_trader do
             )
             update_trade_stoploss_price = true
           else
+            #
+            # Do not update the position's stop-loss
+            #
+            Rails.logger.info(
+              {
+                message: "Position is not In-the-Money. Do not update stop-loss. Position: #{f['id']}",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
             next
           end
         elsif trade_direction == 'short'
+          puts "index_price_btcusd - entry_price | #{index_price_btcusd} - #{entry_price}"
           if index_price_btcusd < entry_price
             #
             # Update the position's stop-loss
@@ -1607,6 +1617,15 @@ namespace :lnmarkets_trader do
             )
             update_trade_stoploss_price = true
           else
+            #
+            # Do not update the position's stop-loss
+            #
+            Rails.logger.info(
+              {
+                message: "Position is not In-the-Money. Do not update stop-loss. Position: #{f['id']}",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
             next
           end
         end
