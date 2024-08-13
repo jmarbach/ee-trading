@@ -1656,8 +1656,10 @@ namespace :lnmarkets_trader do
               new_stoploss = (entry_price * 1.0).round(0)
             elsif index_price_btcusd > (entry_price * 1.01)
               new_stoploss = (entry_price * 0.99).round(0)
+            elsif index_price_btcusd > (entry_price * 1.005)
+              new_stoploss = (entry_price * 0.95).round(0)
             else
-              new_stoploss = (index_price_btcusd * 0.97).round(0)
+              new_stoploss = (index_price_btcusd * 0.94).round(0)
             end
           elsif trade_direction == 'short'
             if index_price_btcusd < (entry_price * 0.965)
@@ -1672,8 +1674,10 @@ namespace :lnmarkets_trader do
               new_stoploss = (entry_price * 1.0).round(0)
             elsif index_price_btcusd < (entry_price * 0.99)
               new_stoploss = (entry_price * 1.01).round(0)
+            elsif index_price_btcusd < (entry_price * 0.995)
+              new_stoploss = (entry_price * 1.05).round(0)
             else
-              new_stoploss = (index_price_btcusd * 1.03).round(0)
+              new_stoploss = (index_price_btcusd * 1.06).round(0)
             end
           end
           Rails.logger.info(
