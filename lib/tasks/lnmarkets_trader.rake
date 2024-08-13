@@ -246,6 +246,7 @@ namespace :lnmarkets_trader do
       data_errors += 1
     end
 
+    sleep(62)
     # Long/Short data
     avg_long_short_ratio = 0.0
     begin
@@ -1585,7 +1586,7 @@ namespace :lnmarkets_trader do
             #
             Rails.logger.info(
               {
-                message: "Update stop-loss for #{f['id']}",
+                message: "Update stop-loss for long position, #{f['id']}",
                 script: "lnmarkets_trader:check_stops"
               }.to_json
             )
@@ -1600,7 +1601,7 @@ namespace :lnmarkets_trader do
             #
             Rails.logger.info(
               {
-                message: "Update stop-loss for #{f['id']}",
+                message: "Update stop-loss for short position, #{f['id']}",
                 script: "lnmarkets_trader:check_stops"
               }.to_json
             )
@@ -1621,7 +1622,7 @@ namespace :lnmarkets_trader do
             }.to_json
           )
           #
-          # Calcualte new stoploss
+          # Calculate new stoploss
           #
           if trade_direction == 'long'
             if index_price_btcusd > (entry_price * 1.035)
