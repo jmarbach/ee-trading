@@ -464,17 +464,17 @@ namespace :lnmarkets_trader do
     end
 
     if last_30_long_short_ratios_average != 0.0 && avg_long_short_ratio != 0.0
-      if avg_long_short_ratio > ((last_20_long_short_ratios_average)*1.30) && avg_long_short_ratio < ((last_20_long_short_ratios_average)*1.50)
+      if avg_long_short_ratio > ((last_30_long_short_ratios_average)*1.30) && avg_long_short_ratio < ((last_30_long_short_ratios_average)*1.50)
         trade_direction_score -= 1.0
-      elsif avg_long_short_ratio > ((last_20_long_short_ratios_average)*1.09) && avg_long_short_ratio < ((last_20_long_short_ratios_average)*1.19)
+      elsif avg_long_short_ratio > ((last_30_long_short_ratios_average)*1.09) && avg_long_short_ratio < ((last_30_long_short_ratios_average)*1.19)
         trade_direction_score -= 0.0
-      elsif avg_long_short_ratio > ((last_20_long_short_ratios_average)*1.01) && avg_long_short_ratio < ((last_20_long_short_ratios_average)*1.09)
+      elsif avg_long_short_ratio > ((last_30_long_short_ratios_average)*1.01) && avg_long_short_ratio < ((last_30_long_short_ratios_average)*1.09)
         trade_direction_score += 1.0
-      elsif avg_long_short_ratio < ((last_20_long_short_ratios_average)*0.985) && avg_long_short_ratio > ((last_20_long_short_ratios_average)*0.98)
+      elsif avg_long_short_ratio < ((last_30_long_short_ratios_average)*0.985) && avg_long_short_ratio > ((last_30_long_short_ratios_average)*0.98)
         trade_direction_score += 1.0
-      elsif avg_long_short_ratio < ((last_20_long_short_ratios_average)*0.98) && avg_long_short_ratio > ((last_20_long_short_ratios_average)*0.96)
+      elsif avg_long_short_ratio < ((last_30_long_short_ratios_average)*0.98) && avg_long_short_ratio > ((last_30_long_short_ratios_average)*0.96)
         trade_direction_score += 2.0
-      elsif avg_long_short_ratio < ((last_20_long_short_ratios_average)*0.93) && avg_long_short_ratio > ((last_20_long_short_ratios_average)*0.90)
+      elsif avg_long_short_ratio < ((last_30_long_short_ratios_average)*0.93) && avg_long_short_ratio > ((last_30_long_short_ratios_average)*0.90)
         trade_direction_score += 3.0
       end
     end
