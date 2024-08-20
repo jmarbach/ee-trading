@@ -835,7 +835,7 @@ namespace :lnmarkets_trader do
       )
 
       if trade_direction == 'buy'
-        Rake::Task["lnmarkets_traders:create_long_trade"].execute({score_log_id: score_log.id})
+        Rake::Task["lnmarkets_trader:create_long_trade"].execute({score_log_id: score_log.id})
       elsif trade_direction == 'sell'
         Rake::Task["lnmarkets_trader:create_short_trade"].execute({score_log_id: score_log.id})
       end
