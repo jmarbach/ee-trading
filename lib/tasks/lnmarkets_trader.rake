@@ -966,9 +966,9 @@ namespace :lnmarkets_trader do
       end
 
       if (last_16_market_data_log_entries[0] < (last_16_implied_volatilities_t3_average))
-        leverage_factor = 2.69
+        leverage_factor = 3.3
       else
-        leverage_factor = 2.55
+        leverage_factor = 2.7
       end
       Rails.logger.info(
         {
@@ -1038,7 +1038,9 @@ namespace :lnmarkets_trader do
         #
         # Open directional hedge by buying options contract in the inverse direction
         #
-        Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'short', amount: quantity, score_log_id: score_log_id})
+        if leverage_factor == 2.7
+          Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'short', amount: quantity, score_log_id: score_log_id})
+        end
       else
         puts 'Error. Unable to create futures trade.'
       end
