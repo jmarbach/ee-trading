@@ -1039,7 +1039,8 @@ namespace :lnmarkets_trader do
         # Open directional hedge by buying options contract in the inverse direction
         #
         if leverage_factor == 2.7
-          Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'short', amount: quantity, score_log_id: score_log_id})
+          # Commented out until hedges can be modeled successfully
+          # Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'short', amount: quantity, score_log_id: score_log_id})
         end
       else
         puts 'Error. Unable to create futures trade.'
@@ -1216,7 +1217,8 @@ namespace :lnmarkets_trader do
         #
 
         if leverage_factor == 2.7
-          Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'long', amount: quantity, score_log_id: score_log_id})
+          # Commented out until hedges can be modeled successfully
+          # Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'long', amount: quantity, score_log_id: score_log_id})
         end
       else
         Rails.logger.error(
