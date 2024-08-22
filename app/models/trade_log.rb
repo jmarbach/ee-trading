@@ -38,6 +38,7 @@
 #  margin_quantity_usd_cents  :float
 #  quantity_btc_sats          :float
 #  margin_percent_of_quantity :float
+#  strategy                   :string
 #
 class TradeLog < ApplicationRecord
 

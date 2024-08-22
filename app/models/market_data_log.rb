@@ -28,6 +28,7 @@
 #  implied_volatility_deribit          :float
 #  implied_volatility_t3               :float
 #  avg_long_short_ratio                :float
+#  strategy                            :string
 #
 class MarketDataLog < ApplicationRecord
 end

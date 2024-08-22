@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2024_08_09_234415) do
+ActiveRecord::Schema[7.0].define(version: 2024_08_22_225839) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -40,6 +40,7 @@ ActiveRecord::Schema[7.0].define(version: 2024_08_09_234415) do
     t.float "implied_volatility_deribit"
     t.float "implied_volatility_t3"
     t.float "avg_long_short_ratio"
+    t.string "strategy"
   end
 
   create_table "score_logs", force: :cascade do |t|
@@ -87,6 +88,7 @@ ActiveRecord::Schema[7.0].define(version: 2024_08_09_234415) do
     t.float "margin_quantity_usd_cents"
     t.float "quantity_btc_sats"
     t.float "margin_percent_of_quantity"
+    t.string "strategy"
     t.index ["score_log_id"], name: "index_trade_logs_on_score_log_id"
   end
 
