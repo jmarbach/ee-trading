@@ -36,8 +36,10 @@ namespace :lnmarkets_trader do
 
     # Get technical indicators from Polygon
     response_rsi = polygon_client.get_rsi(symbol, timestamp_current, timespan, window, series_type)
+    rsi_value = 0.0
     if response_rsi[:status] == 'success'
       rsi_values = response_rsi[:body]['results']['values']
+      rsi_value = rsi_values[0]['value']
     else
       data_errors += 1
     end
@@ -46,6 +48,8 @@ namespace :lnmarkets_trader do
     puts ""
 
     response_volume = polygon_client.get_aggregate_bars(symbol, aggregates_timespan, aggregates_multiplier, start_date, end_date)
+    current_day_volume, prior_day_volume, two_days_ago_volume, three_days_ago_volume, four_days_ago_volume, five_days_ago_volume, 
+    six_days_ago_volume, seven_days_ago_volume = 0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
     if response_volume[:status] == 'success'
       volume_values = response_volume[:body]['results']
 
@@ -65,8 +69,10 @@ namespace :lnmarkets_trader do
     puts ""
 
     response_simple_moving_average = polygon_client.get_sma(symbol, timestamp_current, timespan, window, series_type)
+    simple_moving_average = 0.0
     if response_simple_moving_average[:status] == 'success'
       simple_moving_average_values = response_simple_moving_average[:body]['results']['values']
+      simple_moving_average = simple_moving_average_values[0]['value']
     else
       data_errors += 1
     end
@@ -75,8 +81,10 @@ namespace :lnmarkets_trader do
     puts ""
 
     response_exponential_moving_average = polygon_client.get_ema(symbol, timestamp_current, timespan, window, series_type)
+    exponential_moving_average = 0.0
     if response_exponential_moving_average[:status] == 'success'
       exponential_moving_average_values = response_exponential_moving_average[:body]['results']['values']
+      exponential_moving_average = exponential_moving_average_values[0]['value']
     else
       data_errors += 1
     end
@@ -85,8 +93,12 @@ namespace :lnmarkets_trader do
     puts ""
 
     response_macd = polygon_client.get_macd(symbol, timestamp_current, timespan, short_window, long_window, signal_window, series_type)
+    macd_value, macd_signal, macd_histogram = 0.0,0.0,0.0
     if response_macd[:status] == 'success'
       macd_values = response_macd[:body]['results']['values']
+      macd_value = macd_values[0]['value']
+      macd_signal = macd_values[0]['signal']
+      macd_histogram = macd_values[0]['histogram']
     else
       data_errors += 1
     end
@@ -152,6 +164,8 @@ namespace :lnmarkets_trader do
       last_8_market_data_log_entries.compact!
       if !last_8_market_data_log_entries.empty?
         last_8_aggregate_open_interests_average = last_8_market_data_log_entries.sum.fdiv(last_8_market_data_log_entries.size).round(2)
+      else
+        last_8_aggregate_open_interests_average = 0.0
       end
     else
       last_8_aggregate_open_interests_average = 0.0
@@ -240,6 +254,8 @@ namespace :lnmarkets_trader do
       last_16_market_data_log_entries.compact!
       if !last_16_market_data_log_entries.empty?
         last_16_implied_volatilities_t3_average = last_16_market_data_log_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
+      else
+        last_16_implied_volatilities_t3_average = 0.0
       end
     else
       last_16_implied_volatilities_t3_average = 0.0
@@ -285,6 +301,8 @@ namespace :lnmarkets_trader do
       last_30_market_data_log_entries.compact!
       if !last_30_market_data_log_entries.empty?
         last_30_long_short_ratios_average = last_30_market_data_log_entries.sum.fdiv(last_30_market_data_log_entries.size).round(2)
+      else
+        last_30_long_short_ratios_average = 0.0
       end
     else
       last_30_long_short_ratios_average = 0.0
@@ -305,12 +323,12 @@ namespace :lnmarkets_trader do
         five_days_ago_volume: five_days_ago_volume,
         six_days_ago_volume: six_days_ago_volume,
         seven_days_ago_volume: seven_days_ago_volume,
-        rsi: rsi_values[0]['value'],
-        simple_moving_average: simple_moving_average_values[0]['value'],
-        exponential_moving_average: exponential_moving_average_values[0]['value'],
-        macd_value: macd_values[0]['value'],
-        macd_signal: macd_values[0]['signal'],
-        macd_histogram: macd_values[0]['histogram'],
+        rsi: rsi_value,
+        simple_moving_average: simple_moving_average,
+        exponential_moving_average: exponential_moving_average,
+        macd_value: macd_value,
+        macd_signal: macd_signal,
+        macd_histogram: macd_histogram,
         avg_funding_rate: avg_funding_rate,
         aggregate_open_interest: aggregate_open_interest,
         avg_last_10_candle_closes: last_10_candle_closes_average,
@@ -960,6 +978,8 @@ namespace :lnmarkets_trader do
         last_16_market_data_log_entries.compact!
         if !last_16_market_data_log_entries.empty?
           last_16_implied_volatilities_t3_average = last_16_market_data_log_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
+        else
+          last_16_implied_volatilities_t3_average = 0.0
         end
       else
         last_16_implied_volatilities_t3_average = 0.0
@@ -1137,6 +1157,8 @@ namespace :lnmarkets_trader do
         last_16_market_data_log_entries.compact!
         if !last_16_market_data_log_entries.empty?
           last_16_implied_volatilities_t3_average = last_16_market_data_log_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
+        else
+          last_16_implied_volatilities_t3_average = 0.0
         end
       else
         last_16_implied_volatilities_t3_average = 0.0
