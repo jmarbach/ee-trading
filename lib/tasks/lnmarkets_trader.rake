@@ -972,11 +972,12 @@ namespace :lnmarkets_trader do
       #
       # Define leverage factor
       #
-      last_16_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(16).pluck(:implied_volatility_t3)
-      if last_16_market_data_log_entries != nil
+      last_16_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(16)
+      last_16_market_data_log_volatility_entries = last_16_market_data_log_entries.pluck(:implied_volatility_t3)
+      if last_16_market_data_log_volatility_entries != nil
         # Remove nil values from array
-        last_16_market_data_log_entries.compact!
-        if !last_16_market_data_log_entries.empty?
+        last_16_market_data_log_volatility_entries.compact!
+        if !last_16_market_data_log_volatility_entries.empty?
           last_16_implied_volatilities_t3_average = last_16_market_data_log_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
         else
           last_16_implied_volatilities_t3_average = 0.0
@@ -996,6 +997,17 @@ namespace :lnmarkets_trader do
           script: "lnmarkets_trader:create_long_trade"
         }.to_json
       )
+
+      #
+      # Determine MACD
+      #
+      macd_value = 0.0
+      last_market_data_log_entry = last_16_market_data_log_entries.first
+      if last_market_data_log_entry != nil
+        if last_market_data_log_entry.macd_value != nil
+          last_macd_value = last_market_data_log_entry.macd_value
+        end
+      end
 
       #
       # Determine capital waged
@@ -1058,9 +1070,8 @@ namespace :lnmarkets_trader do
         #
         # Open directional hedge by buying options contract in the inverse direction
         #
-        if leverage_factor == 2.7
-          # Commented out until hedges can be modeled successfully
-          # Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'short', amount: quantity, score_log_id: score_log_id})
+        if last_macd_value < -300
+          Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'short', amount: quantity, score_log_id: score_log_id})
         end
       else
         puts 'Error. Unable to create futures trade.'
@@ -1151,11 +1162,12 @@ namespace :lnmarkets_trader do
       #
       # Define leverage factor
       #
-      last_16_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(16).pluck(:implied_volatility_t3)
-      if last_16_market_data_log_entries != nil
+      last_16_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(16)
+      last_16_market_data_log_volatility_entries = last_16_market_data_log_entries.pluck(:implied_volatility_t3)
+      if last_16_market_data_log_volatility_entries != nil
         # Remove nil values from array
-        last_16_market_data_log_entries.compact!
-        if !last_16_market_data_log_entries.empty?
+        last_16_market_data_log_volatility_entries.compact!
+        if !last_16_market_data_log_volatility_entries.empty?
           last_16_implied_volatilities_t3_average = last_16_market_data_log_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
         else
           last_16_implied_volatilities_t3_average = 0.0
@@ -1172,9 +1184,20 @@ namespace :lnmarkets_trader do
       Rails.logger.info(
         {
           message: "Leverage: #{leverage_factor}",
-          script: "lnmarkets_trader:create_short_trade"
+          script: "lnmarkets_trader:create_long_trade"
         }.to_json
       )
+
+      #
+      # Determine MACD
+      #
+      macd_value = 0.0
+      last_market_data_log_entry = last_16_market_data_log_entries.first
+      if last_market_data_log_entry != nil
+        if last_market_data_log_entry.macd_value != nil
+          last_macd_value = last_market_data_log_entry.macd_value
+        end
+      end
 
       #
       # Determine capital waged
@@ -1237,10 +1260,8 @@ namespace :lnmarkets_trader do
         #
         # Open directional hedge by buying options contract in the inverse direction
         #
-
-        if leverage_factor == 2.7
-          # Commented out until hedges can be modeled successfully
-          # Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'long', amount: quantity, score_log_id: score_log_id})
+        if last_macd_value < -300
+          Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'long', amount: quantity, score_log_id: score_log_id})
         end
       else
         Rails.logger.error(
