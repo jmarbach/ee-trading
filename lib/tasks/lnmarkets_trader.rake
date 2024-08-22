@@ -335,7 +335,8 @@ namespace :lnmarkets_trader do
         avg_last_8_aggregate_open_interests: last_8_aggregate_open_interests_average,
         implied_volatility_deribit: implied_volatility_deribit,
         implied_volatility_t3: implied_volatility_t3,
-        avg_long_short_ratio: avg_long_short_ratio
+        avg_long_short_ratio: avg_long_short_ratio,
+        strategy: 'daily-trend'
       )
     rescue => e
       Rails.logger.error(
@@ -346,7 +347,8 @@ namespace :lnmarkets_trader do
         }.to_json
       )
       market_data_log = MarketDataLog.create(
-        recorded_date: DateTime.now
+        recorded_date: DateTime.now,
+        strategy: 'daily-trend'
       )
     end
 
@@ -1065,7 +1067,8 @@ namespace :lnmarkets_trader do
           open_price: lnmarkets_response[:body]['price'],
           creation_timestamp: lnmarkets_response[:body]['creation_ts'],
           last_update_timestamp: lnmarkets_response[:body]['last_update_ts'],
-          margin_percent_of_quantity: margin_percent_of_quantity
+          margin_percent_of_quantity: margin_percent_of_quantity,
+          strategy: 'daily-trend'
         )
         #
         # Open directional hedge by buying options contract in the inverse direction
@@ -1255,7 +1258,8 @@ namespace :lnmarkets_trader do
           open_price: lnmarkets_response[:body]['price'],
           creation_timestamp: lnmarkets_response[:body]['creation_ts'],
           last_update_timestamp: lnmarkets_response[:body]['last_update_ts'],
-          margin_percent_of_quantity: margin_percent_of_quantity
+          margin_percent_of_quantity: margin_percent_of_quantity,
+          strategy: 'daily-trend'
         )
         #
         # Open directional hedge by buying options contract in the inverse direction
@@ -1491,7 +1495,8 @@ namespace :lnmarkets_trader do
             implied_volatility: lnmarkets_response[:body]['volatility'],
             running: true,
             closed: false,
-            margin_percent_of_quantity: margin_percent_of_quantity
+            margin_percent_of_quantity: margin_percent_of_quantity,
+            strategy: 'daily-trend'
           )
         else
           Rails.logger.error(
