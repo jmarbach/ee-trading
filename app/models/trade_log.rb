@@ -132,20 +132,6 @@ class TradeLog < ApplicationRecord
           canceled: false
         )
 
-        # update_columns(
-        #   open_fee: lnmarkets_response[:body]['opening_fee'],
-        #   close_fee: lnmarkets_response[:body]['closing_fee'],
-        #   close_price: lnmarkets_response[:body]['exit_price'],
-        #   absolute_net_proceeds: absolute_net_proceeds,
-        #   percent_net_proceeds: percent_net_proceeds,
-        #   market_filled_timestamp: lnmarkets_response[:body]['market_filled_ts'],
-        #   closed_timestamp: lnmarkets_response[:body]['closed_ts'],
-        #   total_carry_fees: lnmarkets_response[:body]['sum_carry_fees'],
-        #   open: false,
-        #   running: false,
-        #   canceled: false
-        # )
-
       else
         Rails.logger.fatal(
           {

@@ -900,6 +900,20 @@ namespace :lnmarkets_trader do
   task check_hourly_trend_indicators: :environment do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+
+    hourly_trend_trades_created_today = TradeLog.where(
+      created_at: DateTime.now.utc.beginning_of_day.., strategy: 'hourly-trend').count
+
+    if hourly_trend_trades_created_today > 0
+      Rails.logger.warn(
+        {
+          message: "We already opened one hourly trend trade today. Skip.",
+          script: "lnmarkets_trader:check_hourly_trend_indicators"
+        }.to_json
+      )
+      abort 'Trade alraedy created for this strategy today. Skip checks until following day.'
+    end
+
     timestamp_current = DateTime.now.utc.beginning_of_hour.to_i.in_milliseconds
     Rails.logger.info(
       {
@@ -1019,7 +1033,7 @@ namespace :lnmarkets_trader do
     end
 
     puts ""
-    puts "4. Proceed to create new trade..."
+    puts "Evaluate if we should create a new trade..."
     puts "--------------------------------------------"
     puts ""
     #
