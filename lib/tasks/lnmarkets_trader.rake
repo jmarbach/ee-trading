@@ -936,10 +936,15 @@ namespace :lnmarkets_trader do
     # Get technical indicators from Polygon
     rsi_value = 0.0
     response_rsi = polygon_client.get_rsi(symbol, timestamp_current, timespan, window, series_type)
+    puts "response_rsi:"
+    puts response_rsi
     if response_rsi[:status] == 'success'
       rsi_values = response_rsi[:body]['results']['values']
       if !rsi_values.nil?
         rsi_value = rsi_values[0]['value']
+        puts "rsi_value: #{rsi_value}"
+      else
+        puts 'rsi_values var returned nil'
       end
     else
       data_errors += 1
