@@ -463,7 +463,7 @@ namespace :lnmarkets_trader do
     # Find average open interest over last 8 days
     #
     last_8_market_data_log_entries = nil
-    last_8_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(8).pluck(:aggregate_open_interest)
+    last_8_market_data_log_entries = MarketDataLog.where(strategy:'daily-trend', created_at: 10.days.ago..).order(recorded_date: :desc).limit(8).pluck(:aggregate_open_interest)
     if last_8_market_data_log_entries != nil
       # Remove nil values from array
       last_8_market_data_log_entries.compact!
@@ -553,7 +553,7 @@ namespace :lnmarkets_trader do
     # Find average implied volatilities from T3
     #
     last_16_market_data_log_entries = nil
-    last_16_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(16).pluck(:implied_volatility_t3)
+    last_16_market_data_log_entries = MarketDataLog.where(strategy:'daily-trend', created_at: 17.days.ago..).order(recorded_date: :desc).limit(16).pluck(:implied_volatility_t3)
     if last_16_market_data_log_entries != nil
       # Remote nil values from array
       last_16_market_data_log_entries.compact!
@@ -600,7 +600,7 @@ namespace :lnmarkets_trader do
     # Find average long/short ratios
     #
     last_30_market_data_log_entries = nil
-    last_30_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(30).pluck(:avg_long_short_ratio)
+    last_30_market_data_log_entries = MarketDataLog.where(strategy:'daily-trend', created_at: 31.days.ago..).order(recorded_date: :desc).limit(30).pluck(:avg_long_short_ratio)
     if last_30_market_data_log_entries != nil
       # Remote nil values from array
       last_30_market_data_log_entries.compact!
@@ -1176,7 +1176,7 @@ namespace :lnmarkets_trader do
       #
       # Define leverage factor
       #
-      last_16_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(16)
+      last_16_market_data_log_entries = MarketDataLog.where(strategy:'daily-trend', created_at: 17.days.ago..).order(recorded_date: :desc).limit(16)
       last_16_market_data_log_volatility_entries = last_16_market_data_log_entries.pluck(:implied_volatility_t3)
       if last_16_market_data_log_volatility_entries != nil
         # Remove nil values from array
@@ -1206,6 +1206,7 @@ namespace :lnmarkets_trader do
       # Determine MACD
       #
       macd_value = 0.0
+      last_macd_value = nil
       last_market_data_log_entry = last_16_market_data_log_entries.first
       if last_market_data_log_entry != nil
         if last_market_data_log_entry.macd_value != nil
@@ -1275,7 +1276,7 @@ namespace :lnmarkets_trader do
         #
         # Open directional hedge by buying options contract in the inverse direction
         #
-        if last_macd_value < -300
+        if last_macd_value != nil && last_macd_value < -300
           Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'short', amount: quantity, score_log_id: score_log_id})
         end
       else
@@ -1367,7 +1368,7 @@ namespace :lnmarkets_trader do
       #
       # Define leverage factor
       #
-      last_16_market_data_log_entries = MarketDataLog.order(recorded_date: :desc).limit(16)
+      last_16_market_data_log_entries = MarketDataLog.where(strategy:'daily-trend', created_at: 17.days.ago..).order(recorded_date: :desc).limit(16)
       last_16_market_data_log_volatility_entries = last_16_market_data_log_entries.pluck(:implied_volatility_t3)
       if last_16_market_data_log_volatility_entries != nil
         # Remove nil values from array
@@ -1397,6 +1398,7 @@ namespace :lnmarkets_trader do
       # Determine MACD
       #
       macd_value = 0.0
+      last_macd_value = nil
       last_market_data_log_entry = last_16_market_data_log_entries.first
       if last_market_data_log_entry != nil
         if last_market_data_log_entry.macd_value != nil
@@ -1466,7 +1468,7 @@ namespace :lnmarkets_trader do
         #
         # Open directional hedge by buying options contract in the inverse direction
         #
-        if last_macd_value < -300
+        if last_macd_value != nil && last_macd_value < -300
           Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'long', amount: quantity, score_log_id: score_log_id})
         end
       else
