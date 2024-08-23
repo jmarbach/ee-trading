@@ -946,7 +946,7 @@ namespace :lnmarkets_trader do
       data_errors += 1
     end
 
-    if rsi_value == 0.0
+    if rsi_value != 0.0
       Rails.logger.info(
         {
           message: "RSI Value",

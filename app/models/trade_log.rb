@@ -131,7 +131,6 @@ class TradeLog < ApplicationRecord
           running: false,
           canceled: false
         )
-
       else
         Rails.logger.fatal(
           {
