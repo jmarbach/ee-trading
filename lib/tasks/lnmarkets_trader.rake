@@ -938,7 +938,9 @@ namespace :lnmarkets_trader do
     response_rsi = polygon_client.get_rsi(symbol, timestamp_current, timespan, window, series_type)
     if response_rsi[:status] == 'success'
       rsi_values = response_rsi[:body]['results']['values']
-      rsi_value = rsi_values[0]['value']
+      if !rsi_values.nil?
+        rsi_value = rsi_values[0]['value']
+      end
     else
       data_errors += 1
     end
