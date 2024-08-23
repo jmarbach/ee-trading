@@ -897,6 +897,192 @@ namespace :lnmarkets_trader do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
 
+  task check_hourly_trend_indicators: :environment do
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    timestamp_current = DateTime.now.utc.beginning_of_hour.to_i.in_milliseconds
+    Rails.logger.info(
+      {
+        message: "Run lnmarkets_trader:check_hourly_trend_indicators...",
+        body: "QUERY DATE: #{DateTime.now.utc.beginning_of_day} - #{timestamp_current}",
+        script: "lnmarkets_trader:check_hourly_trend_indicators"
+      }.to_json
+    )
+
+    # Standard model inputs
+    polygon_client = PolygonAPI.new
+    symbol = 'X:BTCUSD'
+    timespan = 'hour'
+    window = 60
+    series_type = 'close'
+
+    # Track data errors
+    data_errors = 0
+
+    # Get technical indicators from Polygon
+    rsi_value = 0.0
+    response_rsi = polygon_client.get_rsi(symbol, timestamp_current, timespan, window, series_type)
+    if response_rsi[:status] == 'success'
+      rsi_values = response_rsi[:body]['results']['values']
+      rsi_value = rsi_values[0]['value']
+    else
+      data_errors += 1
+    end
+    puts "RSI VALUES:"
+    puts rsi_values
+    puts ""
+
+    # Current BTCUSD price
+    price_btcusd = 0.0
+    currency_from = 'BTC'
+    currency_to = 'USD'
+    response_btcusd = polygon_client.get_last_trade(currency_from, currency_to)
+    if response_btcusd[:status] == 'success'
+      price_btcusd = response_btcusd[:body]['last']['price']
+    else
+      data_errors += 1
+    end
+    Rails.logger.info(
+      {
+        message: "Fetched Last BTCUSD Tick.",
+        body: "#{btcusd}",
+        script: "lnmarkets_trader:check_hourly_trend_indicators"
+      }.to_json
+    )
+
+    #
+    # Save MarketDataLog
+    #
+    begin
+      market_data_log = MarketDataLog.create(
+        recorded_date: DateTime.now,
+        price_btcusd: price_btcusd,
+        rsi: rsi_value,
+        strategy: 'hourly-trend'
+      )
+    rescue => e
+      Rails.logger.error(
+        {
+          message: "Error. Unable to save market_data_log record.",
+          body: "#{e}",
+          script: "lnmarkets_trader:check_hourly_trend_indicators"
+        }.to_json
+      )
+      market_data_log = MarketDataLog.create(
+        recorded_date: DateTime.now,
+        strategy: 'hourly-trend'
+      )
+    end
+
+    #
+    # Initialize score
+    #
+    trade_direction_score = 0.0
+
+    #
+    # Evaluate rules
+    #
+    if rsi_value.present?
+      if rsi_value < 40 && rsi_value > 10
+        trade_direction_score -= 1.0
+      end
+    else
+      data_errors += 1
+    end
+
+    #
+    # Save ScoreLog
+    #
+    Rails.logger.info(
+      {
+        message: "Final Trade Direction Score: #{trade_direction_score}",
+        script: "lnmarkets_trader:check_hourly_trend_indicators"
+      }.to_json
+    )
+    begin
+      score_log = ScoreLog.create(
+        recorded_date: DateTime.now,
+        market_data_log_id: market_data_log.id,
+        score: trade_direction_score
+      )
+    rescue => e
+      Rails.logger.error(
+        {
+          message: "Error saving score_log record",
+          body: e,
+          script: "lnmarkets_trader:check_hourly_trend_indicators"
+        }.to_json
+      )
+      score_log = ScoreLog.create(
+        recorded_date: DateTime.now
+      )
+    end
+
+    puts ""
+    puts "4. Proceed to create new trade..."
+    puts "--------------------------------------------"
+    puts ""
+    #
+    # Invoke trade order scripts
+    #
+    if trade_direction_score < 0.0 || trade_direction_score > 0.0
+      puts "********************************************"
+      puts "********************************************"
+      trade_direction = ''
+      if trade_direction_score > 0.0
+        trade_direction = 'buy'
+      elsif trade_direction_score < 0.0
+        trade_direction = 'sell'
+      end
+      Rails.logger.info(
+        {
+          message: "Proceed with new trade direction.",
+          body: "#{trade_direction}",
+          script: "lnmarkets_trader:check_hourly_trend_indicators"
+        }.to_json
+      )
+
+      if trade_direction == 'buy'
+        Rake::Task["lnmarkets_trader:create_long_trade"].execute({score_log_id: score_log.id})
+      elsif trade_direction == 'sell'
+        Rake::Task["lnmarkets_trader:create_short_trade"].execute({score_log_id: score_log.id})
+      end
+      Rails.logger.info(
+        {
+          message: "Finished creating new #{trade_direction} trade.",
+          script: "lnmarkets_trader:check_hourly_trend_indicators"
+        }.to_json
+      )
+      puts "********************************************"
+      puts "********************************************"
+    elsif trade_direction_score == 0.0
+      #
+      # No trade... wait for new market indicators at next trading interval
+      #
+      Rails.logger.info(
+        {
+          message: "No trade.",
+          script: "lnmarkets_trader:check_hourly_trend_indicators"
+        }.to_json
+      )
+    end
+
+    Rails.logger.info(
+      {
+        message: "Data Errors: #{data_errors}",
+        script: "lnmarkets_trader:check_hourly_trend_indicators"
+      }.to_json
+    )
+    if data_errors > 0
+      market_data_log.update(int_data_errors: data_errors)
+    end
+
+    puts 'End lnmarkets_trader:check_hourly_trend_indicators...'
+    puts ''
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+  end
+
   task :create_long_trade, [:score_log_id] => :environment do |t, args|
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
