@@ -944,9 +944,13 @@ namespace :lnmarkets_trader do
     else
       data_errors += 1
     end
-    puts "RSI VALUES:"
-    puts rsi_values
-    puts ""
+    Rails.logger.info(
+      {
+        message: "RSI Value",
+        body: "#{rsi_value}",
+        script: "lnmarkets_trader:check_hourly_trend_indicators"
+      }.to_json
+    )
 
     # Current BTCUSD price
     price_btcusd = 0.0
