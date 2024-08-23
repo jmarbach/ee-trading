@@ -940,32 +940,30 @@ namespace :lnmarkets_trader do
     puts response_rsi.inspect
 
     if response_rsi[:status] == 'success'
-      puts "Response status is success"
-      if response_rsi[:body].is_a?(Hash) && response_rsi[:body]['results'].is_a?(Hash)
-        puts "Response body and results are hashes"
-        rsi_values = response_rsi[:body]['results']['values']
-        puts "rsi_values:"
-        puts rsi_values.inspect
-        if rsi_values.is_a?(Array) && !rsi_values.empty?
-          rsi_value = rsi_values[0]['value']
-          puts "rsi_value: #{rsi_value}"
-        else
-          puts "rsi_values is either not an array or is empty"
-        end
-      else
-        puts "Unexpected response body structure"
-      end
+      rsi_values = response_rsi[:body]['results']['values']
+      rsi_value = rsi_values[0]['value']
     else
-      puts "Response status is not success"
       data_errors += 1
     end
-    Rails.logger.info(
-      {
-        message: "RSI Value",
-        body: "#{rsi_value}",
-        script: "lnmarkets_trader:check_hourly_trend_indicators"
-      }.to_json
-    )
+
+    if rsi_value == 0.0
+      Rails.logger.info(
+        {
+          message: "RSI Value",
+          body: "#{rsi_value}",
+          script: "lnmarkets_trader:check_hourly_trend_indicators"
+        }.to_json
+      )
+    elsif rsi_value == 0.0
+      Rails.logger.fatal(
+        {
+          message: "RSI Value",
+          body: "#{rsi_value}",
+          script: "lnmarkets_trader:check_hourly_trend_indicators"
+        }.to_json
+      )
+      abort 'Unable to fetch last hour RSI Value.'
+    end
 
     # Current BTCUSD price
     price_btcusd = 0.0
