@@ -980,7 +980,7 @@ namespace :lnmarkets_trader do
         # Remove nil values from array
         last_16_market_data_log_volatility_entries.compact!
         if !last_16_market_data_log_volatility_entries.empty?
-          last_16_implied_volatilities_t3_average = last_16_market_data_log_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
+          last_16_implied_volatilities_t3_average = last_16_market_data_log_volatility_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
         else
           last_16_implied_volatilities_t3_average = 0.0
         end
@@ -988,7 +988,7 @@ namespace :lnmarkets_trader do
         last_16_implied_volatilities_t3_average = 0.0
       end
 
-      if (last_16_market_data_log_entries[0] < (last_16_implied_volatilities_t3_average))
+      if (last_16_market_data_log_entries[0]['implied_volatility_t3'] < (last_16_implied_volatilities_t3_average))
         leverage_factor = 3.3
       else
         leverage_factor = 2.7
@@ -1171,7 +1171,7 @@ namespace :lnmarkets_trader do
         # Remove nil values from array
         last_16_market_data_log_volatility_entries.compact!
         if !last_16_market_data_log_volatility_entries.empty?
-          last_16_implied_volatilities_t3_average = last_16_market_data_log_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
+          last_16_implied_volatilities_t3_average = last_16_market_data_log_volatility_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
         else
           last_16_implied_volatilities_t3_average = 0.0
         end
@@ -1179,7 +1179,7 @@ namespace :lnmarkets_trader do
         last_16_implied_volatilities_t3_average = 0.0
       end
 
-      if (last_16_market_data_log_entries[0] < (last_16_implied_volatilities_t3_average))
+      if (last_16_market_data_log_entries[0]['implied_volatility_t3'] < (last_16_implied_volatilities_t3_average))
         leverage_factor = 3.3
       else
         leverage_factor = 2.7
