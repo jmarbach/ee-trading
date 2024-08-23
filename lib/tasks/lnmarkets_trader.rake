@@ -936,17 +936,27 @@ namespace :lnmarkets_trader do
     # Get technical indicators from Polygon
     rsi_value = 0.0
     response_rsi = polygon_client.get_rsi(symbol, timestamp_current, timespan, window, series_type)
-    puts "response_rsi:"
-    puts response_rsi
+    puts "Full response_rsi:"
+    puts response_rsi.inspect
+
     if response_rsi[:status] == 'success'
-      rsi_values = response_rsi[:body]['results']['values']
-      if !rsi_values.nil?
-        rsi_value = rsi_values[0]['value']
-        puts "rsi_value: #{rsi_value}"
+      puts "Response status is success"
+      if response_rsi[:body].is_a?(Hash) && response_rsi[:body]['results'].is_a?(Hash)
+        puts "Response body and results are hashes"
+        rsi_values = response_rsi[:body]['results']['values']
+        puts "rsi_values:"
+        puts rsi_values.inspect
+        if rsi_values.is_a?(Array) && !rsi_values.empty?
+          rsi_value = rsi_values[0]['value']
+          puts "rsi_value: #{rsi_value}"
+        else
+          puts "rsi_values is either not an array or is empty"
+        end
       else
-        puts 'rsi_values var returned nil'
+        puts "Unexpected response body structure"
       end
     else
+      puts "Response status is not success"
       data_errors += 1
     end
     Rails.logger.info(
