@@ -945,7 +945,7 @@ namespace :lnmarkets_trader do
     Rails.logger.info(
       {
         message: "Fetched Last BTCUSD Tick.",
-        body: "#{btcusd}",
+        body: "#{price_btcusd}",
         script: "lnmarkets_trader:check_hourly_trend_indicators"
       }.to_json
     )
