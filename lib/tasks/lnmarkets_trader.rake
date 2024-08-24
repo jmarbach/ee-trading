@@ -1016,8 +1016,10 @@ namespace :lnmarkets_trader do
     # Evaluate rules
     #
     if rsi_value.present?
-      if rsi_value < 40 && rsi_value > 10
+      if rsi_value > 10 && rsi_value < 40
         trade_direction_score -= 1.0
+      elsif rsi_value > 65 && rsi_value < 79
+        trade_direction_score += 1.0
       end
     else
       data_errors += 1
