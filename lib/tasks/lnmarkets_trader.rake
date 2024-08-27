@@ -1859,7 +1859,7 @@ namespace :lnmarkets_trader do
         end
 
         #
-        # Check trade direction, long/short
+        # Get trade direction, long/short
         #
         trade_direction = ''
         if f['side'] == 'b'
@@ -1873,10 +1873,10 @@ namespace :lnmarkets_trader do
             script: "lnmarkets_trader:check_stops"
           }.to_json
         )
+
         #
-        # Check if position is 'in the money'
+        # Get trade entry price and previous stop-loss
         #
-        update_trade_stoploss_price = false
         entry_price = f['entry_price']
         previous_stoploss = f['stoploss']
         Rails.logger.info(
@@ -1891,6 +1891,11 @@ namespace :lnmarkets_trader do
             script: "lnmarkets_trader:check_stops"
           }.to_json
         )
+
+        #
+        # Check if position is 'In-the-Money'
+        #
+        update_trade_stoploss_price = false
         if trade_direction == 'long'
           if index_price_btcusd > entry_price
             #
@@ -2187,13 +2192,45 @@ namespace :lnmarkets_trader do
       # Iterate through each options contract
       #
       running_contracts.each do |c|
+        puts ''
+        puts '---------------------------------------------------'
+        puts '---------------------------------------------------'
+        puts ''
         Rails.logger.info(
           {
             message: "Options Contract ID: #{c['id']}",
             script: "lnmarkets_trader:check_stops"
           }.to_json
         )
-        close_running_contract = false
+        #
+        # Get strategy of trade from EE database
+        #
+        trade_log = TradeLog.find_by_external_id(c['id'])
+        if trade_log != nil
+          strategy = trade_log.strategy
+        else
+          Rails.logger.fatal(
+            {
+              message: "Error. Unable to fetch internal TradeLog record for #{c['id']}... abort check_stops script.",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
+          abort 'Unable to proceed with evaluating Options contract without internal TradeLog record.'
+        end
+
+        #
+        # Get trade direction, long/short
+        #
+        trade_direction = ''
+        if c['type'] == 'c'
+          trade_direction = 'long'
+        elsif c['type'] == 'p'
+          trade_direction = 'short'
+        end
+
+        #
+        # Get trade entry price if f['side'] == 'b'
+        #
         entry_price = c['forward']
         Rails.logger.info(
           {
@@ -2202,58 +2239,71 @@ namespace :lnmarkets_trader do
           }.to_json
         )
 
-        trade_direction = ''
-        if c['type'] == 'c'
-          trade_direction = 'long'
-        elsif c['type'] == 'p'
-          trade_direction = 'short'
-        end
-
-        if trade_direction == 'long'
-          if index_price_btcusd > (entry_price * 1.0595)
-            #
-            # Update the position's stop-loss
-            #
-            Rails.logger.info(
-              {
-                message: "Close In-the-Money options contract #{c['id']}",
-                script: "lnmarkets_trader:check_stops"
-              }.to_json
-            )
-            close_running_contract = true
-          else
-            Rails.logger.info(
-              {
-                message: "Options position requires no changes.",
-                script: "lnmarkets_trader:check_stops"
-              }.to_json
-            )
-            next
+        #
+        # Check if position is 'In-the-Money'
+        #
+        close_running_contract = false
+        if strategy == 'daily-trend'
+          if trade_direction == 'long'
+            if index_price_btcusd > (entry_price * 1.0595)
+              #
+              # Update the position's stop-loss
+              #
+              Rails.logger.info(
+                {
+                  message: "Close In-the-Money options contract #{c['id']}",
+                  script: "lnmarkets_trader:check_stops"
+                }.to_json
+              )
+              close_running_contract = true
+            else
+              Rails.logger.info(
+                {
+                  message: "Options position requires no changes.",
+                  script: "lnmarkets_trader:check_stops"
+                }.to_json
+              )
+              next
+            end
+          elsif trade_direction == 'short'
+            if index_price_btcusd < (entry_price * 0.9405)
+              #
+              # Update the position's stop-loss
+              #
+              Rails.logger.info(
+                {
+                  message: "Close In-the-Money options contract #{c['id']}",
+                  script: "lnmarkets_trader:check_stops"
+                }.to_json
+              )
+              close_running_contract = true
+            else
+              Rails.logger.info(
+                {
+                  message: "Options position requires no changes.",
+                  script: "lnmarkets_trader:check_stops"
+                }.to_json
+              )
+              next
+            end
           end
-        elsif trade_direction == 'short'
-          if index_price_btcusd < (entry_price * 0.9405)
-            #
-            # Update the position's stop-loss
-            #
-            Rails.logger.info(
-              {
-                message: "Close In-the-Money options contract #{c['id']}",
-                script: "lnmarkets_trader:check_stops"
-              }.to_json
-            )
-            close_running_contract = true
-          else
-            Rails.logger.info(
-              {
-                message: "Options position requires no changes.",
-                script: "lnmarkets_trader:check_stops"
-              }.to_json
-            )
-            next
-          end
+        else
+          Rails.logger.info(
+            {
+              message: "Options position is running an unknown strategy. No changes.",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
+          next
         end
 
         if close_running_contract == true
+          Rails.logger.info(
+            {
+              message: "Attempt to close options contract #{c['id']} opened under the #{strategy} strategy...",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
           lnmarkets_response = lnmarkets_client.close_options_contract(c['id'])
 
           if lnmarkets_response[:status] == 'success'
@@ -2298,6 +2348,10 @@ namespace :lnmarkets_trader do
           )
         end
       end
+      puts ''
+      puts '---------------------------------------------------'
+      puts '---------------------------------------------------'
+      puts ''
     else
       Rails.logger.info(
         {
