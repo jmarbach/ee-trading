@@ -1136,7 +1136,7 @@ namespace :lnmarkets_trader do
       abort 'Trade alraedy created for this strategy today. Skip checks until following day.'
     end
 
-    timestamp_current = DateTime.now.utc.beginning_of_hour.to_i.in_milliseconds
+    timestamp_current = DateTime.now.utc.to_i.in_milliseconds
     Rails.logger.info(
       {
         message: "Run lnmarkets_trader:check_three_minute_trend_indicators...",
