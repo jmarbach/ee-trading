@@ -309,6 +309,7 @@ namespace :lnmarkets_trader do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     timestamp_current = DateTime.now.utc.beginning_of_day.to_i.in_milliseconds
     timestamp_yesterday = timestamp_current - 86400000
+    strategy = 'daily-trend'
     Rails.logger.info(
       {
         message: "Run lnmarkets_trader:check_daily_trend_indicators...",
@@ -857,9 +858,9 @@ namespace :lnmarkets_trader do
       )
 
       if trade_direction == 'buy'
-        Rake::Task["lnmarkets_trader:create_long_trade"].execute({score_log_id: score_log.id})
+        Rake::Task["lnmarkets_trader:create_long_trade"].execute({score_log_id: score_log.id, strategy: strategy})
       elsif trade_direction == 'sell'
-        Rake::Task["lnmarkets_trader:create_short_trade"].execute({score_log_id: score_log.id})
+        Rake::Task["lnmarkets_trader:create_short_trade"].execute({score_log_id: score_log.id, strategy: strategy})
       end
       Rails.logger.info(
         {
@@ -900,9 +901,9 @@ namespace :lnmarkets_trader do
   task check_hourly_trend_indicators: :environment do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
-
+    strategy = 'hourly-trend'
     hourly_trend_trades_created_today = TradeLog.where(
-      created_at: DateTime.now.utc.beginning_of_day.., strategy: 'hourly-trend').count
+      created_at: DateTime.now.utc.beginning_of_day.., strategy: strategy).count
 
     if hourly_trend_trades_created_today > 0
       Rails.logger.warn(
@@ -991,7 +992,7 @@ namespace :lnmarkets_trader do
         recorded_date: DateTime.now,
         price_btcusd: price_btcusd,
         rsi: rsi_value,
-        strategy: 'hourly-trend'
+        strategy: strategy
       )
     rescue => e
       Rails.logger.error(
@@ -1003,7 +1004,7 @@ namespace :lnmarkets_trader do
       )
       market_data_log = MarketDataLog.create(
         recorded_date: DateTime.now,
-        strategy: 'hourly-trend'
+        strategy: strategy
       )
     end
 
@@ -1078,9 +1079,9 @@ namespace :lnmarkets_trader do
       )
 
       if trade_direction == 'buy'
-        Rake::Task["lnmarkets_trader:create_long_trade"].execute({score_log_id: score_log.id})
+        Rake::Task["lnmarkets_trader:create_long_trade"].execute({score_log_id: score_log.id, strategy: strategy})
       elsif trade_direction == 'sell'
-        Rake::Task["lnmarkets_trader:create_short_trade"].execute({score_log_id: score_log.id})
+        Rake::Task["lnmarkets_trader:create_short_trade"].execute({score_log_id: score_log.id, strategy: strategy})
       end
       Rails.logger.info(
         {
@@ -1118,7 +1119,226 @@ namespace :lnmarkets_trader do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
 
-  task :create_long_trade, [:score_log_id] => :environment do |t, args|
+  task check_three_minute_trend_indicators: :environment do
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    strategy = 'three-minute-trend'
+    three_minute_trend_trades_created_today = TradeLog.where(
+      created_at: DateTime.now.utc.beginning_of_day.., strategy: strategy).count
+
+    if three_minute_trend_trades_created_today > 0
+      Rails.logger.warn(
+        {
+          message: "We already opened one three minute trend trade today. Skip.",
+          script: "lnmarkets_trader:check_three_minute_trend_indicators"
+        }.to_json
+      )
+      abort 'Trade alraedy created for this strategy today. Skip checks until following day.'
+    end
+
+    timestamp_current = DateTime.now.utc.beginning_of_hour.to_i.in_milliseconds
+    Rails.logger.info(
+      {
+        message: "Run lnmarkets_trader:check_three_minute_trend_indicators...",
+        body: "QUERY DATE: #{DateTime.now.utc.beginning_of_day} - #{timestamp_current}",
+        script: "lnmarkets_trader:check_three_minute_trend_indicators"
+      }.to_json
+    )
+
+    # Standard model inputs
+    polygon_client = PolygonAPI.new
+    symbol = 'X:BTCUSD'
+    timespan = 'hour'
+    window = 60
+    series_type = 'close'
+
+    # Track data errors
+    data_errors = 0
+
+    # Get technical indicators from Polygon
+    rsi_value = 0.0
+    response_rsi = polygon_client.get_rsi(symbol, timestamp_current, timespan, window, series_type)
+    puts "Full response_rsi:"
+    puts response_rsi.inspect
+
+    if response_rsi[:status] == 'success'
+      rsi_values = response_rsi[:body]['results']['values']
+      rsi_value = rsi_values[0]['value']
+    else
+      data_errors += 1
+    end
+
+    if rsi_value != 0.0
+      Rails.logger.info(
+        {
+          message: "RSI Value",
+          body: "#{rsi_value}",
+          script: "lnmarkets_trader:check_three_minute_trend_indicators"
+        }.to_json
+      )
+    elsif rsi_value == 0.0
+      Rails.logger.fatal(
+        {
+          message: "RSI Value",
+          body: "#{rsi_value}",
+          script: "lnmarkets_trader:check_three_minute_trend_indicators"
+        }.to_json
+      )
+      abort 'Unable to fetch last hour RSI Value.'
+    end
+
+    # Current BTCUSD price
+    price_btcusd = 0.0
+    currency_from = 'BTC'
+    currency_to = 'USD'
+    response_btcusd = polygon_client.get_last_trade(currency_from, currency_to)
+    if response_btcusd[:status] == 'success'
+      price_btcusd = response_btcusd[:body]['last']['price']
+    else
+      data_errors += 1
+    end
+    Rails.logger.info(
+      {
+        message: "Fetched Last BTCUSD Tick.",
+        body: "#{price_btcusd}",
+        script: "lnmarkets_trader:check_three_minute_trend_indicators"
+      }.to_json
+    )
+
+    #
+    # Save MarketDataLog
+    #
+    begin
+      market_data_log = MarketDataLog.create(
+        recorded_date: DateTime.now,
+        price_btcusd: price_btcusd,
+        rsi: rsi_value,
+        strategy: strategy
+      )
+    rescue => e
+      Rails.logger.error(
+        {
+          message: "Error. Unable to save market_data_log record.",
+          body: "#{e}",
+          script: "lnmarkets_trader:check_three_minute_trend_indicators"
+        }.to_json
+      )
+      market_data_log = MarketDataLog.create(
+        recorded_date: DateTime.now,
+        strategy: strategy
+      )
+    end
+
+    #
+    # Initialize score
+    #
+    trade_direction_score = 0.0
+
+    #
+    # Evaluate rules
+    #
+    if rsi_value.present?
+      if rsi_value > 71 && rsi_value < 73
+        trade_direction_score += 1.0
+      end
+    else
+      data_errors += 1
+    end
+
+    #
+    # Save ScoreLog
+    #
+    Rails.logger.info(
+      {
+        message: "Final Trade Direction Score: #{trade_direction_score}",
+        script: "lnmarkets_trader:check_three_minute_trend_indicators"
+      }.to_json
+    )
+    begin
+      score_log = ScoreLog.create(
+        recorded_date: DateTime.now,
+        market_data_log_id: market_data_log.id,
+        score: trade_direction_score
+      )
+    rescue => e
+      Rails.logger.error(
+        {
+          message: "Error saving score_log record",
+          body: e,
+          script: "lnmarkets_trader:check_three_minute_trend_indicators"
+        }.to_json
+      )
+      score_log = ScoreLog.create(
+        recorded_date: DateTime.now
+      )
+    end
+
+    puts ""
+    puts "Evaluate if we should create a new trade..."
+    puts "--------------------------------------------"
+    puts ""
+    #
+    # Invoke trade order scripts
+    #
+    if trade_direction_score < 0.0 || trade_direction_score > 0.0
+      puts "********************************************"
+      puts "********************************************"
+      trade_direction = ''
+      if trade_direction_score > 0.0
+        trade_direction = 'buy'
+      elsif trade_direction_score < 0.0
+        trade_direction = 'sell'
+      end
+      Rails.logger.info(
+        {
+          message: "Proceed with new trade direction.",
+          body: "#{trade_direction}",
+          script: "lnmarkets_trader:check_three_minute_trend_indicators"
+        }.to_json
+      )
+
+      if trade_direction == 'buy'
+        Rake::Task["lnmarkets_trader:create_long_trade"].execute({score_log_id: score_log.id, strategy: strategy})
+      elsif trade_direction == 'sell'
+        Rake::Task["lnmarkets_trader:create_short_trade"].execute({score_log_id: score_log.id, strategy: strategy})
+      end
+      Rails.logger.info(
+        {
+          message: "Finished creating new #{trade_direction} trade.",
+          script: "lnmarkets_trader:check_three_minute_trend_indicators"
+        }.to_json
+      )
+      puts "********************************************"
+      puts "********************************************"
+    elsif trade_direction_score == 0.0
+      #
+      # No trade... wait for new market indicators at next trading interval
+      #
+      Rails.logger.info(
+        {
+          message: "No trade.",
+          script: "lnmarkets_trader:check_three_minute_trend_indicators"
+        }.to_json
+      )
+    end
+
+    Rails.logger.info(
+      {
+        message: "Data Errors: #{data_errors}",
+        script: "lnmarkets_trader:check_three_minute_trend_indicators"
+      }.to_json
+    )
+    if data_errors > 0
+      market_data_log.update(int_data_errors: data_errors)
+    end
+
+    puts 'End lnmarkets_trader:check_three_minute_trend_indicators...'
+    puts ''
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+  end
+
+  task :create_long_trade, [:score_log_id, :strategy] => :environment do |t, args|
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts ''
@@ -1126,11 +1346,11 @@ namespace :lnmarkets_trader do
     puts ''
     Rails.logger.info(
       {
-        message: "args[:score_log_id]: #{args[:score_log_id]}",
+        message: "args[:score_log_id]: #{args[:score_log_id]}, args[:strategy]: #{args[:strategy]}",
         script: "lnmarkets_trader:create_long_trade"
       }.to_json
     )
-    if !args[:score_log_id].present?
+    if !args[:score_log_id].present? || !args[:strategy].present?
       Rails.logger.fatal(
         {
           message: "Error. Invocation missing required params.",
@@ -1140,6 +1360,7 @@ namespace :lnmarkets_trader do
       abort 'Unable to invoke create_long_trade script.'
     else
       score_log_id = args[:score_log_id]
+      strategy = args[:strategy]
     end
     # Initialize lnmarkets_client
     lnmarkets_client = LnmarketsAPI.new
@@ -1195,7 +1416,7 @@ namespace :lnmarkets_trader do
       end
 
       #
-      # Define leverage factor
+      # Define leverage factor using recent volatility data from the 'daily-trend' strategy
       #
       last_16_market_data_log_entries = MarketDataLog.where(strategy:'daily-trend', created_at: 17.days.ago..).order(recorded_date: :desc).limit(16)
       last_16_market_data_log_volatility_entries = last_16_market_data_log_entries.pluck(:implied_volatility_t3)
@@ -1298,7 +1519,7 @@ namespace :lnmarkets_trader do
         # Open directional hedge by buying options contract in the inverse direction
         #
         if last_macd_value != nil && last_macd_value < -300
-          Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'short', amount: quantity, score_log_id: score_log_id})
+          Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'short', amount: quantity, score_log_id: score_log_id, strategy: strategy})
         end
       else
         puts 'Error. Unable to create futures trade.'
@@ -1313,7 +1534,7 @@ namespace :lnmarkets_trader do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
 
-  task :create_short_trade, [:score_log_id] => :environment do |t, args|
+  task :create_short_trade, [:score_log_id, :strategy] => :environment do |t, args|
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts ''
@@ -1322,11 +1543,11 @@ namespace :lnmarkets_trader do
     puts 
     Rails.logger.info(
       {
-        message: "args[:score_log_id]: #{args[:score_log_id]}",
+        message: "args[:score_log_id]: #{args[:score_log_id]}, args[:strategy]: #{args[:strategy]}",
         script: "lnmarkets_trader:create_short_trade"
       }.to_json
     )
-    if !args[:score_log_id].present?
+    if !args[:score_log_id].present? || !args[:strategy].present?
       Rails.logger.fatal(
         {
           message: "Error. Invocation missing required params.",
@@ -1336,6 +1557,7 @@ namespace :lnmarkets_trader do
       abort 'Unable to invoke create_short_trade script.'
     else
       score_log_id = args[:score_log_id]
+      strategy = args[:strategy]
     end
     # Initialize lnmarkets_client
     lnmarkets_client = LnmarketsAPI.new
@@ -1484,13 +1706,13 @@ namespace :lnmarkets_trader do
           creation_timestamp: lnmarkets_response[:body]['creation_ts'],
           last_update_timestamp: lnmarkets_response[:body]['last_update_ts'],
           margin_percent_of_quantity: margin_percent_of_quantity,
-          strategy: 'daily-trend'
+          strategy: strategy
         )
         #
         # Open directional hedge by buying options contract in the inverse direction
         #
         if last_macd_value != nil && last_macd_value < -300
-          Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'long', amount: quantity, score_log_id: score_log_id})
+          Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'long', amount: quantity, score_log_id: score_log_id, strategy: strategy})
         end
       else
         Rails.logger.error(
@@ -1514,10 +1736,10 @@ namespace :lnmarkets_trader do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
 
-  task :open_options_contract, [:direction, :amount, :score_log_id] => :environment do |t, args|
+  task :open_options_contract, [:direction, :amount, :score_log_id, :strategy] => :environment do |t, args|
     #
     # Invoke this script with the following command:
-    # Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'long', amount: lnmarkets_response[:body]['quantity'], score_log_id: score_log_id})
+    # Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'long', amount: lnmarkets_response[:body]['quantity'], score_log_id: score_log_id, strategy: strategy})
     #
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
@@ -1532,7 +1754,8 @@ namespace :lnmarkets_trader do
     puts "args[:score_log_id]: #{args[:score_log_id]}"
     if args[:direction].present? && 
       args[:amount].present? &&
-      args[:score_log_id].present?
+      args[:score_log_id].present? &&
+      args[:strategy].present?
 
       if ['long', 'short'].include?(args[:direction])
         direction = args[:direction]
@@ -1721,7 +1944,7 @@ namespace :lnmarkets_trader do
             running: true,
             closed: false,
             margin_percent_of_quantity: margin_percent_of_quantity,
-            strategy: 'daily-trend'
+            strategy: strategy
           )
         else
           Rails.logger.error(
