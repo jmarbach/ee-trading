@@ -1148,8 +1148,8 @@ namespace :lnmarkets_trader do
     # Standard model inputs
     polygon_client = PolygonAPI.new
     symbol = 'X:BTCUSD'
-    timespan = 'hour'
-    window = 60
+    timespan = 'minute'
+    window = 3
     series_type = 'close'
 
     # Track data errors
@@ -1162,8 +1162,11 @@ namespace :lnmarkets_trader do
     puts response_rsi.inspect
 
     if response_rsi[:status] == 'success'
-      rsi_values = response_rsi[:body]['results']['values']
-      rsi_value = rsi_values[0]['value']
+      if response_rsi[:body]['results']['values'] != nil
+        rsi_value = response_rsi[:body]['results']['values'][0]['value']
+      else
+        rsi = 0.0
+      end
     else
       data_errors += 1
     end
@@ -2222,76 +2225,38 @@ namespace :lnmarkets_trader do
             end
           elsif strategy == 'hourly-trend'
             if trade_direction == 'long'
-              if index_price_btcusd > (entry_price * 1.035)
-                new_stoploss = (entry_price * 1.035).round(0)
-              elsif index_price_btcusd > (entry_price * 1.026)
-                new_stoploss = (entry_price * 1.026).round(0)
-              elsif index_price_btcusd > (entry_price * 1.025)
-                new_stoploss = (entry_price * 1.025).round(0)
-              elsif index_price_btcusd > (entry_price * 1.02)
+              if index_price_btcusd > (entry_price * 1.01)
                 new_stoploss = (entry_price * 1.01).round(0)
-              elsif index_price_btcusd > (entry_price * 1.015)
-                new_stoploss = (entry_price * 1.0).round(0)
-              elsif index_price_btcusd > (entry_price * 1.01)
-                new_stoploss = (entry_price * 0.99).round(0)
-              elsif index_price_btcusd > (entry_price * 1.005)
-                new_stoploss = (entry_price * 0.95).round(0)
+              elsif index_price_btcusd > (entry_price * 1.026)
+                new_stoploss = (entry_price * 1.005).round(0)
+              elsif index_price_btcusd > (entry_price * 1.025)
+                new_stoploss = (entry_price * 1.005).round(0)
               else
                 new_stoploss = (index_price_btcusd * 0.94).round(0)
               end
             elsif trade_direction == 'short'
-              if index_price_btcusd < (entry_price * 0.965)
-                new_stoploss = (entry_price * 0.965).round(0)
-              elsif index_price_btcusd < (entry_price * 0.974)
-                new_stoploss = (entry_price * 0.974).round(0)
-              elsif index_price_btcusd < (entry_price * 0.975)
-                new_stoploss = (entry_price * 0.975).round(0)
-              elsif index_price_btcusd < (entry_price * 0.98)
+              if index_price_btcusd < (entry_price * 0.99)
                 new_stoploss = (entry_price * 0.99).round(0)
-              elsif index_price_btcusd < (entry_price * 0.985)
-                new_stoploss = (entry_price * 1.0).round(0)
-              elsif index_price_btcusd < (entry_price * 0.99)
-                new_stoploss = (entry_price * 1.01).round(0)
               elsif index_price_btcusd < (entry_price * 0.995)
-                new_stoploss = (entry_price * 1.05).round(0)
+                new_stoploss = (entry_price * 0.995).round(0)
               else
                 new_stoploss = (index_price_btcusd * 1.06).round(0)
               end
             end
           elsif strategy == 'three-minute-trend'
             if trade_direction == 'long'
-              if index_price_btcusd > (entry_price * 1.035)
-                new_stoploss = (entry_price * 1.035).round(0)
-              elsif index_price_btcusd > (entry_price * 1.026)
-                new_stoploss = (entry_price * 1.026).round(0)
-              elsif index_price_btcusd > (entry_price * 1.025)
-                new_stoploss = (entry_price * 1.025).round(0)
-              elsif index_price_btcusd > (entry_price * 1.02)
-                new_stoploss = (entry_price * 1.01).round(0)
-              elsif index_price_btcusd > (entry_price * 1.015)
-                new_stoploss = (entry_price * 1.0).round(0)
-              elsif index_price_btcusd > (entry_price * 1.01)
-                new_stoploss = (entry_price * 0.99).round(0)
-              elsif index_price_btcusd > (entry_price * 1.005)
-                new_stoploss = (entry_price * 0.95).round(0)
+              if index_price_btcusd > (entry_price * 1.0032)
+                new_stoploss = (entry_price * 1.0032).round(0)
+              elsif index_price_btcusd > (entry_price * 1.0016)
+                new_stoploss = (entry_price * 1.00).round(0)
               else
                 new_stoploss = (index_price_btcusd * 0.94).round(0)
               end
             elsif trade_direction == 'short'
-              if index_price_btcusd < (entry_price * 0.965)
-                new_stoploss = (entry_price * 0.965).round(0)
-              elsif index_price_btcusd < (entry_price * 0.974)
-                new_stoploss = (entry_price * 0.974).round(0)
-              elsif index_price_btcusd < (entry_price * 0.975)
-                new_stoploss = (entry_price * 0.975).round(0)
-              elsif index_price_btcusd < (entry_price * 0.98)
-                new_stoploss = (entry_price * 0.99).round(0)
-              elsif index_price_btcusd < (entry_price * 0.985)
-                new_stoploss = (entry_price * 1.0).round(0)
-              elsif index_price_btcusd < (entry_price * 0.99)
-                new_stoploss = (entry_price * 1.01).round(0)
-              elsif index_price_btcusd < (entry_price * 0.995)
-                new_stoploss = (entry_price * 1.05).round(0)
+              if index_price_btcusd < (entry_price * 0.9968)
+                new_stoploss = (entry_price * 0.9968).round(0)
+              elsif index_price_btcusd < (entry_price * 0.9984)
+                new_stoploss = (entry_price * 1.00).round(0)
               else
                 new_stoploss = (index_price_btcusd * 1.06).round(0)
               end
