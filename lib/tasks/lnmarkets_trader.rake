@@ -1843,6 +1843,22 @@ namespace :lnmarkets_trader do
           }.to_json
         )
         #
+        # Get strategy of trade from EE database
+        #
+        trade_log = TradeLog.find_by_external_id(f['id'])
+        if trade_log != nil
+          strategy = trade_log.strategy
+        else
+          Rails.logger.fatal(
+            {
+              message: "Error. Unable to fetch internal TradeLog record for #{f['id']}... abort check_stops script.",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
+          abort 'Unable to proceed with updating Stops without internal TradeLog record.'
+        end
+
+        #
         # Check trade direction, long/short
         #
         trade_direction = ''
@@ -1926,55 +1942,136 @@ namespace :lnmarkets_trader do
         end
 
         #
-        # 4. Update the position's stop-loss
+        # 4. Update the position's stop-loss based on the TradeLog's strategy
         #
         if update_trade_stoploss_price == true
           Rails.logger.info(
             {
-              message: "Attempt to update futures trade...",
+              message: "Attempt to update futures trade #{f['id']} with the #{strategy} strategy...",
               script: "lnmarkets_trader:check_stops"
             }.to_json
           )
           #
           # Calculate new stoploss
           #
-          if trade_direction == 'long'
-            if index_price_btcusd > (entry_price * 1.035)
-              new_stoploss = (entry_price * 1.035).round(0)
-            elsif index_price_btcusd > (entry_price * 1.026)
-              new_stoploss = (entry_price * 1.026).round(0)
-            elsif index_price_btcusd > (entry_price * 1.025)
-              new_stoploss = (entry_price * 1.025).round(0)
-            elsif index_price_btcusd > (entry_price * 1.02)
-              new_stoploss = (entry_price * 1.01).round(0)
-            elsif index_price_btcusd > (entry_price * 1.015)
-              new_stoploss = (entry_price * 1.0).round(0)
-            elsif index_price_btcusd > (entry_price * 1.01)
-              new_stoploss = (entry_price * 0.99).round(0)
-            elsif index_price_btcusd > (entry_price * 1.005)
-              new_stoploss = (entry_price * 0.95).round(0)
-            else
-              new_stoploss = (index_price_btcusd * 0.94).round(0)
+          if strategy == 'daily-trend'
+            if trade_direction == 'long'
+              if index_price_btcusd > (entry_price * 1.035)
+                new_stoploss = (entry_price * 1.035).round(0)
+              elsif index_price_btcusd > (entry_price * 1.026)
+                new_stoploss = (entry_price * 1.026).round(0)
+              elsif index_price_btcusd > (entry_price * 1.025)
+                new_stoploss = (entry_price * 1.025).round(0)
+              elsif index_price_btcusd > (entry_price * 1.02)
+                new_stoploss = (entry_price * 1.01).round(0)
+              elsif index_price_btcusd > (entry_price * 1.015)
+                new_stoploss = (entry_price * 1.0).round(0)
+              elsif index_price_btcusd > (entry_price * 1.01)
+                new_stoploss = (entry_price * 0.99).round(0)
+              elsif index_price_btcusd > (entry_price * 1.005)
+                new_stoploss = (entry_price * 0.95).round(0)
+              else
+                new_stoploss = (index_price_btcusd * 0.94).round(0)
+              end
+            elsif trade_direction == 'short'
+              if index_price_btcusd < (entry_price * 0.965)
+                new_stoploss = (entry_price * 0.965).round(0)
+              elsif index_price_btcusd < (entry_price * 0.974)
+                new_stoploss = (entry_price * 0.974).round(0)
+              elsif index_price_btcusd < (entry_price * 0.975)
+                new_stoploss = (entry_price * 0.975).round(0)
+              elsif index_price_btcusd < (entry_price * 0.98)
+                new_stoploss = (entry_price * 0.99).round(0)
+              elsif index_price_btcusd < (entry_price * 0.985)
+                new_stoploss = (entry_price * 1.0).round(0)
+              elsif index_price_btcusd < (entry_price * 0.99)
+                new_stoploss = (entry_price * 1.01).round(0)
+              elsif index_price_btcusd < (entry_price * 0.995)
+                new_stoploss = (entry_price * 1.05).round(0)
+              else
+                new_stoploss = (index_price_btcusd * 1.06).round(0)
+              end
             end
-          elsif trade_direction == 'short'
-            if index_price_btcusd < (entry_price * 0.965)
-              new_stoploss = (entry_price * 0.965).round(0)
-            elsif index_price_btcusd < (entry_price * 0.974)
-              new_stoploss = (entry_price * 0.974).round(0)
-            elsif index_price_btcusd < (entry_price * 0.975)
-              new_stoploss = (entry_price * 0.975).round(0)
-            elsif index_price_btcusd < (entry_price * 0.98)
-              new_stoploss = (entry_price * 0.99).round(0)
-            elsif index_price_btcusd < (entry_price * 0.985)
-              new_stoploss = (entry_price * 1.0).round(0)
-            elsif index_price_btcusd < (entry_price * 0.99)
-              new_stoploss = (entry_price * 1.01).round(0)
-            elsif index_price_btcusd < (entry_price * 0.995)
-              new_stoploss = (entry_price * 1.05).round(0)
-            else
-              new_stoploss = (index_price_btcusd * 1.06).round(0)
+          elsif strategy == 'hourly-trend'
+            if trade_direction == 'long'
+              if index_price_btcusd > (entry_price * 1.035)
+                new_stoploss = (entry_price * 1.035).round(0)
+              elsif index_price_btcusd > (entry_price * 1.026)
+                new_stoploss = (entry_price * 1.026).round(0)
+              elsif index_price_btcusd > (entry_price * 1.025)
+                new_stoploss = (entry_price * 1.025).round(0)
+              elsif index_price_btcusd > (entry_price * 1.02)
+                new_stoploss = (entry_price * 1.01).round(0)
+              elsif index_price_btcusd > (entry_price * 1.015)
+                new_stoploss = (entry_price * 1.0).round(0)
+              elsif index_price_btcusd > (entry_price * 1.01)
+                new_stoploss = (entry_price * 0.99).round(0)
+              elsif index_price_btcusd > (entry_price * 1.005)
+                new_stoploss = (entry_price * 0.95).round(0)
+              else
+                new_stoploss = (index_price_btcusd * 0.94).round(0)
+              end
+            elsif trade_direction == 'short'
+              if index_price_btcusd < (entry_price * 0.965)
+                new_stoploss = (entry_price * 0.965).round(0)
+              elsif index_price_btcusd < (entry_price * 0.974)
+                new_stoploss = (entry_price * 0.974).round(0)
+              elsif index_price_btcusd < (entry_price * 0.975)
+                new_stoploss = (entry_price * 0.975).round(0)
+              elsif index_price_btcusd < (entry_price * 0.98)
+                new_stoploss = (entry_price * 0.99).round(0)
+              elsif index_price_btcusd < (entry_price * 0.985)
+                new_stoploss = (entry_price * 1.0).round(0)
+              elsif index_price_btcusd < (entry_price * 0.99)
+                new_stoploss = (entry_price * 1.01).round(0)
+              elsif index_price_btcusd < (entry_price * 0.995)
+                new_stoploss = (entry_price * 1.05).round(0)
+              else
+                new_stoploss = (index_price_btcusd * 1.06).round(0)
+              end
+            end
+          elsif strategy == 'three-minute-trend'
+            if trade_direction == 'long'
+              if index_price_btcusd > (entry_price * 1.035)
+                new_stoploss = (entry_price * 1.035).round(0)
+              elsif index_price_btcusd > (entry_price * 1.026)
+                new_stoploss = (entry_price * 1.026).round(0)
+              elsif index_price_btcusd > (entry_price * 1.025)
+                new_stoploss = (entry_price * 1.025).round(0)
+              elsif index_price_btcusd > (entry_price * 1.02)
+                new_stoploss = (entry_price * 1.01).round(0)
+              elsif index_price_btcusd > (entry_price * 1.015)
+                new_stoploss = (entry_price * 1.0).round(0)
+              elsif index_price_btcusd > (entry_price * 1.01)
+                new_stoploss = (entry_price * 0.99).round(0)
+              elsif index_price_btcusd > (entry_price * 1.005)
+                new_stoploss = (entry_price * 0.95).round(0)
+              else
+                new_stoploss = (index_price_btcusd * 0.94).round(0)
+              end
+            elsif trade_direction == 'short'
+              if index_price_btcusd < (entry_price * 0.965)
+                new_stoploss = (entry_price * 0.965).round(0)
+              elsif index_price_btcusd < (entry_price * 0.974)
+                new_stoploss = (entry_price * 0.974).round(0)
+              elsif index_price_btcusd < (entry_price * 0.975)
+                new_stoploss = (entry_price * 0.975).round(0)
+              elsif index_price_btcusd < (entry_price * 0.98)
+                new_stoploss = (entry_price * 0.99).round(0)
+              elsif index_price_btcusd < (entry_price * 0.985)
+                new_stoploss = (entry_price * 1.0).round(0)
+              elsif index_price_btcusd < (entry_price * 0.99)
+                new_stoploss = (entry_price * 1.01).round(0)
+              elsif index_price_btcusd < (entry_price * 0.995)
+                new_stoploss = (entry_price * 1.05).round(0)
+              else
+                new_stoploss = (index_price_btcusd * 1.06).round(0)
+              end
             end
           end
+          #
+          # Log new stoploss
+          #
           Rails.logger.info(
             {
               message: "New stoploss: #{new_stoploss.to_fs(:delimited)}  (Previously: #{previous_stoploss})",
@@ -1982,6 +2079,9 @@ namespace :lnmarkets_trader do
             }.to_json
           )
 
+          #
+          # Only proceed with update to LnMarkets if the stoploss value is not the same as the old value
+          #
           if new_stoploss != previous_stoploss
             lnmarkets_response = lnmarkets_client.update_futures_trade(f['id'], 'stoploss', new_stoploss)
             if lnmarkets_response[:status] == 'success'
