@@ -907,9 +907,9 @@ namespace :lnmarkets_trader do
     # Check for no open or running trades using this strategy
     #
     hourly_trend_trades_created_today = TradeLog.where(
-      created_at: DateTime.now.utc.beginning_of_day.., strategy: strategy).where.not(open: false, running: false).count
+      created_at: DateTime.now.utc.beginning_of_day.., strategy: strategy, open: [true, nil], running: [true, nil])
 
-    if hourly_trend_trades_created_today > 0
+    if hourly_trend_trades_created_today.count > 0
       #
       # Iterate through each trade to get its open and running status
       #
@@ -1171,9 +1171,9 @@ namespace :lnmarkets_trader do
     # Check for no open or running trades using this strategy
     #
     three_minute_trend_trades_created_today = TradeLog.where(
-      created_at: DateTime.now.utc.beginning_of_day.., strategy: strategy).where.not(open: false, running: false).count
+      created_at: DateTime.now.utc.beginning_of_day.., strategy: strategy, open: [true, nil], running: [true, nil])
 
-    if three_minute_trend_trades_created_today > 0
+    if three_minute_trend_trades_created_today.count > 0
       #
       # Iterate through each trade to get its open and running status
       #
