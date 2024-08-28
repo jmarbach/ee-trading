@@ -2078,6 +2078,12 @@ namespace :lnmarkets_trader do
         trade_log = TradeLog.find_by_external_id(f['id'])
         if trade_log != nil
           strategy = trade_log.strategy
+          Rails.logger.info(
+            {
+              message: "Trade Strategy: #{strategy}",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
         else
           Rails.logger.fatal(
             {
@@ -2414,6 +2420,12 @@ namespace :lnmarkets_trader do
         trade_log = TradeLog.find_by_external_id(c['id'])
         if trade_log != nil
           strategy = trade_log.strategy
+          Rails.logger.info(
+            {
+              message: "Options Trade Strategy: #{strategy}",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
         else
           Rails.logger.fatal(
             {
@@ -2440,7 +2452,7 @@ namespace :lnmarkets_trader do
         entry_price = c['forward']
         Rails.logger.info(
           {
-            message: "Trade Entry Price: #{entry_price.to_fs(:delimited)}",
+            message: "Options Trade Entry Price: #{entry_price.to_fs(:delimited)}",
             script: "lnmarkets_trader:check_stops"
           }.to_json
         )
