@@ -934,6 +934,12 @@ namespace :lnmarkets_trader do
             )
             exit(0)
           else
+            Rails.logger.info(
+              {
+                message: "Trade #{t.external_id} is not running or open. Update TradeLog record...",
+                script: "lnmarkets_trader:check_hourly_trend_indicators"
+              }.to_json
+            )
             t.update(
               open: false,
               running: false
@@ -1192,6 +1198,12 @@ namespace :lnmarkets_trader do
             )
             exit(0)
           else
+            Rails.logger.info(
+              {
+                message: "Trade #{t.external_id} is not running or open. Update TradeLog record...",
+                script: "lnmarkets_trader:check_three_minute_trend_indicators"
+              }.to_json
+            )
             t.update(
               open: false,
               running: false
@@ -1594,7 +1606,7 @@ namespace :lnmarkets_trader do
           creation_timestamp: lnmarkets_response[:body]['creation_ts'],
           last_update_timestamp: lnmarkets_response[:body]['last_update_ts'],
           margin_percent_of_quantity: margin_percent_of_quantity,
-          strategy: 'daily-trend'
+          strategy: strategy
         )
         #
         # Open directional hedge by buying options contract in the inverse direction
@@ -2352,7 +2364,7 @@ namespace :lnmarkets_trader do
               elsif index_price_btcusd > (entry_price * 1.0032)
                 new_stoploss = (entry_price * 1.0032).round(0)
               elsif index_price_btcusd > (entry_price * 1.0016)
-                new_stoploss = (entry_price * 1.00).round(0)
+                new_stoploss = (entry_price * 1.001).round(0)
               else
                 new_stoploss = (index_price_btcusd * 0.94).round(0)
               end
@@ -2370,7 +2382,7 @@ namespace :lnmarkets_trader do
               elsif index_price_btcusd < (entry_price * 0.9968)
                 new_stoploss = (entry_price * 0.9968).round(0)
               elsif index_price_btcusd < (entry_price * 0.9984)
-                new_stoploss = (entry_price * 1.00).round(0)
+                new_stoploss = (entry_price * 1.001).round(0)
               else
                 new_stoploss = (index_price_btcusd * 1.06).round(0)
               end
