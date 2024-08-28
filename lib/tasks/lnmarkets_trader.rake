@@ -912,7 +912,7 @@ namespace :lnmarkets_trader do
           script: "lnmarkets_trader:check_hourly_trend_indicators"
         }.to_json
       )
-      abort 'Trade alraedy created for this strategy today. Skip checks until following day.'
+      exit(0)
     end
 
     timestamp_current = DateTime.now.utc.beginning_of_hour.to_i.in_milliseconds
@@ -1133,7 +1133,7 @@ namespace :lnmarkets_trader do
           script: "lnmarkets_trader:check_three_minute_trend_indicators"
         }.to_json
       )
-      abort 'Trade alraedy created for this strategy today. Skip checks until following day.'
+      exit(0)
     end
 
     timestamp_current = (DateTime.now.utc - 1.minute).beginning_of_minute.to_i.in_milliseconds
