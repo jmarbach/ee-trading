@@ -901,18 +901,55 @@ namespace :lnmarkets_trader do
   task check_hourly_trend_indicators: :environment do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+
     strategy = 'hourly-trend'
+    #
+    # Check for no open or running trades using this strategy
+    #
     hourly_trend_trades_created_today = TradeLog.where(
-      created_at: DateTime.now.utc.beginning_of_day.., strategy: strategy).count
+      created_at: DateTime.now.utc.beginning_of_day.., strategy: strategy).where.not(open: false, running: false).count
 
     if hourly_trend_trades_created_today > 0
-      Rails.logger.warn(
-        {
-          message: "We already opened one hourly trend trade today. Skip.",
-          script: "lnmarkets_trader:check_hourly_trend_indicators"
-        }.to_json
-      )
-      exit(0)
+      #
+      # Iterate through each trade to get its open and running status
+      #
+      hourly_trend_trades_created_today.each do |t|
+        lnmarkets_client = LnmarketsAPI.new
+        lnmarkets_response = lnmarkets_client.get_futures_trade(t.external_id)
+        if lnmarkets_response[:status] == 'success'
+          Rails.logger.info(
+            {
+              message: "Parse trade response from LnMarkets",
+              body: "#{lnmarkets_response[:body]}",
+              script: "lnmarkets_trader:check_hourly_trend_indicators"
+            }.to_json
+          )
+          if lnmarkets_response[:body]['open'] == true ||
+            lnmarkets_response[:body]['running'] == true
+            Rails.logger.warn(
+              {
+                message: "We already opened one hourly trend trade today and it is still open or running. Skip.",
+                script: "lnmarkets_trader:check_hourly_trend_indicators"
+              }.to_json
+            )
+            exit(0)
+          else
+            t.update(
+              open: false,
+              running: false
+            )
+            # Proceed
+          end
+        else
+          Rails.logger.fatal(
+            {
+              message: "Error. Unable to get futures trade.",
+              script: "lnmarkets_trader:check_hourly_trend_indicators"
+            }.to_json
+          )
+          abort 'Unable to get state of futures trade.'
+        end
+      end
     end
 
     timestamp_current = DateTime.now.utc.beginning_of_hour.to_i.in_milliseconds
@@ -1122,18 +1159,55 @@ namespace :lnmarkets_trader do
   task check_three_minute_trend_indicators: :environment do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+
     strategy = 'three-minute-trend'
+    #
+    # Check for no open or running trades using this strategy
+    #
     three_minute_trend_trades_created_today = TradeLog.where(
-      created_at: DateTime.now.utc.beginning_of_day.., strategy: strategy).count
+      created_at: DateTime.now.utc.beginning_of_day.., strategy: strategy).where.not(open: false, running: false).count
 
     if three_minute_trend_trades_created_today > 0
-      Rails.logger.warn(
-        {
-          message: "We already opened one three minute trend trade today. Skip.",
-          script: "lnmarkets_trader:check_three_minute_trend_indicators"
-        }.to_json
-      )
-      exit(0)
+      #
+      # Iterate through each trade to get its open and running status
+      #
+      three_minute_trend_trades_created_today.each do |t|
+        lnmarkets_client = LnmarketsAPI.new
+        lnmarkets_response = lnmarkets_client.get_futures_trade(t.external_id)
+        if lnmarkets_response[:status] == 'success'
+          Rails.logger.info(
+            {
+              message: "Parse trade response from LnMarkets",
+              body: "#{lnmarkets_response[:body]}",
+              script: "lnmarkets_trader:check_three_minute_trend_indicators"
+            }.to_json
+          )
+          if lnmarkets_response[:body]['open'] == true ||
+            lnmarkets_response[:body]['running'] == true
+            Rails.logger.warn(
+              {
+                message: "We already opened one three minute trend trade today and it is still open or running. Skip.",
+                script: "lnmarkets_trader:check_three_minute_trend_indicators"
+              }.to_json
+            )
+            exit(0)
+          else
+            t.update(
+              open: false,
+              running: false
+            )
+            # Proceed
+          end
+        else
+          Rails.logger.fatal(
+            {
+              message: "Error. Unable to get futures trade.",
+              script: "lnmarkets_trader:check_three_minute_trend_indicators"
+            }.to_json
+          )
+          abort 'Unable to get state of futures trade.'
+        end
+      end
     end
 
     timestamp_current = (DateTime.now.utc - 1.minute).beginning_of_minute.to_i.in_milliseconds
