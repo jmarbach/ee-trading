@@ -1857,11 +1857,15 @@ namespace :lnmarkets_trader do
     puts "args[:direction]: #{args[:direction]}"
     puts "args[:amount]: #{args[:amount]}"
     puts "args[:score_log_id]: #{args[:score_log_id]}"
+    puts "args[:score_log_id]: #{args[:strategy]}"
     if args[:direction].present? && 
       args[:amount].present? &&
       args[:score_log_id].present? &&
       args[:strategy].present?
 
+      #
+      # Evaluate direction argument
+      #
       if ['long', 'short'].include?(args[:direction])
         direction = args[:direction]
       else
@@ -1874,7 +1878,9 @@ namespace :lnmarkets_trader do
         abort 'Unable to invoke open_options_contract script.'
       end
 
+      #
       # Assign capital waged based on Lnmarkets trading limits
+      #
       if args[:amount] < 500000.00
         capital_waged_usd = args[:amount]
         Rails.logger.info(
@@ -1893,7 +1899,26 @@ namespace :lnmarkets_trader do
           }.to_json
         )
       end
+
+      #
+      # Initialize score_log_id var
+      #
       score_log_id = args[:score_log_id]
+
+      #
+      # Evaluate strategy argument
+      #
+      if ['daily-trend'].include?(args[:strategy])
+        strategy = args[:strategy]
+      else
+        Rails.logger.fatal(
+          {
+            message: "Error. Invalid strategy parameter.",
+            script: "lnmarkets_trader:open_options_contract"
+          }.to_json
+        )
+        abort 'Unable to invoke open_options_contract script.'
+      end
 
       # Initialize lnmarkets_client
       lnmarkets_client = LnmarketsAPI.new
@@ -2029,7 +2054,7 @@ namespace :lnmarkets_trader do
           margin_percent_of_quantity = (lnmarkets_response[:body]['margin'].to_f/quantity_btc_sats.to_f).round(4)
 
           trade_log = TradeLog.create(
-            score_log_id: args[:score_log_id],
+            score_log_id: score_log_id,
             external_id: lnmarkets_response[:body]['id'],
             exchange_name: 'lnmarkets',
             derivative_type: 'options',
