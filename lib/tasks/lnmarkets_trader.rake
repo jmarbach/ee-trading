@@ -2599,6 +2599,7 @@ namespace :lnmarkets_trader do
           )
           strategy = 'unknown'
           quantity_btc_sats = ((c['quantity']/index_price_btcusd)*100000000.0).round(0)
+          price_sat_usd = (index_price_btcusd/100000000.0).round(5)
           margin_quantity_usd_cents = ((price_sat_usd * c['margin']).round(0) * 100.0).round(0)
           margin_percent_of_quantity = (c['margin'].to_f/quantity_btc_sats.to_f).round(4)
           # ToDo - See how we can get the score log id and the instrument name here...
