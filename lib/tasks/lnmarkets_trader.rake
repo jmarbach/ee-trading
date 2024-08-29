@@ -1611,7 +1611,7 @@ namespace :lnmarkets_trader do
         #
         # Open directional hedge by buying options contract in the inverse direction
         #
-        if last_macd_value != nil && last_macd_value < -300
+        if strategy == 'daily-trend' && last_macd_value != nil && last_macd_value < -300
           Rails.logger.info(
             {
               message: "Open directional hedge. Last MACD: #{last_macd_value}",
@@ -1810,7 +1810,7 @@ namespace :lnmarkets_trader do
         #
         # Open directional hedge by buying options contract in the inverse direction
         #
-        if last_macd_value != nil && last_macd_value < -300
+        if strategy == 'daily-trend' && last_macd_value != nil && last_macd_value < -300
           Rails.logger.info(
             {
               message: "Open directional hedge. Last MACD: #{last_macd_value}",
