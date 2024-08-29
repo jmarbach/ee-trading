@@ -2591,9 +2591,9 @@ namespace :lnmarkets_trader do
             }.to_json
           )
         else
-          Rails.logger.error(
+          Rails.logger.warn(
             {
-              message: "Error. Unable to fetch internal TradeLog record for #{c['id']}... Create new TradeLog record with strategy == 'unknown'",
+              message: "Warning. Unable to fetch internal TradeLog record for #{c['id']}... Create new TradeLog record with strategy == 'unknown'",
               script: "lnmarkets_trader:check_stops"
             }.to_json
           )
