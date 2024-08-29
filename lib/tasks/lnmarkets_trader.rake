@@ -2558,27 +2558,6 @@ namespace :lnmarkets_trader do
           }.to_json
         )
         #
-        # Get strategy of trade from EE database
-        #
-        trade_log = TradeLog.find_by_external_id(c['id'])
-        if trade_log != nil
-          strategy = trade_log.strategy
-          Rails.logger.info(
-            {
-              message: "Options Trade Strategy: #{strategy}",
-              script: "lnmarkets_trader:check_stops"
-            }.to_json
-          )
-        else
-          Rails.logger.error(
-            {
-              message: "Error. Unable to fetch internal TradeLog record for #{c['id']}... continue with caution: fatal error may occur.",
-              script: "lnmarkets_trader:check_stops"
-            }.to_json
-          )
-        end
-
-        #
         # Get trade direction, long/short
         #
         trade_direction = ''
@@ -2598,6 +2577,54 @@ namespace :lnmarkets_trader do
             script: "lnmarkets_trader:check_stops"
           }.to_json
         )
+
+        #
+        # Get strategy of trade from EE database
+        #
+        trade_log = TradeLog.find_by_external_id(c['id'])
+        if trade_log != nil
+          strategy = trade_log.strategy
+          Rails.logger.info(
+            {
+              message: "Options Trade Strategy: #{strategy}",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
+        else
+          Rails.logger.error(
+            {
+              message: "Error. Unable to fetch internal TradeLog record for #{c['id']}... Create new TradeLog record with strategy == 'unknown'",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
+          strategy = 'unknown'
+          quantity_btc_sats = ((c['quantity']/index_price_btcusd)*100000000.0).round(0)
+          margin_quantity_usd_cents = ((price_sat_usd * c['margin']).round(0) * 100.0).round(0)
+          margin_percent_of_quantity = (c['margin'].to_f/quantity_btc_sats.to_f).round(4)
+          # ToDo - See how we can get the score log id and the instrument name here...
+          trade_log = TradeLog.create(
+            external_id: c['id'],
+            exchange_name: 'lnmarkets',
+            derivative_type: 'options',
+            trade_type: 'buy',
+            trade_direction: trade_direction,
+            quantity_usd_cents: (c['quantity'] * 100.0),
+            quantity_btc_sats: quantity_btc_sats,
+            open_fee: c['opening_fee'],
+            close_fee: c['closing_fee'],
+            margin_quantity_btc_sats: c['margin'],
+            margin_quantity_usd_cents: margin_quantity_usd_cents,
+            open_price: entry_price,
+            creation_timestamp: c['creation_ts'],
+            instrument: '',
+            settlement: c['settlement'],
+            implied_volatility: c['volatility'],
+            running: true,
+            closed: false,
+            margin_percent_of_quantity: margin_percent_of_quantity,
+            strategy: strategy
+          )
+        end
 
         #
         # Check if position is 'In-the-Money'
