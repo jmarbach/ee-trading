@@ -928,7 +928,7 @@ namespace :lnmarkets_trader do
             lnmarkets_response[:body]['running'] == true
             Rails.logger.warn(
               {
-                message: "We already opened one hourly trend trade today and it is still open or running. Skip.",
+                message: "We already opened an hourly trend trade that is still open or running. Skip.",
                 script: "lnmarkets_trader:check_hourly_trend_indicators"
               }.to_json
             )
@@ -1192,7 +1192,7 @@ namespace :lnmarkets_trader do
             lnmarkets_response[:body]['running'] == true
             Rails.logger.warn(
               {
-                message: "We already opened one three minute trend trade today and it is still open or running. Skip.",
+                message: "We already opened a three minute trend trade that is still open or running. Skip.",
                 script: "lnmarkets_trader:check_three_minute_trend_indicators"
               }.to_json
             )
@@ -1612,6 +1612,12 @@ namespace :lnmarkets_trader do
         # Open directional hedge by buying options contract in the inverse direction
         #
         if last_macd_value != nil && last_macd_value < -300
+          Rails.logger.info(
+            {
+              message: "Open directional hedge. Last MACD: #{last_macd_value}",
+              script: "lnmarkets_trader:create_long_trade"
+            }.to_json
+          )
           Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'short', amount: quantity, score_log_id: score_log_id, strategy: strategy})
         end
       else
@@ -1805,6 +1811,12 @@ namespace :lnmarkets_trader do
         # Open directional hedge by buying options contract in the inverse direction
         #
         if last_macd_value != nil && last_macd_value < -300
+          Rails.logger.info(
+            {
+              message: "Open directional hedge. Last MACD: #{last_macd_value}",
+              script: "lnmarkets_trader:create_long_trade"
+            }.to_json
+          )
           Rake::Task["lnmarkets_trader:open_options_contract"].execute({direction: 'long', amount: quantity, score_log_id: score_log_id, strategy: strategy})
         end
       else
