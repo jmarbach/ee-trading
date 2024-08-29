@@ -2545,13 +2545,12 @@ namespace :lnmarkets_trader do
             }.to_json
           )
         else
-          Rails.logger.fatal(
+          Rails.logger.error(
             {
-              message: "Error. Unable to fetch internal TradeLog record for #{c['id']}... abort check_stops script.",
+              message: "Error. Unable to fetch internal TradeLog record for #{c['id']}... continue with caution: fatal error may occur.",
               script: "lnmarkets_trader:check_stops"
             }.to_json
           )
-          abort 'Unable to proceed with evaluating Options contract without internal TradeLog record.'
         end
 
         #
