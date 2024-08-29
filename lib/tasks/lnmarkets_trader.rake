@@ -2376,7 +2376,7 @@ namespace :lnmarkets_trader do
               elsif index_price_btcusd > (entry_price * 1.0032)
                 new_stoploss = (entry_price * 1.0032).round(0)
               elsif index_price_btcusd > (entry_price * 1.0016)
-                new_stoploss = (entry_price * 1.001).round(0)
+                new_stoploss = (entry_price * 0.99).round(0)
               else
                 new_stoploss = (index_price_btcusd * 0.94).round(0)
               end
@@ -2394,7 +2394,7 @@ namespace :lnmarkets_trader do
               elsif index_price_btcusd < (entry_price * 0.9968)
                 new_stoploss = (entry_price * 0.9968).round(0)
               elsif index_price_btcusd < (entry_price * 0.9984)
-                new_stoploss = (entry_price * 1.001).round(0)
+                new_stoploss = (entry_price * 1.01).round(0)
               else
                 new_stoploss = (index_price_btcusd * 1.06).round(0)
               end
