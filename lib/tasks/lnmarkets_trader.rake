@@ -2597,12 +2597,57 @@ namespace :lnmarkets_trader do
               script: "lnmarkets_trader:check_stops"
             }.to_json
           )
+          #
+          # Prep attributes for new TradeLog record
+          #
           strategy = 'unknown'
           quantity_btc_sats = ((c['quantity']/index_price_btcusd)*100000000.0).round(0)
           price_sat_usd = (index_price_btcusd/100000000.0).round(5)
           margin_quantity_usd_cents = ((price_sat_usd * c['margin']).round(0) * 100.0).round(0)
           margin_percent_of_quantity = (c['margin'].to_f/quantity_btc_sats.to_f).round(4)
-          # ToDo - See how we can get the score log id and the instrument name here...
+
+          #
+          # Search instruments endpoint by expiry and strike price
+          #
+          expiry_datetime = Time.at(c['expiry_ts'] / 1000.0).to_datetime.utc
+          instrument = ''
+          lnmarkets_response = lnmarkets_client.get_options_instruments
+          if lnmarkets_response[:status] == 'success'
+            filtered_instruments = lnmarkets_response[:body].select {|y| y.include?((DateTime.now + 1.day).utc.strftime("BTC.%Y-%m-%d")) }
+
+            if trade_direction == 'long'
+              filtered_instruments = filtered_instruments.select { |y| y.include?('.C') }
+              filtered_instruments = filtered_instruments.select { |y| y.include?((c['strike']).ceil(-3).to_s) }
+            elsif trade_direction == 'short'
+              filtered_instruments = filtered_instruments.select { |y| y.include?('.P') }
+              filtered_instruments = filtered_instruments.select { |y| y.include?((index_price_btcusd).ceil(-3).to_s) }
+            end
+
+            if filtered_instruments.any?
+              instrument = filtered_instruments[0]
+              Rails.logger.info(
+                {
+                  message: "Found options instrument: #{filtered_instruments[0]}",
+                  script: "lnmarkets_trader:check_stops"
+                }.to_json
+              )
+            else
+              Rails.logger.warn(
+                {
+                  message: "Unable to find suitable options instrument.",
+                  script: "lnmarkets_trader:check_stops"
+                }.to_json
+              )
+            end
+          else
+            Rails.logger.warn(
+              {
+                message: "Unable to fetch options instruments.",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
+          end
+
           trade_log = TradeLog.create(
             external_id: c['id'],
             exchange_name: 'lnmarkets',
@@ -2617,7 +2662,7 @@ namespace :lnmarkets_trader do
             margin_quantity_usd_cents: margin_quantity_usd_cents,
             open_price: entry_price,
             creation_timestamp: c['creation_ts'],
-            instrument: '',
+            instrument: instrument,
             settlement: c['settlement'],
             implied_volatility: c['volatility'],
             running: true,
