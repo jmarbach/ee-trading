@@ -2388,7 +2388,9 @@ namespace :lnmarkets_trader do
             end
           elsif strategy == 'three-minute-trend'
             if trade_direction == 'long'
-              if index_price_btcusd > (entry_price * 1.0125)
+              if index_price_btcusd > (entry_price * 1.0135)
+                new_stoploss = (entry_price * 1.0135).round(0)
+              elsif index_price_btcusd > (entry_price * 1.0125)
                 new_stoploss = (entry_price * 1.0125).round(0)
               elsif index_price_btcusd > (entry_price * 1.01)
                 new_stoploss = (entry_price * 1.01).round(0)
@@ -2408,7 +2410,9 @@ namespace :lnmarkets_trader do
                 new_stoploss = (index_price_btcusd * 0.94).round(0)
               end
             elsif trade_direction == 'short'
-              if index_price_btcusd < (entry_price * 0.9875)
+              if index_price_btcusd < (entry_price * 0.9865)
+                new_stoploss = (entry_price * 0.9865).round(0)
+              elsif index_price_btcusd < (entry_price * 0.9875)
                 new_stoploss = (entry_price * 0.9875).round(0)
               elsif index_price_btcusd < (entry_price * 0.99)
                 new_stoploss = (entry_price * 0.99).round(0)
