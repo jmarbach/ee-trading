@@ -173,6 +173,13 @@ namespace :accountant do
         script: "accountant:save_trading_stats_daily"
       }.to_json
     )
+
+    #
+    # Trigger monthly accounting on the first of the month
+    #
+    if Time.now.utc.day == 1
+      Rake::Task["accountant:save_trading_stats_monthly"].execute
+    end
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
