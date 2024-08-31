@@ -176,4 +176,147 @@ namespace :accountant do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
+
+  task save_trading_stats_monthly: :environment do
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    Rails.logger.info(
+      {
+        message: "Run accountant:save_trading_stats_monthly...",
+        script: "accountant:save_trading_stats_monthly"
+      }.to_json
+    )
+
+    #
+    # Fetch last TradingStatsMonthly and TradingStatsDaily records
+    #
+    previous_trading_stats_monthly = TradingStatsMonthly.last
+    last_trading_stats_daily = TradingStatsDaily.last
+
+    #
+    # Use last TradingStatsDaily record to establish baseline
+    #
+    balance_btc_sats = last_trading_stats_daily.balance_btc_sats
+    balance_btc = last_trading_stats_daily.balance_btc
+
+    balance_usd_cents = last_trading_stats_daily.balance_usd_cents
+    balance_usd = last_trading_stats_daily.balance_usd
+
+    if previous_trading_stats_monthly.win_streak != nil
+      win_streak = previous_trading_stats_monthly.win_streak
+    else
+      win_streak = 0
+    end
+
+    if previous_trading_stats_monthly.lose_streak != nil
+      lose_streak = previous_trading_stats_monthly.lose_streak
+    else
+      lose_streak = 0
+    end
+
+    if previous_trading_stats_monthly.draw_streak != nil
+      draw_streak = previous_trading_stats_monthly.draw_streak
+    else
+      draw_streak = 0
+    end
+
+    trade_result = ''
+    if balance_btc > previous_trading_stats_monthly.balance_btc
+      trade_result = 'win'
+    elsif balance_btc == previous_trading_stats_monthly.balance_btc
+      trade_result = 'draw'
+    else
+      trade_result = 'loss'
+    end
+
+    bool_win, bool_loss, bool_draw = false, false, false
+    if trade_result == 'win'
+      bool_win = true
+      win_streak += 1
+      lose_streak = 0
+      draw_streak = 0
+    elsif trade_result == 'loss'
+      bool_loss = true
+      win_streak = 0
+      lose_streak += 1
+      draw_streak = 0
+    elsif trade_result == 'draw'
+      bool_draw = true
+      win_streak = 0
+      lose_streak = 0
+      draw_streak += 1
+    end
+
+    last_12m_wins, last_12m_losses, last_12m_draws = 0,0,0
+    last_12m_records = TradingStatsMonthly.order(recorded_date: :desc).limit(11)
+    if last_12m_records.present? && !last_12m_records.empty?
+      last_12m_wins = last_12m_records.where(win: true).count
+      last_12m_losses = last_12m_records.where(loss: true).count
+      last_12m_draws = last_12m_records.where(draw: true).count
+
+      if trade_result == 'win'
+        last_12m_wins += 1
+      elsif trade_result == 'loss'
+        last_12m_losses += 1
+      elsif trade_result == 'draw'
+        last_12m_draws += 1
+      end
+    end
+
+    #
+    # Net balance changes
+    #
+    net_balance_change_btc_absolute, net_balance_change_btc_sats_absolute = 0.0, 0.0
+    net_balance_change_usd_absolute, net_balance_change_usd_cents_absolute = 0.0, 0.0
+    net_balance_change_btc_percent, net_balance_change_usd_percent = 0.0, 0.0
+    if previous_trading_stats_monthly.balance_btc != nil
+      net_balance_change_btc_absolute = (balance_btc - previous_trading_stats_monthly.balance_btc).round(8)
+      net_balance_change_btc_percent = (((balance_btc - previous_trading_stats_monthly.balance_btc)/previous_trading_stats_monthly.balance_btc)*100.0).round(2)
+    end
+    if previous_trading_stats_monthly.balance_btc_sats != nil
+      net_balance_change_btc_sats_absolute = (balance_btc_sats - previous_trading_stats_monthly.balance_btc_sats)
+    end
+    if previous_trading_stats_monthly.balance_usd != nil
+      net_balance_change_usd_absolute = (balance_usd - previous_trading_stats_monthly.balance_usd).round(2)
+      net_balance_change_usd_percent = (((balance_usd - previous_trading_stats_monthly.balance_usd)/previous_trading_stats_monthly.balance_usd)*100.0).round(2)
+    end
+    if previous_trading_stats_monthly.balance_usd_cents != nil
+      net_balance_change_usd_cents_absolute = (balance_usd_cents - previous_trading_stats_monthly.balance_usd_cents)
+    end
+
+    #
+    # Create new TradingStatsMonthly record
+    #
+    trading_stats_daily = TradingStatsMonthly.create(
+      recorded_date: DateTime.now,
+      balance_btc: balance_btc,
+      balance_btc_sats: balance_btc_sats,
+      balance_usd: balance_usd,
+      balance_usd_cents: balance_usd_cents,
+      win_streak: win_streak,
+      lose_streak: lose_streak,
+      draw_streak: draw_streak,
+      last_12m_wins: last_12m_wins,
+      last_12m_losses: last_12m_losses,
+      last_12m_draws: last_12m_draws,
+      win: bool_win,
+      loss: bool_loss,
+      draw: bool_draw,
+      net_balance_change_btc_absolute: net_balance_change_btc_absolute,
+      net_balance_change_btc_sats_absolute: net_balance_change_btc_sats_absolute,
+      net_balance_change_usd_absolute: net_balance_change_usd_absolute,
+      net_balance_change_usd_cents_absolute: net_balance_change_usd_cents_absolute,
+      net_balance_change_btc_percent: net_balance_change_btc_percent,
+      net_balance_change_usd_percent: net_balance_change_usd_percent
+    )
+
+    Rails.logger.info(
+      {
+        message: "End accountant:save_trading_stats_monthly...",
+        script: "accountant:save_trading_stats_monthly"
+      }.to_json
+    )
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+  end
 end
