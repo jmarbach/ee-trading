@@ -1526,9 +1526,9 @@ namespace :lnmarkets_trader do
       end
 
       if (last_16_market_data_log_entries[0]['implied_volatility_t3'] < (last_16_implied_volatilities_t3_average))
-        leverage_factor = 3.3
+        leverage_factor = rand(3.1..3.4).round(1)
       else
-        leverage_factor = 2.7
+        leverage_factor = rand(2.6..2.8)
       end
       Rails.logger.info(
         {
@@ -1725,9 +1725,9 @@ namespace :lnmarkets_trader do
       end
 
       if (last_16_market_data_log_entries[0]['implied_volatility_t3'] < (last_16_implied_volatilities_t3_average))
-        leverage_factor = 3.3
+        leverage_factor = rand(3.1..3.4).round(1)
       else
-        leverage_factor = 2.7
+        leverage_factor = rand(2.6..2.8)
       end
       Rails.logger.info(
         {
