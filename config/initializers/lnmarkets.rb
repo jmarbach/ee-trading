@@ -47,8 +47,8 @@ class LnMarketsAPI
 
       response = @conn.send(method.downcase) do |req|
         req.url path
-        req.params.merge!(params) if !params.empty?
-        req.body = body.to_json if body
+        req.params.merge!(params) if method.upcase == 'GET' && !params.empty?
+        req.body = body.to_json if body && !body.empty?
         req.headers['LNM-ACCESS-SIGNATURE'] = signature
         req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
       end
@@ -69,8 +69,8 @@ class LnMarketsAPI
   end
 
   def generate_signature(timestamp, method, path, params, body)
-    query_string = URI.encode_www_form(params.sort)
-    payload = timestamp + method.upcase + path + query_string + (body ? body.to_json : '')
+    query_string = URI.encode_www_form(params.sort) if method.upcase == 'GET' && !params.empty?
+    payload = timestamp + method.upcase + path + (query_string || '') + (body ? body.to_json : '')
     
     @logger.debug("Generating signature with payload: #{payload}")
     
@@ -149,8 +149,14 @@ class LnMarketsAPI
   end
 
   # Futures API methods
-  def get_futures_trades(trade_type, from_time, to_time)
-    params = { type: trade_type, from: from_time, to: to_time, limit: 1000 }
+  def get_futures_trades(trade_type, from_time, to_time, limit = 100)
+    params = {
+      type: trade_type,
+      from: from_time,
+      to: to_time,
+      limit: [[limit, 1].max, 1000].min  # Ensure limit is between 1 and 1000
+    }.compact  # Remove nil values
+
     execute_request('GET', '/futures', params)
   end
 
