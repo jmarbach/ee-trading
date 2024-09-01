@@ -1,15 +1,28 @@
 require 'faraday'
-class PolygonAPI
+require 'json'
+require 'logger'
 
-  def initialize()
-    @conn = Faraday.new(
-      url: "https://api.polygon.io/",
+class PolygonAPI
+  RETRYABLE_ERRORS = [Faraday::ConnectionFailed, Faraday::SSLError]
+
+  attr_reader :logger
+
+  def initialize(log_level: Logger::INFO)
+    @conn = create_connection
+    @logger = Logger.new(STDOUT)
+    @logger.level = log_level
+  end
+
+  private
+
+  def create_connection
+    Faraday.new(
+      url: "https://api.polygon.io",
       headers: {
-        'Authorization' => "Bearer #{ENV["POLYGON_API_TOKEN"]}",
-        'Accept' => 'application/json' },
-      ssl: {
-        verify: true
+        'Authorization' => "Bearer #{ENV.fetch("POLYGON_API_TOKEN")}",
+        'Accept' => 'application/json'
       },
+      ssl: { verify: true },
       proxy: ENV["SQUID_PROXY_URL"],
       request: { timeout: 10 }
     ) do |faraday|
@@ -17,398 +30,141 @@ class PolygonAPI
     end
   end
 
-  def get_aggregate_bars(symbol, timespan, multiplier, start_date, end_date)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      request_response = @conn.get("/v2/aggs/ticker/#{symbol}/range/#{multiplier}/#{timespan}/#{start_date}/#{end_date}?sort=desc")
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
+  def execute_request(method, path, params = {})
+    start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    full_path = path
+    full_path += "?#{URI.encode_www_form(params)}" if method.to_s.downcase == 'get' && !params.empty?
 
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "PolygonAPI Error!"
-      puts e
-      puts e.response
-      hash_method_response[:status] = 'error'
-      if e.response != nil
-        parsed_response_body = JSON.parse(e.response[:body])
-        hash_method_response[:message] = parsed_response_body['message']
+    @logger.debug("Executing #{method.upcase} request to #{full_path}")
+    
+    response = @conn.send(method.downcase) do |req|
+      req.url full_path
+      if method.to_s.downcase != 'get' && !params.empty?
+        req.headers['Content-Type'] = 'application/json'
+        req.body = params.to_json
       end
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
     end
+    
+    handle_response(response, start_time)
+  rescue *RETRYABLE_ERRORS, Faraday::ResourceNotFound, Faraday::ClientError => e
+    handle_error(e, start_time)
+  rescue => e
+    handle_unexpected_error(e, start_time)
+  end
+
+  def handle_response(response, start_time)
+    elapsed_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
+    parsed_body = JSON.parse(response.body)
+    
+    response_object = {
+      status: 'success',
+      body: parsed_body,
+      elapsed_time: elapsed_time.round(6)
+    }
+    
+    @logger.info("PolygonAPI Request successful. Status: #{response.status}, Elapsed time: #{elapsed_time.round(3)}s")
+    @logger.debug("Full response object: #{JSON.pretty_generate(response_object)}")
+    
+    response_object
+  end
+
+  def handle_error(error, start_time)
+    elapsed_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
+    error_body = error.response ? (JSON.parse(error.response[:body]) rescue error.response[:body]) : nil
+    error_message = error_body.is_a?(Hash) ? error_body['message'] : error.message
+    
+    error_response = {
+      status: 'error',
+      message: error_message,
+      body: error_body,
+      elapsed_time: elapsed_time.round(6),
+      error_class: error.class.to_s
+    }
+    
+    @logger.error("PolygonAPI Request failed. Error: #{error.class}, Message: #{error_message}, Elapsed time: #{elapsed_time.round(3)}s")
+    @logger.debug("Full error response object: #{JSON.pretty_generate(error_response)}")
+    
+    error_response
+  end
+
+  def handle_unexpected_error(error, start_time)
+    elapsed_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
+    error_response = {
+      status: 'error',
+      message: "Unexpected error: #{error.message}",
+      elapsed_time: elapsed_time.round(6),
+      error_class: error.class.to_s
+    }
+    
+    @logger.error("PolygonAPI Unexpected error: #{error.class}, Message: #{error.message}, Elapsed time: #{elapsed_time.round(3)}s")
+    @logger.debug("Full error response object: #{JSON.pretty_generate(error_response)}")
+    
+    error_response
+  end
+
+  public
+
+  def get_aggregate_bars(symbol, timespan, multiplier, start_date, end_date)
+    path = "/v2/aggs/ticker/#{symbol}/range/#{multiplier}/#{timespan}/#{start_date}/#{end_date}"
+    params = { sort: 'desc' }
+    execute_request(:get, path, params)
   end
 
   def get_sma(symbol, timestamp, timespan, window, series_type)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      request_response = @conn.get("/v1/indicators/sma/#{symbol}", { timespan: timespan, 
-        window: window, series_type: series_type, limit: 60, timestamp: timestamp })
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "PolygonAPI Error!"
-      puts e
-      puts e.response
-      hash_method_response[:status] = 'error'
-      if e.response != nil
-        parsed_response_body = JSON.parse(e.response[:body])
-        hash_method_response[:message] = parsed_response_body['message']
-      end
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    path = "/v1/indicators/sma/#{symbol}"
+    params = {
+      timespan: timespan,
+      window: window,
+      series_type: series_type,
+      limit: 60,
+      timestamp: timestamp
+    }
+    execute_request(:get, path, params)
   end
 
   def get_ema(symbol, timestamp, timespan, window, series_type)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      request_response = @conn.get("/v1/indicators/ema/#{symbol}", { timespan: timespan, 
-        window: window, series_type: series_type, limit: 60, timestamp: timestamp })
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "PolygonAPI Error!"
-      puts e
-      puts e.response
-      hash_method_response[:status] = 'error'
-      if e.response != nil
-        parsed_response_body = JSON.parse(e.response[:body])
-        hash_method_response[:message] = parsed_response_body['message']
-      end
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    path = "/v1/indicators/ema/#{symbol}"
+    params = {
+      timespan: timespan,
+      window: window,
+      series_type: series_type,
+      limit: 60,
+      timestamp: timestamp
+    }
+    execute_request(:get, path, params)
   end
 
   def get_macd(symbol, timestamp, timespan, short_window, long_window, signal_window, series_type)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      request_response = @conn.get("/v1/indicators/macd/#{symbol}", { timespan: timespan, 
-        short_window: short_window, long_window: long_window, 
-        signal_window: signal_window, series_type: series_type,
-        timestamp: timestamp })
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "PolygonAPI Error!"
-      puts e
-      puts e.response
-      hash_method_response[:status] = 'error'
-      if e.response != nil
-        parsed_response_body = JSON.parse(e.response[:body])
-        hash_method_response[:message] = parsed_response_body['message']
-      end
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    path = "/v1/indicators/macd/#{symbol}"
+    params = {
+      timespan: timespan,
+      short_window: short_window,
+      long_window: long_window,
+      signal_window: signal_window,
+      series_type: series_type,
+      timestamp: timestamp
+    }
+    execute_request(:get, path, params)
   end
 
   def get_rsi(symbol, timestamp, timespan, window, series_type)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      request_response = @conn.get("/v1/indicators/rsi/#{symbol}", { timespan: timespan, 
-        window: window, series_type: series_type, timestamp: timestamp })
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "PolygonAPI Error!"
-      puts e
-      puts e.response
-      hash_method_response[:status] = 'error'
-      if e.response != nil
-        parsed_response_body = JSON.parse(e.response[:body])
-        hash_method_response[:message] = parsed_response_body['message']
-      end
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    path = "/v1/indicators/rsi/#{symbol}"
+    params = {
+      timespan: timespan,
+      window: window,
+      series_type: series_type,
+      timestamp: timestamp
+    }
+    execute_request(:get, path, params)
   end
 
   def get_last_trade(symbol_from, symbol_to)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      request_response = @conn.get("/v1/last/crypto/#{symbol_from}/#{symbol_to}")
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "PolygonAPI Error!"
-      puts e
-      puts e.response
-      hash_method_response[:status] = 'error'
-      if e.response != nil
-        parsed_response_body = JSON.parse(e.response[:body])
-        hash_method_response[:message] = parsed_response_body['message']
-      end
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    path = "/v1/last/crypto/#{symbol_from}/#{symbol_to}"
+    execute_request(:get, path)
   end
 
   def get_daily_open_close(symbol_from, symbol_to, date)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      request_response = @conn.get("/v1/open-close/crypto/#{symbol_from}/#{symbol_to}/#{date}")
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "PolygonAPI Error!"
-      puts e
-      puts e.response
-      hash_method_response[:status] = 'error'
-      if e.response != nil
-        parsed_response_body = JSON.parse(e.response[:body])
-        hash_method_response[:message] = parsed_response_body['message']
-      end
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
-  end
-
-  def parse(response)
-    JSON.parse(response.body)
+    path = "/v1/open-close/crypto/#{symbol_from}/#{symbol_to}/#{date}"
+    execute_request(:get, path)
   end
 end
