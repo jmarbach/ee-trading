@@ -12,7 +12,7 @@ class LnMarketsAPI
 
   attr_reader :logger
 
-  def initialize(log_level: Logger::INFO)
+  def initialize(log_level: Logger::DEBUG)
     @conn = create_connection
     @logger = Logger.new(STDOUT)
     @logger.level = log_level
@@ -100,26 +100,36 @@ class LnMarketsAPI
   end
 
   def handle_response(response, elapsed_time)
-    @logger.info("Request successful. Status: #{response.status}, Elapsed time: #{elapsed_time.round(3)}s")
-    {
+    parsed_body = JSON.parse(response.body)
+    
+    response_object = {
       status: 'success',
-      body: JSON.parse(response.body),
+      body: parsed_body,
       elapsed_time: elapsed_time.round(6)
     }
+    
+    @logger.info("LnMarketsAPI Request successful. Status: #{response.status}, Elapsed time: #{elapsed_time.round(3)}s")
+    @logger.debug("Full response object: #{JSON.pretty_generate(response_object)}")
+    
+    response_object
   end
 
   def handle_error(error, elapsed_time)
     error_body = error.respond_to?(:response) ? (JSON.parse(error.response[:body]) rescue error.response[:body]) : nil
     error_message = error_body.is_a?(Hash) ? error_body['message'] : error.message
     
-    @logger.error("Request failed. Error: #{error.class}, Message: #{error_message}, Elapsed time: #{elapsed_time.round(3)}s")
-    
-    {
+    error_response = {
       status: 'error',
       message: error_message,
       body: error_body,
-      elapsed_time: elapsed_time.round(6)
+      elapsed_time: elapsed_time.round(6),
+      error_class: error.class.to_s
     }
+    
+    @logger.error("LnMarketsAPI Request failed. Error: #{error.class}, Message: #{error_message}, Elapsed time: #{elapsed_time.round(3)}s")
+    @logger.debug("Full error response object: #{JSON.pretty_generate(error_response)}")
+    
+    error_response
   end
 
   public
