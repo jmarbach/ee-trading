@@ -9,7 +9,7 @@ namespace :accountant do
       }.to_json
     )
     # Initialize lnmarkets_client
-    lnmarkets_client = LnmarketsAPI.new
+    lnmarkets_client = LnMarketsAPI.new
 
     #
     # Establish balance available to trade

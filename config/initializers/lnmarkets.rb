@@ -1,1077 +1,194 @@
 require 'faraday'
+require 'json'
+require 'uri'
+require 'openssl'
+require 'base64'
+require 'logger'
 
-class LnmarketsAPI
+class LnMarketsAPI
+  MAX_RETRIES = 3
+  RETRY_DELAY = 10 # seconds
+  RETRYABLE_ERRORS = [Faraday::ServerError, Faraday::ConnectionFailed]
 
-  def initialize()
-    @conn = Faraday.new(
+  attr_reader :logger
+
+  def initialize(log_level: Logger::INFO)
+    @conn = create_connection
+    @logger = Logger.new(STDOUT)
+    @logger.level = log_level
+  end
+
+  private
+
+  def create_connection
+    Faraday.new(
       url: "https://api.lnmarkets.com",
       headers: {
-        'LNM-ACCESS-KEY' => "#{ENV["LNMARKETS_API_KEY"]}",
-        'LNM-ACCESS-PASSPHRASE' => "#{ENV["LNMARKETS_API_PASSPHRASE"]}",
-        'Content-Type' => 'application/json' },
-      ssl: {
-        verify: true
+        'LNM-ACCESS-KEY' => ENV.fetch("LNMARKETS_API_KEY"),
+        'LNM-ACCESS-PASSPHRASE' => ENV.fetch("LNMARKETS_API_PASSPHRASE"),
+        'Content-Type' => 'application/json'
       },
+      ssl: { verify: true },
       proxy: ENV["SQUID_PROXY_URL"],
       request: { timeout: 60 }
     ) do |faraday|
       faraday.response :raise_error
+      faraday.adapter Faraday.default_adapter
     end
   end
 
-  def close_all_option_contracts
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
+  def execute_request(method, path, params = {}, body = nil)
+    retries = 0
+    start_time = Time.now
+
     begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = DateTime.now.to_i.in_milliseconds.to_s
-      path = '/v2/options/close-all'
-      params = ''
+      timestamp = (Time.now.to_f * 1000).to_i.to_s
+      signature = generate_signature(timestamp, method, path, params, body)
 
-      lnm_signature = ''
-      digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'DELETE' + path + params )
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.delete(path) do |req|
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
+      response = @conn.send(method.downcase) do |req|
+        req.url path
+        req.params.merge!(params) if method == 'GET' && !params.empty?
+        req.body = body.to_json if body
+        req.headers['LNM-ACCESS-SIGNATURE'] = signature
         req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
       end
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
 
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "LnmarketsAPI Error!"
-      puts e
-      puts e.response
-      hash_method_response[:status] = 'error'
-      if e.response != nil
-        parsed_response_body = JSON.parse(e.response[:body])
-        hash_method_response[:message] = parsed_response_body['message']
+      handle_response(response, Time.now - start_time)
+    rescue *RETRYABLE_ERRORS => e
+      if retries < MAX_RETRIES
+        retries += 1
+        @logger.warn("Request failed with #{e.class}. Retrying in #{RETRY_DELAY} seconds (Attempt #{retries}/#{MAX_RETRIES})")
+        sleep RETRY_DELAY
+        retry
+      else
+        handle_error(e, Time.now - start_time)
       end
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
+    rescue => e
+      handle_error(e, Time.now - start_time)
     end
+  end
+
+  def generate_signature(timestamp, method, path, params, body)
+    query_string = URI.encode_www_form(params.sort)
+    payload = timestamp + method.upcase + '/v2' + path + query_string + (body ? body.to_json : '')
+    
+    @logger.debug("Generating signature with payload: #{payload}")
+    
+    digest = OpenSSL::Digest.new('sha256')
+    hmac = OpenSSL::HMAC.digest(digest, ENV.fetch("LNMARKETS_API_SECRET"), payload)
+    Base64.strict_encode64(hmac)
+  end
+
+  def handle_response(response, elapsed_time)
+    @logger.info("Request successful. Status: #{response.status}, Elapsed time: #{elapsed_time.round(3)}s")
+    {
+      status: 'success',
+      body: JSON.parse(response.body),
+      elapsed_time: elapsed_time.round(6)
+    }
+  end
+
+  def handle_error(error, elapsed_time)
+    error_body = error.respond_to?(:response) ? (JSON.parse(error.response[:body]) rescue error.response[:body]) : nil
+    error_message = error_body.is_a?(Hash) ? error_body['message'] : error.message
+    
+    @logger.error("Request failed. Error: #{error.class}, Message: #{error_message}, Elapsed time: #{elapsed_time.round(3)}s")
+    
+    {
+      status: 'error',
+      message: error_message,
+      body: error_body,
+      elapsed_time: elapsed_time.round(6)
+    }
+  end
+
+  public
+
+  # Options API methods
+  def close_all_option_contracts
+    execute_request('DELETE', '/options/close-all')
   end
 
   def close_options_contract(trade_id)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = DateTime.now.to_i.in_milliseconds.to_s
-      path = '/v2/options'
-      hash_params = { id: trade_id }
-      data = URI.encode_www_form(hash_params)
-
-      lnm_signature = ''
-      digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'DELETE' + path + data )
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.delete(path, hash_params) do |req|
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-      end
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "LnmarketsAPI Error!"
-      puts e
-      puts e.response
-      hash_method_response[:status] = 'error'
-      if e.response != nil
-        parsed_response_body = JSON.parse(e.response[:body])
-        hash_method_response[:message] = parsed_response_body['message']
-      end
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    execute_request('DELETE', '/options', { id: trade_id })
   end
 
   def open_option_contract(side, quantity, settlement, instrument_name)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      path = '/options'
-      payload = "{\"side\":\"#{side}\",\"quantity\":#{quantity},\"settlement\":\"#{settlement}\",\"instrument_name\":\"#{instrument_name}\"}"
-      timestamp = (Time.now.to_i * 1000).to_s
-      digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], "#{timestamp}POST/v2#{path}#{payload}")
-      signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.post("v2#{path}") do |req|
-        req.headers['LNM-ACCESS-SIGNATURE'] = signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-        req.body = payload
-      end
-
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "LnmarketsAPI Error!"
-      puts e
-      puts e.response
-      hash_method_response[:status] = 'error'
-      if e.response != nil
-        parsed_response_body = JSON.parse(e.response[:body])
-        hash_method_response[:message] = parsed_response_body['message']
-      end
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    body = {
+      side: side,
+      quantity: quantity,
+      settlement: settlement,
+      instrument_name: instrument_name
+    }
+    execute_request('POST', '/options', {}, body)
   end
 
   def get_options_instruments
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = DateTime.now.to_i.in_milliseconds.to_s
-      path = '/v2/options/instruments'
-      params = ''
-
-      lnm_signature = ''
-      digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'GET' + path + params )
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.get(path) do |req|
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-      end
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "LnmarketsAPI Error!"
-      puts e
-      hash_method_response[:status] = 'error'
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    execute_request('GET', '/options/instruments')
   end
 
-  def get_options_trades()
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = DateTime.now.to_i.in_milliseconds.to_s
-      path = '/v2/options'
-
-      lnm_signature = ''
-      digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'GET' + path)
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.get(path) do |req|
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-      end
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "LnmarketsAPI Error!"
-      puts e
-      hash_method_response[:status] = 'error'
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+  def get_options_trades
+    execute_request('GET', '/options')
   end
 
   def get_options_trade(trade_id)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = DateTime.now.to_i.in_milliseconds.to_s
-      path = "/v2/options/trades/#{trade_id}"
-      data = ''
-
-      lnm_signature = ''
-      digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'GET' + path + data )
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.get(path) do |req|
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-      end
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "LnmarketsAPI Error!"
-      puts e
-      hash_method_response[:status] = 'error'
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    execute_request('GET', "/options/trades/#{trade_id}")
   end
 
   def get_options_instrument_volatility(instrument_name)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = DateTime.now.to_i.in_milliseconds.to_s
-      path = '/v2/options/instrument'
-      hash_params = { instrument_name: instrument_name }
-      data = URI.encode_www_form(hash_params)
-
-      lnm_signature = ''
-      digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'GET' + path + data )
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.get(path, hash_params) do |req|
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-      end
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "LnmarketsAPI Error!"
-      puts e
-      hash_method_response[:status] = 'error'
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    execute_request('GET', '/options/instrument', { instrument_name: instrument_name })
   end
 
   def get_options_volatility_index
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = DateTime.now.to_i.in_milliseconds.to_s
-      path = '/v2/options/volatility-index'
-      params = ''
-
-      lnm_signature = ''
-      digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'GET' + path + params )
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.get(path) do |req|
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-      end
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "LnmarketsAPI Error!"
-      puts e
-      hash_method_response[:status] = 'error'
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    execute_request('GET', '/options/volatility-index')
   end
 
+  # User API methods
   def get_user_info
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = DateTime.now.to_i.in_milliseconds.to_s
-      path = '/v2/user'
-      params = ''
-
-      lnm_signature = ''
-      digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'GET' + path + params )
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.get(path) do |req|
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-      end
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "LnmarketsAPI Error!"
-      puts e
-      hash_method_response[:status] = 'error'
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    execute_request('GET', '/user')
   end
 
+  # Futures API methods
   def get_futures_trades(trade_type, from_time, to_time)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = (Time.now.to_f * 1000).to_i.to_s
-      path = '/v2/futures'
-      hash_params = { type: trade_type, from: from_time, to: to_time, limit: 1000 }
-
-      # Sort parameters alphabetically and create encoded query string
-      query_string = hash_params.sort.map { |k, v| "#{k}=#{URI.encode_www_form_component(v.to_s)}" }.join('&')
-
-      lnm_signature = ''
-      digest = OpenSSL::Digest.new('sha256')
-      prehash_string = timestamp + 'GET' + path + query_string
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], prehash_string)
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      # Debug information
-      # puts "Timestamp: #{timestamp}"
-      # puts "Path: #{path}"
-      # puts "Query string: #{query_string}"
-      # puts "Prehash string: #{prehash_string}"
-      # puts "Signature: #{lnm_signature}"
-
-      request_response = @conn.get(path) do |req|
-        req.params = hash_params
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-      end
-
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "LnmarketsAPI Error!"
-      puts e
-      hash_method_response[:status] = 'error'
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    params = { type: trade_type, from: from_time, to: to_time, limit: 1000 }
+    execute_request('GET', '/futures', params)
   end
 
   def create_futures_trades(side, trade_type, leverage, price, quantity, takeprofit, stoploss)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = (Time.now.to_f * 1000).to_i.to_s
-      path = '/futures'
-      hash_params = { 
-        side: side, 
-        type: trade_type, 
-        leverage: leverage, 
-        price: price, 
-        quantity: quantity, 
-        takeprofit: takeprofit, 
-        stoploss: stoploss 
-      }
-      json_body = hash_params.to_json
-
-      digest = OpenSSL::Digest.new('sha256')
-      payload = timestamp + 'POST' + '/v2' + path + json_body
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], payload)
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.post("/v2#{path}") do |req|
-        req.headers['Content-Type'] = 'application/json'
-        req.headers['LNM-ACCESS-KEY'] = ENV["LNMARKETS_API_KEY"]
-        req.headers['LNM-ACCESS-PASSPHRASE'] = ENV["LNMARKETS_API_PASSPHRASE"]
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-        req.body = json_body
-      end
-
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-
-      parsed_response_body = JSON.parse(request_response.body)
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-
-    rescue Faraday::ClientError => e
-      puts "Faraday Client Error: #{e.response[:status]} #{e.response[:body]}"
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = e.response[:status]
-      hash_method_response[:body] = JSON.parse(e.response[:body]) rescue e.response[:body]
-    rescue => e
-      puts "Unexpected error: #{e.message}"
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = e.message
-    end
-
-    hash_method_response
+    body = {
+      side: side,
+      type: trade_type,
+      leverage: leverage,
+      price: price,
+      quantity: quantity,
+      takeprofit: takeprofit,
+      stoploss: stoploss
+    }
+    execute_request('POST', '/futures', {}, body)
   end
 
   def close_all_futures_trades
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = DateTime.now.to_i.in_milliseconds.to_s
-      path = '/v2/futures/all/close'
-      params = ''
-
-      lnm_signature = ''
-      digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'DELETE' + path + params)
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.delete(path) do |req|
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-      end
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "LnmarketsAPI Error!"
-      puts e
-      hash_method_response[:status] = 'error'
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    execute_request('DELETE', '/futures/all/close')
   end
 
   def close_futures_trade(trade_id)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = DateTime.now.to_i.in_milliseconds.to_s
-      path = '/v2/futures'
-      hash_params = { id: trade_id }
-      data = URI.encode_www_form(hash_params)
-
-      lnm_signature = ''
-      digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'DELETE' + path + data )
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.delete(path, hash_params) do |req|
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-      end
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "LnmarketsAPI Error!"
-      puts e
-      hash_method_response[:status] = 'error'
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    execute_request('DELETE', '/futures', { id: trade_id })
   end
 
   def cancel_futures_trade(trade_id)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = (Time.now.to_f * 1000).to_i.to_s
-      path = '/futures/cancel'
-      hash_params = { id: trade_id }
-      string_json = hash_params.to_json
-
-      digest = OpenSSL::Digest.new('sha256')
-      payload = timestamp + 'POST' + '/v2' + path + string_json
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], payload)
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.post("/v2#{path}") do |req|
-        req.headers['Content-Type'] = 'application/json'
-        req.headers['LNM-ACCESS-KEY'] = ENV["LNMARKETS_API_KEY"]
-        req.headers['LNM-ACCESS-PASSPHRASE'] = ENV["LNMARKETS_API_PASSPHRASE"]
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-        req.body = string_json
-      end
-
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-
-      if request_response.status == 400
-        puts "400 Bad Request Error"
-        puts "Response body: #{request_response.body}"
-        hash_method_response[:status] = 'error'
-        hash_method_response[:message] = 'Bad Request'
-        hash_method_response[:body] = JSON.parse(request_response.body) rescue request_response.body
-      else
-        hash_method_response[:status] = 'success'
-        hash_method_response[:body] = JSON.parse(request_response.body)
-      end
-
-      hash_method_response[:elapsed_time] = elapsed_time
-      
-    rescue Faraday::ClientError => e
-      puts "Faraday Client Error: #{e.response[:status]} #{e.response[:body]}"
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = e.response[:status]
-      hash_method_response[:body] = e.response[:body]
-    rescue => e
-      puts "Unexpected error: #{e.message}"
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = e.message
-    end
-
-    hash_method_response
+    execute_request('POST', '/futures/cancel', {}, { id: trade_id })
   end
 
   def update_futures_trade(id, trade_type, value)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = (Time.now.to_f * 1000).to_i.to_s
-      path = '/futures'
-      hash_params = { 
-        id: id, 
-        type: trade_type, 
-        value: value, 
-      }
-      json_body = hash_params.to_json
-
-      digest = OpenSSL::Digest.new('sha256')
-      payload = timestamp + 'PUT' + '/v2' + path + json_body
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], payload)
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.put("/v2#{path}") do |req|
-        req.headers['Content-Type'] = 'application/json'
-        req.headers['LNM-ACCESS-KEY'] = ENV["LNMARKETS_API_KEY"]
-        req.headers['LNM-ACCESS-PASSPHRASE'] = ENV["LNMARKETS_API_PASSPHRASE"]
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-        req.body = json_body
-      end
-
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-
-      parsed_response_body = JSON.parse(request_response.body)
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-
-    rescue Faraday::ClientError => e
-      puts "Faraday Client Error: #{e.response[:status]} #{e.response[:body]}"
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = e.response[:status]
-      hash_method_response[:body] = JSON.parse(e.response[:body]) rescue e.response[:body]
-    rescue => e
-      puts "Unexpected error: #{e.message}"
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = e.message
-    end
-
-    hash_method_response
+    body = { id: id, type: trade_type, value: value }
+    execute_request('PUT', '/futures', {}, body)
   end
 
   def get_futures_trade(trade_id)
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = DateTime.now.to_i.in_milliseconds.to_s
-      path = "/v2/futures/trades/#{trade_id}"
-      data = ''
-
-      lnm_signature = ''
-      digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'GET' + path + data )
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.get(path) do |req|
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-      end
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "LnmarketsAPI Error!"
-      hash_method_response[:status] = 'error'
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
-  end
-  
-  def get_price_btcusd_ticker()
-    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
-    begin
-      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      timestamp = DateTime.now.to_i.in_milliseconds.to_s
-      path = "/v2/futures/ticker"
-      data = ''
-
-      lnm_signature = ''
-      digest = OpenSSL::Digest.new('sha256')
-      hmac = OpenSSL::HMAC.digest(digest, ENV["LNMARKETS_API_SECRET"], timestamp + 'GET' + path + data)
-      lnm_signature = Base64.strict_encode64(hmac)
-
-      request_response = @conn.get(path) do |req|
-        req.headers['LNM-ACCESS-SIGNATURE'] = lnm_signature
-        req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
-      end
-      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_time = (time_finish - time_start).round(6)
-    rescue Faraday::ConnectionFailed => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday Connection Failed Error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ConnectionFailed'
-      return hash_method_response
-    rescue Faraday::ResourceNotFound => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday ResourceNotFound error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
-      return hash_method_response
-    rescue Faraday::SSLError => e
-      puts e
-      puts e.class
-      puts e.inspect
-      puts "Faraday SSLError error!"
-
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'SSLError'
-      return hash_method_response
-    rescue => e
-      puts "LnmarketsAPI Error!"
-      hash_method_response[:status] = 'error'
-      return hash_method_response
-    else
-      puts ''
-      parsed_response_body = JSON.parse(request_response.body)
-
-      hash_method_response[:status] = 'success'
-      hash_method_response[:body] = parsed_response_body
-      hash_method_response[:elapsed_time] = elapsed_time
-      return hash_method_response
-    end
+    execute_request('GET', "/futures/trades/#{trade_id}")
   end
 
-  def parse(response)
-    JSON.parse(response.body)
+  def get_price_btcusd_ticker
+    execute_request('GET', "/futures/ticker")
   end
 end

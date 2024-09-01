@@ -3,7 +3,7 @@ namespace :lnmarkets_trader do
     #
     # Close all existing futures and options contracts
     #
-    lnmarkets_client = LnmarketsAPI.new
+    lnmarkets_client = LnMarketsAPI.new
     puts ""
     puts "1. Check existing running options contracts..."
     puts "--------------------------------------------"
@@ -519,7 +519,7 @@ namespace :lnmarkets_trader do
 
     # Implied volatility deribit
     implied_volatility_deribit = 0.0
-    lnmarkets_client = LnmarketsAPI.new
+    lnmarkets_client = LnMarketsAPI.new
     lnmarkets_response = lnmarkets_client.get_options_volatility_index()
     if lnmarkets_response[:status] == 'success'
       implied_volatility_deribit = lnmarkets_response[:body]['volatilityIndex']
@@ -914,7 +914,7 @@ namespace :lnmarkets_trader do
       # Iterate through each trade to get its open and running status
       #
       hourly_trend_trades_created_today.each do |t|
-        lnmarkets_client = LnmarketsAPI.new
+        lnmarkets_client = LnMarketsAPI.new
         lnmarkets_response = lnmarkets_client.get_futures_trade(t.external_id)
         if lnmarkets_response[:status] == 'success'
           Rails.logger.info(
@@ -1178,7 +1178,7 @@ namespace :lnmarkets_trader do
       # Iterate through each trade to get its open and running status
       #
       three_minute_trend_trades_created_today.each do |t|
-        lnmarkets_client = LnmarketsAPI.new
+        lnmarkets_client = LnMarketsAPI.new
         lnmarkets_response = lnmarkets_client.get_futures_trade(t.external_id)
         if lnmarkets_response[:status] == 'success'
           Rails.logger.info(
@@ -1456,7 +1456,7 @@ namespace :lnmarkets_trader do
       strategy = args[:strategy]
     end
     # Initialize lnmarkets_client
-    lnmarkets_client = LnmarketsAPI.new
+    lnmarkets_client = LnMarketsAPI.new
 
     #
     # 1. Get current account state
@@ -1659,7 +1659,7 @@ namespace :lnmarkets_trader do
       strategy = args[:strategy]
     end
     # Initialize lnmarkets_client
-    lnmarkets_client = LnmarketsAPI.new
+    lnmarkets_client = LnMarketsAPI.new
 
     #
     # 1. Get current account state
@@ -1921,7 +1921,7 @@ namespace :lnmarkets_trader do
       end
 
       # Initialize lnmarkets_client
-      lnmarkets_client = LnmarketsAPI.new
+      lnmarkets_client = LnMarketsAPI.new
 
       #
       # 1. Get current account state
@@ -2125,7 +2125,7 @@ namespace :lnmarkets_trader do
       }.to_json
     )
     # Initialize lnmarkets_client
-    lnmarkets_client = LnmarketsAPI.new
+    lnmarkets_client = LnMarketsAPI.new
 
     #
     # 1. Check for any running futures positions...

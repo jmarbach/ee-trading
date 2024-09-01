@@ -216,7 +216,7 @@ namespace :operations do
 
     # Implied volatility deribit
     implied_volatility_deribit = 0.0
-    lnmarkets_client = LnmarketsAPI.new
+    lnmarkets_client = LnMarketsAPI.new
     lnmarkets_response = lnmarkets_client.get_options_volatility_index()
     if lnmarkets_response[:status] == 'success'
       implied_volatility_deribit = lnmarkets_response[:body]['volatilityIndex']

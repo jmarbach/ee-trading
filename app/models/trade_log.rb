@@ -52,7 +52,7 @@ class TradeLog < ApplicationRecord
   	#
     # Get final trade stats from LnMarkets
     #
-    lnmarkets_client = LnmarketsAPI.new
+    lnmarkets_client = LnMarketsAPI.new
     if self.derivative_type == 'futures'
       lnmarkets_response = lnmarkets_client.get_futures_trade(self.external_id)
       if lnmarkets_response[:status] == 'success'
