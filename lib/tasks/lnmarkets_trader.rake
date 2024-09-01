@@ -2794,6 +2794,89 @@ namespace :lnmarkets_trader do
       )
     end
 
+    #
+    # 3. Check for any open futures positions...
+    #
+    open_futures = []
+    lnmarkets_response = lnmarkets_client.get_futures_trades('open', timestamp_yesterday, timestamp_current)
+    if lnmarkets_response[:status] == 'success'
+      open_futures = lnmarkets_response[:body]
+      if open_futures.count > 0
+        Rails.logger.info(
+          {
+            message: "Open Futures: #{open_futures.count}",
+            script: "lnmarkets_trader:check_stops"
+          }.to_json
+        )
+      end
+    else
+      Rails.logger.fatal(
+        {
+          message: "Error. Unable to get open futures trades.",
+          script: "lnmarkets_trader:check_stops"
+        }.to_json
+      )
+    end
+
+    if open_futures.any?
+      Rails.logger.info(
+        {
+          message: "For trades not on 'daily-trend', cancel all open futures trades from prior trading interval...",
+          script: "lnmarkets_trader:check_stops"
+        }.to_json
+      )
+
+      #
+      # Evaluate trade's trend and cancel open futures trade if neceessary
+      #
+      open_futures.each do |f|
+        #
+        # Find Trade Log
+        #
+        trade_log = TradeLog.find_by_external_id(f['id'])
+        #
+        # Only cancel trades that are not part of the 'daily-trend' strategy
+        #
+        if trade_log.present? && trade_log.strategy != 'daily-trend'
+          lnmarkets_response = lnmarkets_client.cancel_futures_trade(f['id'])
+          if lnmarkets_response[:status] == 'success'
+            Rails.logger.info(
+              {
+                message: "Finished closing open futures trade: #{f['id']}.",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
+            trade_log.update(
+              open: false,
+              canceled: true
+            )
+            trade_log.get_final_trade_stats
+          else
+            Rails.logger.error(
+              {
+                message: "Error. Unable to close futures trade: #{f['id']}",
+                script: "lnmarkets_trader:check_stops"
+              }.to_json
+            )
+          end
+        else
+          Rails.logger.error(
+            {
+              message: "Error. Unable to find trade log for trade: #{f['id']}",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
+        end
+      end
+    else
+      Rails.logger.info(
+        {
+          message: "Skip. No open futures trades.",
+          script: "lnmarkets_trader:check_stops"
+        }.to_json
+      )
+    end
+
     Rails.logger.info(
       {
         message: "End lnmarkets_trader:check_stops...",
