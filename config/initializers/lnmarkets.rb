@@ -22,7 +22,7 @@ class LnMarketsAPI
 
   def create_connection
     Faraday.new(
-      url: "https://api.lnmarkets.com",
+      url: "https://api.lnmarkets.com/v2",
       headers: {
         'LNM-ACCESS-KEY' => ENV.fetch("LNMARKETS_API_KEY"),
         'LNM-ACCESS-PASSPHRASE' => ENV.fetch("LNMARKETS_API_PASSPHRASE"),
@@ -47,7 +47,7 @@ class LnMarketsAPI
 
       response = @conn.send(method.downcase) do |req|
         req.url path
-        req.params.merge!(params) if method == 'GET' && !params.empty?
+        req.params.merge!(params) if !params.empty?
         req.body = body.to_json if body
         req.headers['LNM-ACCESS-SIGNATURE'] = signature
         req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
@@ -70,7 +70,7 @@ class LnMarketsAPI
 
   def generate_signature(timestamp, method, path, params, body)
     query_string = URI.encode_www_form(params.sort)
-    payload = timestamp + method.upcase + '/v2' + path + query_string + (body ? body.to_json : '')
+    payload = timestamp + method.upcase + path + query_string + (body ? body.to_json : '')
     
     @logger.debug("Generating signature with payload: #{payload}")
     
