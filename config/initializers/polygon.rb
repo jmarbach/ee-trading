@@ -4,6 +4,7 @@ require 'logger'
 
 class PolygonAPI
   RETRYABLE_ERRORS = [Faraday::ConnectionFailed, Faraday::SSLError]
+  SKIP_LOGGING_METHODS = ['get_last_trade']
 
   attr_reader :logger
 
@@ -45,14 +46,14 @@ class PolygonAPI
       end
     end
     
-    handle_response(response, start_time)
+    handle_response(response, start_time, caller_method: caller_locations(1,1)[0].label)
   rescue *RETRYABLE_ERRORS, Faraday::ResourceNotFound, Faraday::ClientError => e
     handle_error(e, start_time)
   rescue => e
     handle_unexpected_error(e, start_time)
   end
 
-  def handle_response(response, start_time)
+  def handle_response(response, start_time, caller_method:)
     elapsed_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
     parsed_body = JSON.parse(response.body)
     
@@ -63,7 +64,11 @@ class PolygonAPI
       elapsed_time: elapsed_time.round(6)
     }
     
-    @logger.info("PolygonAPI Response: #{JSON.pretty_generate(full_response)}")
+    if SKIP_LOGGING_METHODS.include?(caller_method)
+      @logger.info("PolygonAPI Request successful for #{caller_method}. Status: #{response.status}, Elapsed time: #{elapsed_time.round(3)}s")
+    else
+      @logger.info("PolygonAPI Response: #{JSON.pretty_generate(full_response)}")
+    end
     
     full_response
   end
