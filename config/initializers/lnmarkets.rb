@@ -22,7 +22,7 @@ class LnMarketsAPI
 
   def create_connection
     Faraday.new(
-      url: "https://api.lnmarkets.com/v2",
+      url: "https://api.lnmarkets.com",
       headers: {
         'LNM-ACCESS-KEY' => ENV.fetch("LNMARKETS_API_KEY"),
         'LNM-ACCESS-PASSPHRASE' => ENV.fetch("LNMARKETS_API_PASSPHRASE"),
@@ -37,23 +37,48 @@ class LnMarketsAPI
     end
   end
 
-  def execute_request(method, path, params = {}, body = nil)
-    retries = 0
-    start_time = Time.now
+  def generate_signature(timestamp, method, path, params_or_body)
+    query_string = if method == 'GET'
+                     URI.encode_www_form(params_or_body.sort)
+                   else
+                     params_or_body.to_json
+                   end
+    prehash_string = timestamp + method + path + query_string
+    @logger.debug("Generating signature with payload: #{prehash_string}")
+    
+    digest = OpenSSL::Digest.new('sha256')
+    hmac = OpenSSL::HMAC.digest(digest, ENV.fetch("LNMARKETS_API_SECRET"), prehash_string)
+    Base64.strict_encode64(hmac)
+  end
 
+  def execute_request(method, path, params = {}, body = nil)
+    hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
+    retries = 0
     begin
+      time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       timestamp = (Time.now.to_f * 1000).to_i.to_s
-      signature = generate_signature(timestamp, method, path, params, body)
+
+      signature = generate_signature(timestamp, method, path, method == 'GET' ? params : (body || {}))
+
+      @logger.debug("Request details:")
+      @logger.debug("Method: #{method}")
+      @logger.debug("Path: #{path}")
+      @logger.debug("Params: #{params}")
+      @logger.debug("Body: #{body}")
+      @logger.debug("Signature: #{signature}")
 
       response = @conn.send(method.downcase) do |req|
         req.url path
-        req.params.merge!(params) if method.upcase == 'GET' && !params.empty?
+        req.params = params if method == 'GET'
         req.body = body.to_json if body && !body.empty?
         req.headers['LNM-ACCESS-SIGNATURE'] = signature
         req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
       end
 
-      handle_response(response, Time.now - start_time)
+      time_finish = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      elapsed_time = (time_finish - time_start).round(6)
+
+      hash_method_response = handle_response(response, elapsed_time)
     rescue *RETRYABLE_ERRORS => e
       if retries < MAX_RETRIES
         retries += 1
@@ -61,22 +86,17 @@ class LnMarketsAPI
         sleep RETRY_DELAY
         retry
       else
-        handle_error(e, Time.now - start_time)
+        hash_method_response = handle_error(e, Time.now - time_start)
       end
+    rescue Faraday::ResourceNotFound => e
+      @logger.error("ResourceNotFound error: #{e.message}")
+      hash_method_response[:status] = 'error'
+      hash_method_response[:message] = 'ResourceNotFound'
     rescue => e
-      handle_error(e, Time.now - start_time)
+      hash_method_response = handle_error(e, Time.now - time_start)
     end
-  end
 
-  def generate_signature(timestamp, method, path, params, body)
-    query_string = URI.encode_www_form(params.sort) if method.upcase == 'GET' && !params.empty?
-    payload = timestamp + method.upcase + path + (query_string || '') + (body ? body.to_json : '')
-    
-    @logger.debug("Generating signature with payload: #{payload}")
-    
-    digest = OpenSSL::Digest.new('sha256')
-    hmac = OpenSSL::HMAC.digest(digest, ENV.fetch("LNMARKETS_API_SECRET"), payload)
-    Base64.strict_encode64(hmac)
+    hash_method_response
   end
 
   def handle_response(response, elapsed_time)
@@ -106,11 +126,11 @@ class LnMarketsAPI
 
   # Options API methods
   def close_all_option_contracts
-    execute_request('DELETE', '/options/close-all')
+    execute_request('DELETE', '/v2/options/close-all')
   end
 
   def close_options_contract(trade_id)
-    execute_request('DELETE', '/options', { id: trade_id })
+    execute_request('DELETE', '/v2/options', { id: trade_id })
   end
 
   def open_option_contract(side, quantity, settlement, instrument_name)
@@ -120,44 +140,38 @@ class LnMarketsAPI
       settlement: settlement,
       instrument_name: instrument_name
     }
-    execute_request('POST', '/options', {}, body)
+    execute_request('POST', '/v2/options', {}, body)
   end
 
   def get_options_instruments
-    execute_request('GET', '/options/instruments')
+    execute_request('GET', '/v2/options/instruments')
   end
 
   def get_options_trades
-    execute_request('GET', '/options')
+    execute_request('GET', '/v2/options')
   end
 
   def get_options_trade(trade_id)
-    execute_request('GET', "/options/trades/#{trade_id}")
+    execute_request('GET', "/v2/options/trades/#{trade_id}")
   end
 
   def get_options_instrument_volatility(instrument_name)
-    execute_request('GET', '/options/instrument', { instrument_name: instrument_name })
+    execute_request('GET', '/v2/options/instrument', { instrument_name: instrument_name })
   end
 
   def get_options_volatility_index
-    execute_request('GET', '/options/volatility-index')
+    execute_request('GET', '/v2/options/volatility-index')
   end
 
   # User API methods
   def get_user_info
-    execute_request('GET', '/user')
+    execute_request('GET', '/v2/user')
   end
 
   # Futures API methods
-  def get_futures_trades(trade_type, from_time, to_time, limit = 100)
-    params = {
-      type: trade_type,
-      from: from_time,
-      to: to_time,
-      limit: [[limit, 1].max, 1000].min  # Ensure limit is between 1 and 1000
-    }.compact  # Remove nil values
-
-    execute_request('GET', '/futures', params)
+  def get_futures_trades(trade_type, from_time, to_time)
+    params = { type: trade_type, from: from_time, to: to_time, limit: 1000 }
+    execute_request('GET', '/v2/futures', params)
   end
 
   def create_futures_trades(side, trade_type, leverage, price, quantity, takeprofit, stoploss)
@@ -170,31 +184,31 @@ class LnMarketsAPI
       takeprofit: takeprofit,
       stoploss: stoploss
     }
-    execute_request('POST', '/futures', {}, body)
+    execute_request('POST', '/v2/futures', {}, body)
   end
 
   def close_all_futures_trades
-    execute_request('DELETE', '/futures/all/close')
+    execute_request('DELETE', '/v2/futures/all/close')
   end
 
   def close_futures_trade(trade_id)
-    execute_request('DELETE', '/futures', { id: trade_id })
+    execute_request('DELETE', '/v2/futures', { id: trade_id })
   end
 
   def cancel_futures_trade(trade_id)
-    execute_request('POST', '/futures/cancel', {}, { id: trade_id })
+    execute_request('POST', '/v2/futures/cancel', {}, { id: trade_id })
   end
 
   def update_futures_trade(id, trade_type, value)
     body = { id: id, type: trade_type, value: value }
-    execute_request('PUT', '/futures', {}, body)
+    execute_request('PUT', '/v2/futures', {}, body)
   end
 
   def get_futures_trade(trade_id)
-    execute_request('GET', "/futures/trades/#{trade_id}")
+    execute_request('GET', "/v2/futures/trades/#{trade_id}")
   end
 
   def get_price_btcusd_ticker
-    execute_request('GET', "/futures/ticker")
+    execute_request('GET', "/v2/futures/ticker")
   end
 end
