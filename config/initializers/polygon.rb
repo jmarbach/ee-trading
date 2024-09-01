@@ -58,12 +58,12 @@ class PolygonAPI
     
     full_response = {
       status: 'success',
+      http_status: response.status,
       body: parsed_body,
       elapsed_time: elapsed_time.round(6)
     }
     
-    @logger.info("PolygonAPI Request successful. Status: #{response.status}, Elapsed time: #{elapsed_time.round(3)}s")
-    @logger.debug("Full response object: #{JSON.pretty_generate(full_response)}")
+    @logger.info("PolygonAPI Response: #{JSON.pretty_generate(full_response)}")
     
     full_response
   end
@@ -75,14 +75,13 @@ class PolygonAPI
     
     full_error_response = {
       status: 'error',
+      error_class: error.class.to_s,
       message: error_message,
       body: error_body,
-      elapsed_time: elapsed_time.round(6),
-      error_class: error.class.to_s
+      elapsed_time: elapsed_time.round(6)
     }
     
-    @logger.error("PolygonAPI Request failed. Error: #{error.class}, Message: #{error_message}, Elapsed time: #{elapsed_time.round(3)}s")
-    @logger.debug("Full error response object: #{JSON.pretty_generate(full_error_response)}")
+    @logger.error("PolygonAPI Error: #{JSON.pretty_generate(full_error_response)}")
 
     full_error_response
   end
@@ -92,13 +91,12 @@ class PolygonAPI
     
     full_error_response = {
       status: 'error',
+      error_class: error.class.to_s,
       message: "Unexpected error: #{error.message}",
-      elapsed_time: elapsed_time.round(6),
-      error_class: error.class.to_s
+      elapsed_time: elapsed_time.round(6)
     }
     
-    @logger.error("PolygonAPI Unexpected error: #{error.class}, Message: #{error.message}, Elapsed time: #{elapsed_time.round(3)}s")
-    @logger.debug("Full unexpected error response object: #{JSON.pretty_generate(full_error_response)}")
+    @logger.error("PolygonAPI Unexpected Error: #{JSON.pretty_generate(full_error_response)}")
     
     full_error_response
   end
