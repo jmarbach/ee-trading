@@ -171,7 +171,7 @@ class TradeLog < ApplicationRecord
       trade_type: trade_type,
       trade_direction: trade_direction,
       quantity_usd_cents: (trade_data['quantity'] * 100.0).to_i,
-      quantity_btc_sats: calculate_quantity_btc_sats(trade_data),
+      quantity_btc_sats: calculate_quantity_btc_sats(trade_data['quantity']),
       open_fee: trade_data['opening_fee'],
       close_fee: trade_data['closing_fee'],
       margin_quantity_btc_sats: trade_data['margin'],
@@ -200,9 +200,10 @@ class TradeLog < ApplicationRecord
     create(common_attributes.merge(type_specific_attributes))
   end
 
-  def self.calculate_quantity_btc_sats(trade_data)
-    index_price = get_current_price_btcusd
-    ((trade_data['quantity'] / index_price) * 100_000_000).round(0)
+  def self.calculate_quantity_btc_sats(quantity_usd)
+    quantity_usd = quantity_usd.to_f
+    index_price = get_current_price_btcusd.to_f
+    ((quantity_usd / index_price) * 100_000_000).round(0)
   end
 
   def self.calculate_margin_usd_cents(margin_amount_btc_sats)
