@@ -238,17 +238,18 @@ class TradeLog < ApplicationRecord
     # Search instruments endpoint by expiry, trade direction, and strike price
     #
     expiry_datetime = Time.at(expiry_timestamp / 1000.0).to_datetime.utc
+    int_days_to_expiry = (expiry_datetime.to_date - Date.today).to_i
     lnmarkets_client = LnMarketsAPI.new
     response = lnmarkets_client.get_options_instruments
     if response[:status] == 'success'
-      filtered_instruments = response[:body].select {|y| y.include?((DateTime.now + 1.day).utc.strftime("BTC.%Y-%m-%d")) }
+      filtered_instruments = response[:body].select {|y| y.include?((DateTime.now + int_days_to_expiry.day).utc.strftime("BTC.%Y-%m-%d")) }
 
       if trade_direction == 'long'
         filtered_instruments = filtered_instruments.select { |y| y.include?('.C') }
         filtered_instruments = filtered_instruments.select { |y| y.include?((strike).ceil(-3).to_s) }
       elsif trade_direction == 'short'
         filtered_instruments = filtered_instruments.select { |y| y.include?('.P') }
-        filtered_instruments = filtered_instruments.select { |y| y.include?((get_current_price_btcusd).ceil(-3).to_s) }
+        filtered_instruments = filtered_instruments.select { |y| y.include?((strike).ceil(-3).to_s) }
       end
 
       if filtered_instruments.any?
