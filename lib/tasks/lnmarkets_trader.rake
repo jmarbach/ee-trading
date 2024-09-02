@@ -46,7 +46,7 @@ namespace :lnmarkets_trader do
           #
           # Update Trade Log
           #
-          trade_log = TradeLog.find_by_external_id(c['id'])
+          trade_log = TradeLog.find_or_create_from_external_id(c, 'futures')
           if trade_log.present?
             trade_log.update(
               running: false,
@@ -54,12 +54,12 @@ namespace :lnmarkets_trader do
             )
             trade_log.get_final_trade_stats
           else
-            Rails.logger.error(
-            {
-              message: "Error. Unable to find trade log for options trade: #{c['id']}",
-              script: "lnmarkets_trader:close_all_positions"
-            }.to_json
-          )
+            Rails.logger.warn(
+              {
+                message: "Warning. Unable to find or create new TradeLog record for trade: #{c['id']}",
+                script: "lnmarkets_trader:close_all_positions"
+              }.to_json
+            )
           end
         else
           Rails.logger.error(
@@ -122,7 +122,7 @@ namespace :lnmarkets_trader do
         #
         # Update Trade Log
         #
-        trade_log = TradeLog.find_by_external_id(f['id'])
+        trade_log = TradeLog.find_or_create_from_external_id(f, 'futures')
         if trade_log.present?
           trade_log.update(
             open: false,
@@ -132,9 +132,9 @@ namespace :lnmarkets_trader do
           )
           trade_log.get_final_trade_stats
         else
-          Rails.logger.error(
+          Rails.logger.warn(
             {
-              message: "Error. Unable to find trade log for trade: #{f['id']}",
+              message: "Warning. Unable to find or create new TradeLog record for trade: #{f['id']}",
               script: "lnmarkets_trader:close_all_positions"
             }.to_json
           )
@@ -192,7 +192,7 @@ namespace :lnmarkets_trader do
           #
           # Update Trade Log
           #
-          trade_log = TradeLog.find_by_external_id(f['id'])
+          trade_log = TradeLog.find_or_create_from_external_id(f, 'futures')
           if trade_log.present?
             trade_log.update(
               open: false,
@@ -200,9 +200,9 @@ namespace :lnmarkets_trader do
             )
             trade_log.get_final_trade_stats
           else
-            Rails.logger.error(
+            Rails.logger.warn(
               {
-                message: "Error. Unable to find trade log for trade: #{f['id']}",
+                message: "Warning. Unable to find or create new TradeLog record for trade: #{f['id']}",
                 script: "lnmarkets_trader:close_all_positions"
               }.to_json
             )
@@ -254,7 +254,7 @@ namespace :lnmarkets_trader do
         }.to_json
       )
       #
-      # Close all futures trades
+      # Close all running futures trades
       #
       running_futures.each do |f|
         lnmarkets_response = lnmarkets_client.close_futures_trade(f['id'])
@@ -268,7 +268,7 @@ namespace :lnmarkets_trader do
           #
           # Update Trade Log
           #
-          trade_log = TradeLog.find_by_external_id(f['id'])
+          trade_log = TradeLog.find_or_create_from_external_id(f, 'futures')
           if trade_log.present?
             trade_log.update(
               open: false,
@@ -278,9 +278,9 @@ namespace :lnmarkets_trader do
             )
             trade_log.get_final_trade_stats
           else
-            Rails.logger.error(
+            Rails.logger.warn(
               {
-                message: "Error. Unable to find trade log for trade: #{f['id']}",
+                message: "Warning. Unable to find or create new TradeLog record for trade: #{f['id']}",
                 script: "lnmarkets_trader:close_all_positions"
               }.to_json
             )
@@ -2194,8 +2194,8 @@ namespace :lnmarkets_trader do
         #
         # Get strategy of trade from EE database
         #
-        trade_log = TradeLog.find_by_external_id(f['id'])
-        if trade_log != nil
+        trade_log = TradeLog.find_or_create_from_external_id(f, 'futures')
+        if trade_log.present?
           strategy = trade_log.strategy
           Rails.logger.info(
             {
@@ -2206,46 +2206,9 @@ namespace :lnmarkets_trader do
         else
           Rails.logger.warn(
             {
-              message: "Warning. Unable to fetch internal TradeLog record for #{f['id']}... Create new TradeLog record with strategy == 'unknown'",
+              message: "Warning. Unable to find or create new TradeLog record for trade: #{f['id']}",
               script: "lnmarkets_trader:check_stops"
             }.to_json
-          )
-          #
-          # Prep attributes for new TradeLog record
-          #
-          strategy = 'unknown'
-          quantity_btc_sats = ((f['quantity']/index_price_btcusd)*100000000.0).round(0)
-          price_sat_usd = (index_price_btcusd/100000000.0).round(5)
-          margin_quantity_usd_cents = ((price_sat_usd * f['margin']).round(0) * 100.0).round(0)
-          margin_percent_of_quantity = (f['margin'].to_f/quantity_btc_sats.to_f).round(4)
-
-          if f['side'] == 'b'
-            trade_type = 'buy'
-            trade_direction = 'long'
-          elsif f['side'] == 's'
-            trade_type = 'sell'
-            trade_direction = 'short'
-          end
-
-          trade_log = TradeLog.create(
-            external_id: f['id'],
-            exchange_name: 'lnmarkets',
-            derivative_type: 'futures',
-            trade_type: trade_type,
-            trade_direction: trade_direction,
-            quantity_usd_cents: (f['quantity'] * 100.0),
-            quantity_btc_sats: quantity_btc_sats,
-            open_fee: f['opening_fee'],
-            close_fee: f['closing_fee'],
-            margin_quantity_btc_sats: f['margin'],
-            margin_quantity_usd_cents: margin_quantity_usd_cents,
-            open_price: entry_price,
-            creation_timestamp: f['creation_ts'],
-            implied_volatility: f['volatility'],
-            running: true,
-            closed: false,
-            margin_percent_of_quantity: margin_percent_of_quantity,
-            strategy: strategy
           )
         end
 
@@ -2617,8 +2580,8 @@ namespace :lnmarkets_trader do
         #
         # Get strategy of trade from EE database
         #
-        trade_log = TradeLog.find_by_external_id(c['id'])
-        if trade_log != nil
+        trade_log = TradeLog.find_or_create_from_external_id(c, 'futures')
+        if trade_log.present?
           strategy = trade_log.strategy
           Rails.logger.info(
             {
@@ -2629,82 +2592,9 @@ namespace :lnmarkets_trader do
         else
           Rails.logger.warn(
             {
-              message: "Warning. Unable to fetch internal TradeLog record for #{c['id']}... Create new TradeLog record with strategy == 'unknown'",
+              message: "Warning. Unable to find or create new TradeLog record for trade: #{c['id']}",
               script: "lnmarkets_trader:check_stops"
             }.to_json
-          )
-          #
-          # Prep attributes for new TradeLog record
-          #
-          strategy = 'unknown'
-          quantity_btc_sats = ((c['quantity']/index_price_btcusd)*100000000.0).round(0)
-          price_sat_usd = (index_price_btcusd/100000000.0).round(5)
-          margin_quantity_usd_cents = ((price_sat_usd * c['margin']).round(0) * 100.0).round(0)
-          margin_percent_of_quantity = (c['margin'].to_f/quantity_btc_sats.to_f).round(4)
-
-          #
-          # Search instruments endpoint by expiry and strike price
-          #
-          expiry_datetime = Time.at(c['expiry_ts'] / 1000.0).to_datetime.utc
-          instrument = ''
-          lnmarkets_response = lnmarkets_client.get_options_instruments
-          if lnmarkets_response[:status] == 'success'
-            filtered_instruments = lnmarkets_response[:body].select {|y| y.include?((DateTime.now + 1.day).utc.strftime("BTC.%Y-%m-%d")) }
-
-            if trade_direction == 'long'
-              filtered_instruments = filtered_instruments.select { |y| y.include?('.C') }
-              filtered_instruments = filtered_instruments.select { |y| y.include?((c['strike']).ceil(-3).to_s) }
-            elsif trade_direction == 'short'
-              filtered_instruments = filtered_instruments.select { |y| y.include?('.P') }
-              filtered_instruments = filtered_instruments.select { |y| y.include?((index_price_btcusd).ceil(-3).to_s) }
-            end
-
-            if filtered_instruments.any?
-              instrument = filtered_instruments[0]
-              Rails.logger.info(
-                {
-                  message: "Found options instrument: #{filtered_instruments[0]}",
-                  script: "lnmarkets_trader:check_stops"
-                }.to_json
-              )
-            else
-              Rails.logger.warn(
-                {
-                  message: "Unable to find suitable options instrument.",
-                  script: "lnmarkets_trader:check_stops"
-                }.to_json
-              )
-            end
-          else
-            Rails.logger.warn(
-              {
-                message: "Unable to fetch options instruments.",
-                script: "lnmarkets_trader:check_stops"
-              }.to_json
-            )
-          end
-
-          trade_log = TradeLog.create(
-            external_id: c['id'],
-            exchange_name: 'lnmarkets',
-            derivative_type: 'options',
-            trade_type: 'buy',
-            trade_direction: trade_direction,
-            quantity_usd_cents: (c['quantity'] * 100.0),
-            quantity_btc_sats: quantity_btc_sats,
-            open_fee: c['opening_fee'],
-            close_fee: c['closing_fee'],
-            margin_quantity_btc_sats: c['margin'],
-            margin_quantity_usd_cents: margin_quantity_usd_cents,
-            open_price: entry_price,
-            creation_timestamp: c['creation_ts'],
-            instrument: instrument,
-            settlement: c['settlement'],
-            implied_volatility: c['volatility'],
-            running: true,
-            closed: false,
-            margin_percent_of_quantity: margin_percent_of_quantity,
-            strategy: strategy
           )
         end
 
@@ -2785,21 +2675,11 @@ namespace :lnmarkets_trader do
             #
             # Update Trade Log
             #
-            trade_log = TradeLog.find_by_external_id(c['id'])
-            if trade_log.present?
-              trade_log.update(
-                running: false,
-                closed: true
-              )
-              trade_log.get_final_trade_stats
-            else
-              Rails.logger.error(
-                {
-                  message: "Error. Unable to find trade log for trade: #{c['id']}",
-                  script: "lnmarkets_trader:check_stops"
-                }.to_json
-              )
-            end
+            trade_log.update(
+              running: false,
+              closed: true
+            )
+            trade_log.get_final_trade_stats
           else
             Rails.logger.error(
               {
@@ -2869,8 +2749,8 @@ namespace :lnmarkets_trader do
         #
         # Find Trade Log
         #
-        trade_log = TradeLog.find_by_external_id(f['id'])
-        if trade_log != nil
+        trade_log = TradeLog.find_or_create_from_external_id(f, 'futures')
+        if trade_log.present?
           strategy = trade_log.strategy
           Rails.logger.info(
             {
@@ -2881,68 +2761,9 @@ namespace :lnmarkets_trader do
         else
           Rails.logger.warn(
             {
-              message: "Warning. Unable to fetch internal TradeLog record for #{f['id']}... Create new TradeLog record with strategy == 'unknown'",
+              message: "Warning. Unable to find or create new TradeLog record for trade: #{f['id']}",
               script: "lnmarkets_trader:check_stops"
             }.to_json
-          )
-          #
-          # Fetch latest price of BTCUSD
-          #
-          index_price_btcusd = 0.0
-          lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
-          if lnmarkets_response[:status] == 'success'
-            index_price_btcusd = lnmarkets_response[:body]['index']
-            Rails.logger.info(
-              {
-                message: "Price BTCUSD: #{index_price_btcusd.to_fs(:delimited)}",
-                script: "lnmarkets_trader:check_stops"
-              }.to_json
-            )
-          else
-            Rails.logger.fatal(
-              {
-                message: "Error. Unable to fetch latest price for BTCUSD... abort check_stops script.",
-                script: "lnmarkets_trader:check_stops"
-              }.to_json
-            )
-            abort 'Unable to proceed with updating Stops without BTCUSD price.'
-          end
-          
-          #
-          # Prep attributes for new TradeLog record
-          #
-          strategy = 'unknown'
-          quantity_btc_sats = ((f['quantity']/index_price_btcusd)*100000000.0).round(0)
-          price_sat_usd = (index_price_btcusd/100000000.0).round(5)
-          margin_quantity_usd_cents = ((price_sat_usd * f['margin']).round(0) * 100.0).round(0)
-          margin_percent_of_quantity = (f['margin'].to_f/quantity_btc_sats.to_f).round(4)
-
-          if f['side'] == 'b'
-            trade_type = 'buy'
-            trade_direction = 'long'
-          elsif f['side'] == 's'
-            trade_type = 'sell'
-            trade_direction = 'short'
-          end
-
-          trade_log = TradeLog.create(
-            external_id: f['id'],
-            exchange_name: 'lnmarkets',
-            derivative_type: 'futures',
-            trade_type: trade_type,
-            trade_direction: trade_direction,
-            quantity_usd_cents: (f['quantity'] * 100.0),
-            quantity_btc_sats: quantity_btc_sats,
-            open_fee: f['opening_fee'],
-            close_fee: f['closing_fee'],
-            margin_quantity_btc_sats: f['margin'],
-            margin_quantity_usd_cents: margin_quantity_usd_cents,
-            open_price: entry_price,
-            creation_timestamp: f['creation_ts'],
-            running: true,
-            closed: false,
-            margin_percent_of_quantity: margin_percent_of_quantity,
-            strategy: strategy
           )
         end
 
