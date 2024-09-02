@@ -46,7 +46,7 @@ namespace :lnmarkets_trader do
           #
           # Update Trade Log
           #
-          trade_log = TradeLog.find_or_create_from_external_id(c, 'futures')
+          trade_log = TradeLog.find_or_create_from_external_id(c, 'options')
           if trade_log.present?
             trade_log.update(
               running: false,
@@ -2580,7 +2580,7 @@ namespace :lnmarkets_trader do
         #
         # Get strategy of trade from EE database
         #
-        trade_log = TradeLog.find_or_create_from_external_id(c, 'futures')
+        trade_log = TradeLog.find_or_create_from_external_id(c, 'options')
         if trade_log.present?
           strategy = trade_log.strategy
           Rails.logger.info(

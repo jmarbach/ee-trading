@@ -188,7 +188,8 @@ class TradeLog < ApplicationRecord
     type_specific_attributes = if derivative_type == 'futures'
       {
         leverage_quantity: trade_data['leverage'],
-        total_carry_fees: trade_data['sum_carry_fees']
+        total_carry_fees: trade_data['sum_carry_fees'],
+        last_update_timestamp: trade_data['last_update_ts']
       }
     else  # options
       {
