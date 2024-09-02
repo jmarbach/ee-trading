@@ -141,4 +141,70 @@ class TradeLog < ApplicationRecord
       end
     end
   end
+
+  def self.find_or_create_from_external_id(trade_data, derivative_type)
+    trade_log = find_by_external_id(trade_data['id'])
+    return trade_log if trade_log
+
+    logger.warn("Unable to fetch internal TradeLog record for #{trade_data['id']}. Creating new record with strategy 'unknown'.")
+
+    # Validate input for derivative_type input
+    if !["futures", "options"].include?(derivative_type)
+      logger.error("Invalid derivative_type param: #{derivative_type}")
+    end
+
+    create_from_trade_data(trade_data, derivative_type, 'unknown')
+  end  
+
+  private
+
+  def self.create_from_trade_data(trade_data, derivative_type, strategy)
+    # create(
+    #   external_id: trade_data['id'],
+    #   exchange_name: 'lnmarkets',
+    #   derivative_type: derivative_type,
+    #   trade_type: trade_type,
+    #   trade_direction: trade_direction,
+    #   quantity_usd_cents: (trade_data['quantity'] * 100.0),
+    #   quantity_btc_sats: quantity_btc_sats,
+    #   open_fee: trade_data['opening_fee'],
+    #   close_fee: trade_data['closing_fee'],
+    #   margin_quantity_btc_sats: trade_data['margin'],
+    #   margin_quantity_usd_cents: margin_quantity_usd_cents,
+    #   open_price: trade_data['entry_price'] || trade_data['forward'] || trade_data['price'],
+    #   creation_timestamp: trade_data['creation_ts'],
+    #   implied_volatility: trade_data['volatility'],
+    #   running: trade_data['running'],
+    #   closed: trade_data['closed'],
+    #   margin_percent_of_quantity: margin_percent_of_quantity,
+    #   strategy: 'unknown',
+    #   instrument: trade_data['instrument_name'] || "BTC-USD-#{derivative_type.upcase}",
+    #   # Additional fields for futures
+    #   leverage: trade_data['leverage'],
+    #   liquidation_price: trade_data['liquidation'],
+    #   stoploss: trade_data['stoploss'],
+    #   takeprofit: trade_data['takeprofit'],
+    #   sum_carry_fees: trade_data['sum_carry_fees'],
+    #   # Additional fields for options
+    #   settlement: trade_data['settlement'],
+    #   expiry_timestamp: trade_data['expiry_ts'],
+    #   strike_price: trade_data['strike'],
+    #   option_type: trade_data['type'] == 'c' ? 'call' : 'put'
+    # )
+    
+    puts 'create_from_trade_data'
+    price_btcusd = get_current_price_btcusd
+
+    puts price_btcusd
+  end
+
+  def self.get_current_price_btcusd()
+    lnmarkets_client = LnMarketsAPI.new
+    response = lnmarkets_client.get_price_btcusd_ticker
+    if response[:status] == 'success'
+      response[:body]['index']
+    else
+      logger.error("Failed to fetch current BTC price.")
+    end
+  end
 end
