@@ -201,7 +201,7 @@ class TradeLog < ApplicationRecord
         implied_volatility: trade_data['volatility'],
         settlement: trade_data['settlement'],
         strike: trade_data['strike'],
-        instrument: find_instrument(trade_data['expiry_ts'], trade_direction, trade_data['strike'])
+        instrument: find_options_instrument(trade_data['expiry_ts'], trade_direction, trade_data['strike'])
       }
     end
 
