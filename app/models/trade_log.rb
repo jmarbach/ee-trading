@@ -168,6 +168,9 @@ class TradeLog < ApplicationRecord
       logger.error("Invalid derivative_type: #{derivative_type}")
     end
 
+    quantity_btc_sats = calculate_quantity_btc_sats(trade_data['quantity'])
+    margin_percent_of_quantity = (trade_data['margin'].to_f / quantity_btc_sats.to_f).round(4)
+
     common_attributes = {
       external_id: trade_data['id'],
       strategy: strategy,
@@ -176,7 +179,7 @@ class TradeLog < ApplicationRecord
       trade_type: trade_type,
       trade_direction: trade_direction,
       quantity_usd_cents: (trade_data['quantity'] * 100.0).to_i,
-      quantity_btc_sats: calculate_quantity_btc_sats(trade_data['quantity']),
+      quantity_btc_sats: quantity_btc_sats,
       open_fee: trade_data['opening_fee'],
       close_fee: trade_data['closing_fee'],
       margin_quantity_btc_sats: trade_data['margin'],
@@ -187,7 +190,7 @@ class TradeLog < ApplicationRecord
       running: trade_data['running'],
       canceled: trade_data['canceled'],
       closed: trade_data['closed'],
-      margin_percent_of_quantity: calculate_margin_percent(trade_data['margin'])
+      margin_percent_of_quantity: margin_percent_of_quantity
     }
 
     type_specific_attributes = if derivative_type == 'futures'
@@ -218,10 +221,6 @@ class TradeLog < ApplicationRecord
     index_price = get_current_price_btcusd
     price_sat_usd = (index_price / 100_000_000.0).round(5)
     ((price_sat_usd * margin_amount_btc_sats).round(0) * 100.0).round(0)
-  end
-
-  def self.calculate_margin_percent(margin_amount_btc_sats)
-    (margin_amount_btc_sats.to_f / margin_amount_btc_sats.to_f).round(4)
   end
 
   def self.get_current_price_btcusd()
