@@ -159,50 +159,60 @@ class TradeLog < ApplicationRecord
   private
 
   def self.create_from_trade_data(trade_data, derivative_type, strategy)
-    # derivative_type = derivative_type
-    # trade_type = trade_data['side'] == 'b' ? 'buy' : 'sell'
-    # trade_direction = trade_data['side'] == 'b' ? 'long' : 'short'
+    derivative_type = derivative_type
+    trade_type = trade_data['side'] == 'b' ? 'buy' : 'sell'
+    trade_direction = trade_data['side'] == 'b' ? 'long' : 'short'
 
-    # common_attributes = {
-    #   external_id: trade_data['id'],
-    #   strategy: strategy,
-    #   derivative_type: derivative_type,
-    #   exchange_name: 'lnmarkets',
-    #   trade_type: trade_type,
-    #   trade_direction: trade_direction,
-    #   quantity_usd_cents: (trade_data['quantity'] * 100.0).to_i,
-    #   quantity_btc_sats: calculate_quantity_btc_sats(trade_data),
-    #   open_fee: trade_data['opening_fee'],
-    #   close_fee: trade_data['closing_fee'],
-    #   margin_quantity_btc_sats: trade_data['margin'],
-    #   margin_quantity_usd_cents: calculate_margin_usd_cents(trade_data),
-    #   open_price: trade_data['entry_price'] || trade_data['forward'],
-    #   creation_timestamp: trade_data['creation_ts'],
-    #   running: trade_data['running'],
-    #   closed: trade_data['closed'],
-    #   margin_percent_of_quantity: calculate_margin_percent(trade_data)
-    # }
+    common_attributes = {
+      external_id: trade_data['id'],
+      strategy: strategy,
+      derivative_type: derivative_type,
+      exchange_name: 'lnmarkets',
+      trade_type: trade_type,
+      trade_direction: trade_direction,
+      quantity_usd_cents: (trade_data['quantity'] * 100.0).to_i,
+      quantity_btc_sats: calculate_quantity_btc_sats(trade_data),
+      open_fee: trade_data['opening_fee'],
+      close_fee: trade_data['closing_fee'],
+      margin_quantity_btc_sats: trade_data['margin'],
+      margin_quantity_usd_cents: calculate_margin_usd_cents(trade_data['margin']),
+      open_price: trade_data['entry_price'] || trade_data['forward'],
+      creation_timestamp: trade_data['creation_ts'],
+      running: trade_data['running'],
+      closed: trade_data['closed'],
+      margin_percent_of_quantity: calculate_margin_percent(trade_data['margin'])
+    }
 
-    # type_specific_attributes = if derivative_type == 'futures'
-    #   {
-    #     leverage: trade_data['leverage'],
-    #     liquidation_price: trade_data['liquidation'],
-    #     stoploss: trade_data['stoploss'],
-    #     takeprofit: trade_data['takeprofit'],
-    #     sum_carry_fees: trade_data['sum_carry_fees']
-    #   }
-    # else  # options
-    #   {
-    #     implied_volatility: trade_data['volatility'],
-    #     settlement: trade_data['settlement'],
-    #     expiry_timestamp: trade_data['expiry_ts'],
-    #     strike_price: trade_data['strike'],
-    #     option_type: trade_data['type'] == 'c' ? 'call' : 'put',
-    #     instrument: trade_data['instrument_name'] || "BTC-USD-#{derivative_type.upcase}"
-    #   }
-    # end
+    type_specific_attributes = if derivative_type == 'futures'
+      {
+        leverage_quantity: trade_data['leverage'],
+        total_carry_fees: trade_data['sum_carry_fees']
+      }
+    else  # options
+      {
+        implied_volatility: trade_data['volatility'],
+        settlement: trade_data['settlement'],
+        strike: trade_data['strike'],
+        instrument: find_instrument(trade_data['expiry_ts'], trade_direction, trade_data['strike'])
+      }
+    end
 
-    # create(common_attributes.merge(type_specific_attributes))
+    create(common_attributes.merge(type_specific_attributes))
+  end
+
+  def self.calculate_quantity_btc_sats(trade_data)
+    index_price = get_current_price_btcusd
+    ((trade_data['quantity'] / index_price) * 100_000_000).round(0)
+  end
+
+  def self.calculate_margin_usd_cents(margin_amount_btc_sats)
+    index_price = get_current_price_btcusd
+    price_sat_usd = (index_price / 100_000_000.0).round(5)
+    ((price_sat_usd * margin_amount_btc_sats).round(0) * 100.0).round(0)
+  end
+
+  def self.calculate_margin_percent(margin_amount_btc_sats)
+    (margin_amount_btc_sats.to_f / calculate_quantity_btc_sats(margin_amount_btc_sats).to_f).round(4)
   end
 
   def self.get_current_price_btcusd()
@@ -212,6 +222,45 @@ class TradeLog < ApplicationRecord
       response[:body]['index']
     else
       logger.error("Failed to fetch current BTC price.")
+    end
+  end
+
+  def self.find_options_instrument(expiry_timestamp, trade_direction, strike)
+    #
+    # Search instruments endpoint by expiry, trade direction, and strike price
+    #
+    expiry_datetime = Time.at(expiry_timestamp / 1000.0).to_datetime.utc
+    lnmarkets_client = LnMarketsAPI.new
+    response = lnmarkets_client.get_options_instruments
+    if response[:status] == 'success'
+      filtered_instruments = response[:body].select {|y| y.include?((DateTime.now + 1.day).utc.strftime("BTC.%Y-%m-%d")) }
+
+      if trade_direction == 'long'
+        filtered_instruments = filtered_instruments.select { |y| y.include?('.C') }
+        filtered_instruments = filtered_instruments.select { |y| y.include?((strike).ceil(-3).to_s) }
+      elsif trade_direction == 'short'
+        filtered_instruments = filtered_instruments.select { |y| y.include?('.P') }
+        filtered_instruments = filtered_instruments.select { |y| y.include?((get_current_price_btcusd).ceil(-3).to_s) }
+      end
+
+      if filtered_instruments.any?
+        Rails.logger.info(
+          {
+            message: "Found options instrument: #{filtered_instruments[0]}",
+            script: "TradeLog:find_options_instrument"
+          }.to_json
+        )
+        return filtered_instruments[0]
+      else
+        return 'Not Found'
+      end
+    else
+      Rails.logger.warn(
+        {
+          message: "Unable to fetch options instruments.",
+          script: "TradeLog:find_options_instrument"
+        }.to_json
+      )
     end
   end
 end
