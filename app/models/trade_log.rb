@@ -178,7 +178,9 @@ class TradeLog < ApplicationRecord
       margin_quantity_usd_cents: calculate_margin_usd_cents(trade_data['margin']),
       open_price: trade_data['entry_price'] || trade_data['forward'],
       creation_timestamp: trade_data['creation_ts'],
+      open: trade_data['open'],
       running: trade_data['running'],
+      running: trade_data['canceled'],
       closed: trade_data['closed'],
       margin_percent_of_quantity: calculate_margin_percent(trade_data['margin'])
     }
@@ -213,7 +215,7 @@ class TradeLog < ApplicationRecord
   end
 
   def self.calculate_margin_percent(margin_amount_btc_sats)
-    (margin_amount_btc_sats.to_f / calculate_quantity_btc_sats(margin_amount_btc_sats).to_f).round(4)
+    (margin_amount_btc_sats.to_f / margin_amount_btc_sats.to_f).round(4)
   end
 
   def self.get_current_price_btcusd()
