@@ -161,7 +161,6 @@ class TradeLog < ApplicationRecord
   def self.create_from_trade_data(trade_data, derivative_type, strategy)
     derivative_type = derivative_type
     trade_type = trade_data['side'] == 'b' ? 'buy' : 'sell'
-    trade_direction = trade_data['side'] == 'b' ? 'long' : 'short'
 
     common_attributes = {
       external_id: trade_data['id'],
@@ -186,13 +185,14 @@ class TradeLog < ApplicationRecord
     }
 
     type_specific_attributes = if derivative_type == 'futures'
-      {
+      { trade_direction: trade_data['side'] == 'b' ? 'long' : 'short',
         leverage_quantity: trade_data['leverage'],
         total_carry_fees: trade_data['sum_carry_fees'],
         last_update_timestamp: trade_data['last_update_ts']
       }
     else  # options
       {
+        trade_direction: trade_data['type'] == 'c' ? 'long' : 'short',
         implied_volatility: trade_data['volatility'],
         settlement: trade_data['settlement'],
         strike: trade_data['strike'],
