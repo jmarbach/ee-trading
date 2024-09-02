@@ -44,7 +44,8 @@ class LnMarketsAPI
       time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       timestamp = (Time.now.to_f * 1000).to_i.to_s
 
-      signature = generate_signature(timestamp, method, path, params)
+      signature_payload = method.upcase == 'GET' ? params : body
+      signature = generate_signature(timestamp, method, path, signature_payload)
 
       @logger.debug("Request details:")
       @logger.debug("Method: #{method}")
@@ -81,13 +82,19 @@ class LnMarketsAPI
     hash_method_response
   end
 
-  def generate_signature(timestamp, method, path, params)
-    query_string = URI.encode_www_form(params.sort)
-    prehash_string = timestamp + method + path + query_string
-    @logger.debug("Generating signature with payload: #{prehash_string}")
+  def generate_signature(timestamp, method, path, params_or_body)
+    payload = timestamp + method.upcase + path
+
+    if method.upcase == 'GET'
+      payload += URI.encode_www_form(params_or_body.sort)
+    else
+      payload += params_or_body.to_json
+    end
+
+    @logger.debug("Generating signature with payload: #{payload}")
 
     digest = OpenSSL::Digest.new('sha256')
-    hmac = OpenSSL::HMAC.digest(digest, ENV.fetch("LNMARKETS_API_SECRET"), prehash_string)
+    hmac = OpenSSL::HMAC.digest(digest, ENV.fetch("LNMARKETS_API_SECRET"), payload)
     Base64.strict_encode64(hmac)
   end
 
