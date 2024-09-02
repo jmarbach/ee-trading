@@ -159,43 +159,50 @@ class TradeLog < ApplicationRecord
   private
 
   def self.create_from_trade_data(trade_data, derivative_type, strategy)
-    # create(
+    # derivative_type = derivative_type
+    # trade_type = trade_data['side'] == 'b' ? 'buy' : 'sell'
+    # trade_direction = trade_data['side'] == 'b' ? 'long' : 'short'
+
+    # common_attributes = {
     #   external_id: trade_data['id'],
-    #   exchange_name: 'lnmarkets',
+    #   strategy: strategy,
     #   derivative_type: derivative_type,
+    #   exchange_name: 'lnmarkets',
     #   trade_type: trade_type,
     #   trade_direction: trade_direction,
-    #   quantity_usd_cents: (trade_data['quantity'] * 100.0),
-    #   quantity_btc_sats: quantity_btc_sats,
+    #   quantity_usd_cents: (trade_data['quantity'] * 100.0).to_i,
+    #   quantity_btc_sats: calculate_quantity_btc_sats(trade_data),
     #   open_fee: trade_data['opening_fee'],
     #   close_fee: trade_data['closing_fee'],
     #   margin_quantity_btc_sats: trade_data['margin'],
-    #   margin_quantity_usd_cents: margin_quantity_usd_cents,
-    #   open_price: trade_data['entry_price'] || trade_data['forward'] || trade_data['price'],
+    #   margin_quantity_usd_cents: calculate_margin_usd_cents(trade_data),
+    #   open_price: trade_data['entry_price'] || trade_data['forward'],
     #   creation_timestamp: trade_data['creation_ts'],
-    #   implied_volatility: trade_data['volatility'],
     #   running: trade_data['running'],
     #   closed: trade_data['closed'],
-    #   margin_percent_of_quantity: margin_percent_of_quantity,
-    #   strategy: 'unknown',
-    #   instrument: trade_data['instrument_name'] || "BTC-USD-#{derivative_type.upcase}",
-    #   # Additional fields for futures
-    #   leverage: trade_data['leverage'],
-    #   liquidation_price: trade_data['liquidation'],
-    #   stoploss: trade_data['stoploss'],
-    #   takeprofit: trade_data['takeprofit'],
-    #   sum_carry_fees: trade_data['sum_carry_fees'],
-    #   # Additional fields for options
-    #   settlement: trade_data['settlement'],
-    #   expiry_timestamp: trade_data['expiry_ts'],
-    #   strike_price: trade_data['strike'],
-    #   option_type: trade_data['type'] == 'c' ? 'call' : 'put'
-    # )
-    
-    puts 'create_from_trade_data'
-    price_btcusd = get_current_price_btcusd
+    #   margin_percent_of_quantity: calculate_margin_percent(trade_data)
+    # }
 
-    puts price_btcusd
+    # type_specific_attributes = if derivative_type == 'futures'
+    #   {
+    #     leverage: trade_data['leverage'],
+    #     liquidation_price: trade_data['liquidation'],
+    #     stoploss: trade_data['stoploss'],
+    #     takeprofit: trade_data['takeprofit'],
+    #     sum_carry_fees: trade_data['sum_carry_fees']
+    #   }
+    # else  # options
+    #   {
+    #     implied_volatility: trade_data['volatility'],
+    #     settlement: trade_data['settlement'],
+    #     expiry_timestamp: trade_data['expiry_ts'],
+    #     strike_price: trade_data['strike'],
+    #     option_type: trade_data['type'] == 'c' ? 'call' : 'put',
+    #     instrument: trade_data['instrument_name'] || "BTC-USD-#{derivative_type.upcase}"
+    #   }
+    # end
+
+    # create(common_attributes.merge(type_specific_attributes))
   end
 
   def self.get_current_price_btcusd()
