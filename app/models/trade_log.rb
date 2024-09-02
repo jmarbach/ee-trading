@@ -180,7 +180,7 @@ class TradeLog < ApplicationRecord
       creation_timestamp: trade_data['creation_ts'],
       open: trade_data['open'],
       running: trade_data['running'],
-      running: trade_data['canceled'],
+      canceled: trade_data['canceled'],
       closed: trade_data['closed'],
       margin_percent_of_quantity: calculate_margin_percent(trade_data['margin'])
     }

@@ -2381,7 +2381,7 @@ namespace :lnmarkets_trader do
                 new_stoploss = (index_price_btcusd * 1.06).round(0)
               end
             end
-          elsif strategy == 'three-minute-trend'
+          elsif strategy == 'three-minute-trend' || strategy == 'unknown'
             if trade_direction == 'long'
               if index_price_btcusd > (entry_price * 1.0135)
                 new_stoploss = (entry_price * 1.0135).round(0)
