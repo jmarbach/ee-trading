@@ -2199,18 +2199,54 @@ namespace :lnmarkets_trader do
           strategy = trade_log.strategy
           Rails.logger.info(
             {
-              message: "Trade Strategy: #{strategy}",
+              message: "Futures Trade Strategy: #{strategy}",
               script: "lnmarkets_trader:check_stops"
             }.to_json
           )
         else
-          Rails.logger.fatal(
+          Rails.logger.warn(
             {
-              message: "Error. Unable to fetch internal TradeLog record for #{f['id']}... abort check_stops script.",
+              message: "Warning. Unable to fetch internal TradeLog record for #{f['id']}... Create new TradeLog record with strategy == 'unknown'",
               script: "lnmarkets_trader:check_stops"
             }.to_json
           )
-          abort 'Unable to proceed with updating Stops without internal TradeLog record.'
+          #
+          # Prep attributes for new TradeLog record
+          #
+          strategy = 'unknown'
+          quantity_btc_sats = ((f['quantity']/index_price_btcusd)*100000000.0).round(0)
+          price_sat_usd = (index_price_btcusd/100000000.0).round(5)
+          margin_quantity_usd_cents = ((price_sat_usd * f['margin']).round(0) * 100.0).round(0)
+          margin_percent_of_quantity = (f['margin'].to_f/quantity_btc_sats.to_f).round(4)
+
+          if f['side'] == 'b'
+            trade_type = 'buy'
+            trade_direction = 'long'
+          elsif f['side'] == 's'
+            trade_type = 'sell'
+            trade_direction = 'short'
+          end
+
+          trade_log = TradeLog.create(
+            external_id: f['id'],
+            exchange_name: 'lnmarkets',
+            derivative_type: 'futures',
+            trade_type: trade_type,
+            trade_direction: trade_direction,
+            quantity_usd_cents: (f['quantity'] * 100.0),
+            quantity_btc_sats: quantity_btc_sats,
+            open_fee: f['opening_fee'],
+            close_fee: f['closing_fee'],
+            margin_quantity_btc_sats: f['margin'],
+            margin_quantity_usd_cents: margin_quantity_usd_cents,
+            open_price: entry_price,
+            creation_timestamp: f['creation_ts'],
+            implied_volatility: f['volatility'],
+            running: true,
+            closed: false,
+            margin_percent_of_quantity: margin_percent_of_quantity,
+            strategy: strategy
+          )
         end
 
         #
@@ -2834,6 +2870,59 @@ namespace :lnmarkets_trader do
         # Find Trade Log
         #
         trade_log = TradeLog.find_by_external_id(f['id'])
+        if trade_log != nil
+          strategy = trade_log.strategy
+          Rails.logger.info(
+            {
+              message: "Futures Trade Strategy: #{strategy}",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
+        else
+          Rails.logger.warn(
+            {
+              message: "Warning. Unable to fetch internal TradeLog record for #{f['id']}... Create new TradeLog record with strategy == 'unknown'",
+              script: "lnmarkets_trader:check_stops"
+            }.to_json
+          )
+          #
+          # Prep attributes for new TradeLog record
+          #
+          strategy = 'unknown'
+          quantity_btc_sats = ((f['quantity']/index_price_btcusd)*100000000.0).round(0)
+          price_sat_usd = (index_price_btcusd/100000000.0).round(5)
+          margin_quantity_usd_cents = ((price_sat_usd * f['margin']).round(0) * 100.0).round(0)
+          margin_percent_of_quantity = (f['margin'].to_f/quantity_btc_sats.to_f).round(4)
+
+          if f['side'] == 'b'
+            trade_type = 'buy'
+            trade_direction = 'long'
+          elsif f['side'] == 's'
+            trade_type = 'sell'
+            trade_direction = 'short'
+          end
+
+          trade_log = TradeLog.create(
+            external_id: f['id'],
+            exchange_name: 'lnmarkets',
+            derivative_type: 'futures',
+            trade_type: trade_type,
+            trade_direction: trade_direction,
+            quantity_usd_cents: (f['quantity'] * 100.0),
+            quantity_btc_sats: quantity_btc_sats,
+            open_fee: f['opening_fee'],
+            close_fee: f['closing_fee'],
+            margin_quantity_btc_sats: f['margin'],
+            margin_quantity_usd_cents: margin_quantity_usd_cents,
+            open_price: entry_price,
+            creation_timestamp: f['creation_ts'],
+            running: true,
+            closed: false,
+            margin_percent_of_quantity: margin_percent_of_quantity,
+            strategy: strategy
+          )
+        end
+
         #
         # Only cancel trades that are not part of the 'daily-trend' strategy
         #
