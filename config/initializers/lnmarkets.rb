@@ -76,10 +76,8 @@ class LnMarketsAPI
       else
         hash_method_response = handle_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time)
       end
-    rescue Faraday::ClientError => e
-      hash_method_response = handle_client_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time)
     rescue => e
-      hash_method_response = handle_unexpected_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time)
+      hash_method_response = handle_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time)
     end
 
     hash_method_response
