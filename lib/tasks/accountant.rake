@@ -180,6 +180,12 @@ namespace :accountant do
     if Time.now.utc.day == 1
       Rake::Task["accountant:save_trading_stats_monthly"].execute
     end
+    #
+    # Trigger yearly accounting on the first day of the year
+    #
+    if Time.now.utc.day == 1 && Time.now.utc.month == 1
+      Rake::Task["accountant:save_trading_stats_yearly"].execute
+    end
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
@@ -390,11 +396,13 @@ namespace :accountant do
         #
         # Fetch last 5 years of TradingStatsYearly records
         #
-        last_5y_stats = TradingStatsYearly.where('recorded_date >= ?', 5.years.ago).order(recorded_date: :desc)
-
-        last_5y_wins = last_5y_stats.sum(&:win)
-        last_5y_losses = last_5y_stats.sum(&:loss)
-        last_5y_draws = last_5y_stats.sum(&:draw)
+        last_5y_wins, last_5y_losses, last_5y_draws = 0,0,0
+        last_5y_stats = TradingStatsYearly.order(recorded_date: :desc).limit(4)
+        if last_5y_stats.present? && !last_5y_stats.empty?
+          last_5y_wins = last_5y_stats.sum(&:win)
+          last_5y_losses = last_5y_stats.sum(&:loss)
+          last_5y_draws = last_5y_stats.sum(&:draw)
+        end
 
         #
         # Determine if this year is a win, loss, or draw
