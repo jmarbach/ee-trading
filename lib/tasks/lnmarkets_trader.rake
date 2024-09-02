@@ -2064,6 +2064,7 @@ namespace :lnmarkets_trader do
             margin_quantity_usd_cents: margin_quantity_usd_cents,
             open_price: lnmarkets_response[:body]['forward'],
             creation_timestamp: lnmarkets_response[:body]['creation_ts'],
+            strike: lnmarkets_response[:body]['strike'],
             instrument: instrument_name,
             settlement: settlement,
             implied_volatility: lnmarkets_response[:body]['volatility'],
