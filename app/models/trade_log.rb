@@ -159,8 +159,14 @@ class TradeLog < ApplicationRecord
   private
 
   def self.create_from_trade_data(trade_data, derivative_type, strategy)
-    derivative_type = derivative_type
     trade_type = trade_data['side'] == 'b' ? 'buy' : 'sell'
+    if derivative_type == 'futures'
+      trade_direction = trade_data['side'] == 'b' ? 'long' : 'short'
+    elsif derivative_type == 'options'
+      trade_direction = trade_data['type'] == 'c' ? 'long' : 'short'
+    else
+      logger.error("Invalid derivative_type: #{derivative_type}")
+    end
 
     common_attributes = {
       external_id: trade_data['id'],
@@ -168,6 +174,7 @@ class TradeLog < ApplicationRecord
       derivative_type: derivative_type,
       exchange_name: 'lnmarkets',
       trade_type: trade_type,
+      trade_direction: trade_direction,
       quantity_usd_cents: (trade_data['quantity'] * 100.0).to_i,
       quantity_btc_sats: calculate_quantity_btc_sats(trade_data['quantity']),
       open_fee: trade_data['opening_fee'],
@@ -185,14 +192,12 @@ class TradeLog < ApplicationRecord
 
     type_specific_attributes = if derivative_type == 'futures'
       {
-        trade_direction: trade_data['side'] == 'b' ? 'long' : 'short',
         leverage_quantity: trade_data['leverage'],
         total_carry_fees: trade_data['sum_carry_fees'],
         last_update_timestamp: trade_data['last_update_ts']
       }
     else  # options
       {
-        trade_direction: trade_data['type'] == 'c' ? 'long' : 'short',
         implied_volatility: trade_data['volatility'],
         settlement: trade_data['settlement'],
         strike: trade_data['strike'],
