@@ -56,7 +56,7 @@ namespace :lnmarkets_trader do
           else
             Rails.logger.error(
             {
-              message: "Error. Unable to find trade log for trade: #{c['id']}",
+              message: "Error. Unable to find trade log for options trade: #{c['id']}",
               script: "lnmarkets_trader:close_all_positions"
             }.to_json
           )
@@ -64,7 +64,7 @@ namespace :lnmarkets_trader do
         else
           Rails.logger.error(
             {
-              message: "Error. Unable to close open options contracts: #{c['id']}",
+              message: "Error. Unable to close open options contract: #{c['id']}",
               script: "lnmarkets_trader:close_all_positions"
             }.to_json
           )

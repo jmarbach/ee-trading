@@ -37,20 +37,6 @@ class LnMarketsAPI
     end
   end
 
-  def generate_signature(timestamp, method, path, params_or_body)
-    query_string = if method == 'GET'
-                     URI.encode_www_form(params_or_body.sort)
-                   else
-                     params_or_body.to_json
-                   end
-    prehash_string = timestamp + method + path + query_string
-    @logger.debug("Generating signature with payload: #{prehash_string}")
-    
-    digest = OpenSSL::Digest.new('sha256')
-    hmac = OpenSSL::HMAC.digest(digest, ENV.fetch("LNMARKETS_API_SECRET"), prehash_string)
-    Base64.strict_encode64(hmac)
-  end
-
   def execute_request(method, path, params = {}, body = nil)
     hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
     retries = 0
@@ -58,7 +44,7 @@ class LnMarketsAPI
       time_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       timestamp = (Time.now.to_f * 1000).to_i.to_s
 
-      signature = generate_signature(timestamp, method, path, method == 'GET' ? params : (body || {}))
+      signature = generate_signature(timestamp, method, path, params)
 
       @logger.debug("Request details:")
       @logger.debug("Method: #{method}")
@@ -69,7 +55,7 @@ class LnMarketsAPI
 
       response = @conn.send(method.downcase) do |req|
         req.url path
-        req.params = params if method == 'GET'
+        req.params = params
         req.body = body.to_json if body && !body.empty?
         req.headers['LNM-ACCESS-SIGNATURE'] = signature
         req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
@@ -88,15 +74,21 @@ class LnMarketsAPI
       else
         hash_method_response = handle_error(e, Time.now - time_start)
       end
-    rescue Faraday::ResourceNotFound => e
-      @logger.error("ResourceNotFound error: #{e.message}")
-      hash_method_response[:status] = 'error'
-      hash_method_response[:message] = 'ResourceNotFound'
     rescue => e
       hash_method_response = handle_error(e, Time.now - time_start)
     end
 
     hash_method_response
+  end
+
+  def generate_signature(timestamp, method, path, params)
+    query_string = URI.encode_www_form(params.sort)
+    prehash_string = timestamp + method + path + query_string
+    @logger.debug("Generating signature with payload: #{prehash_string}")
+
+    digest = OpenSSL::Digest.new('sha256')
+    hmac = OpenSSL::HMAC.digest(digest, ENV.fetch("LNMARKETS_API_SECRET"), prehash_string)
+    Base64.strict_encode64(hmac)
   end
 
   def handle_response(response, elapsed_time)
@@ -139,8 +131,8 @@ class LnMarketsAPI
     execute_request('DELETE', '/v2/options/close-all')
   end
 
-  def close_options_contract(trade_id)
-    execute_request('DELETE', '/v2/options', { id: trade_id })
+  def close_options_contract(id)
+    execute_request('DELETE', '/v2/options', { id: id })
   end
 
   def open_option_contract(side, quantity, settlement, instrument_name)
