@@ -168,7 +168,6 @@ class TradeLog < ApplicationRecord
       derivative_type: derivative_type,
       exchange_name: 'lnmarkets',
       trade_type: trade_type,
-      trade_direction: trade_direction,
       quantity_usd_cents: (trade_data['quantity'] * 100.0).to_i,
       quantity_btc_sats: calculate_quantity_btc_sats(trade_data['quantity']),
       open_fee: trade_data['opening_fee'],
@@ -185,7 +184,8 @@ class TradeLog < ApplicationRecord
     }
 
     type_specific_attributes = if derivative_type == 'futures'
-      { trade_direction: trade_data['side'] == 'b' ? 'long' : 'short',
+      {
+        trade_direction: trade_data['side'] == 'b' ? 'long' : 'short',
         leverage_quantity: trade_data['leverage'],
         total_carry_fees: trade_data['sum_carry_fees'],
         last_update_timestamp: trade_data['last_update_ts']
