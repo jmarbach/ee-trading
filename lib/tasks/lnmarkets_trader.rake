@@ -1160,6 +1160,272 @@ namespace :lnmarkets_trader do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
 
+  task check_thirty_minute_trend_indicators: :environment do
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+
+    strategy = 'thirty-minute-trend'
+    #
+    # Check for no open or running trades using this strategy
+    #
+    thirty_minute_trend_trades_created_today = TradeLog.where(
+      created_at: DateTime.now.utc.beginning_of_day.., strategy: strategy, open: [true, nil], running: [true, nil])
+
+    if thirty_minute_trend_trades_created_today.count > 0
+      #
+      # Iterate through each trade to get its open and running status
+      #
+      hourly_trend_trades_created_today.each do |t|
+        lnmarkets_client = LnMarketsAPI.new
+        lnmarkets_response = lnmarkets_client.get_futures_trade(t.external_id)
+        if lnmarkets_response[:status] == 'success'
+          Rails.logger.info(
+            {
+              message: "Parse trade response from LnMarkets",
+              body: "#{lnmarkets_response[:body]}",
+              script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+            }.to_json
+          )
+          if lnmarkets_response[:body]['open'] == true ||
+            lnmarkets_response[:body]['running'] == true
+            Rails.logger.warn(
+              {
+                message: "We already opened an hourly trend trade that is still open or running. Skip.",
+                script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+              }.to_json
+            )
+            exit(0)
+          else
+            Rails.logger.info(
+              {
+                message: "Trade #{t.external_id} is not running or open. Update TradeLog record...",
+                script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+              }.to_json
+            )
+            t.update(
+              open: false,
+              running: false
+            )
+            # Proceed
+          end
+        else
+          Rails.logger.fatal(
+            {
+              message: "Error. Unable to get futures trade.",
+              script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+            }.to_json
+          )
+          abort 'Unable to get state of futures trade.'
+        end
+      end
+    end
+
+    most_recent_30min_interval = Time.now.utc
+    most_recent_30min_interval = most_recent_30min_interval.change(
+      min: most_recent_30min_interval.min < 30 ? 0 : 30
+    )
+    timestamp_current = most_recent_30min_interval.to_i.in_milliseconds
+    
+    Rails.logger.info(
+      {
+        message: "Run lnmarkets_trader:check_thirty_minute_trend_indicators...",
+        body: "QUERY DATE: #{DateTime.now.utc.beginning_of_day} - #{timestamp_current}",
+        script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+      }.to_json
+    )
+
+    #
+    # Fetch market data and evaluate inputs against fine tuned model
+    #
+
+    # Standard model inputs
+    polygon_client = PolygonAPI.new
+    symbol = 'X:BTCUSD'
+    timespan = 'hour'
+    window = 60
+    series_type = 'close'
+
+    # Track data errors
+    data_errors = 0
+
+    # Get technical indicators from Polygon
+    rsi_value = 0.0
+    response_rsi = polygon_client.get_rsi(symbol, timestamp_current, timespan, window, series_type)
+
+    if response_rsi[:status] == 'success'
+      rsi_values = response_rsi[:body]['results']['values']
+      rsi_value = rsi_values[0]['value']
+    else
+      data_errors += 1
+    end
+
+    if rsi_value != 0.0
+      Rails.logger.info(
+        {
+          message: "RSI Value",
+          body: "#{rsi_value}",
+          script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+        }.to_json
+      )
+    elsif rsi_value == 0.0
+      Rails.logger.fatal(
+        {
+          message: "RSI Value",
+          body: "#{rsi_value}",
+          script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+        }.to_json
+      )
+      abort 'Unable to fetch last hour RSI Value.'
+    end
+
+    # Current BTCUSD price
+    price_btcusd = 0.0
+    currency_from = 'BTC'
+    currency_to = 'USD'
+    response_btcusd = polygon_client.get_last_trade(currency_from, currency_to)
+    if response_btcusd[:status] == 'success'
+      price_btcusd = response_btcusd[:body]['last']['price']
+    else
+      data_errors += 1
+    end
+    Rails.logger.info(
+      {
+        message: "Fetched Last BTCUSD Tick.",
+        body: "#{price_btcusd}",
+        script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+      }.to_json
+    )
+
+    #
+    # Save MarketDataLog
+    #
+    begin
+      market_data_log = MarketDataLog.create(
+        recorded_date: DateTime.now,
+        price_btcusd: price_btcusd,
+        rsi: rsi_value,
+        strategy: strategy
+      )
+    rescue => e
+      Rails.logger.error(
+        {
+          message: "Error. Unable to save market_data_log record.",
+          body: "#{e}",
+          script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+        }.to_json
+      )
+      market_data_log = MarketDataLog.create(
+        recorded_date: DateTime.now,
+        strategy: strategy
+      )
+    end
+
+    #
+    # Initialize score
+    #
+    trade_direction_score = 0.0
+
+    #
+    # Evaluate rules
+    #
+    
+    #
+    # Use OpenAI ChatGPT
+    #
+
+    #
+    # Save ScoreLog
+    #
+    Rails.logger.info(
+      {
+        message: "Final Trade Direction Score: #{trade_direction_score}",
+        script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+      }.to_json
+    )
+    begin
+      score_log = ScoreLog.create(
+        recorded_date: DateTime.now,
+        market_data_log_id: market_data_log.id,
+        score: trade_direction_score
+      )
+    rescue => e
+      Rails.logger.error(
+        {
+          message: "Error saving score_log record",
+          body: e,
+          script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+        }.to_json
+      )
+      score_log = ScoreLog.create(
+        recorded_date: DateTime.now
+      )
+    end
+
+    puts ""
+    puts "Evaluate if we should create a new trade..."
+    puts "--------------------------------------------"
+    puts ""
+    #
+    # Invoke trade order scripts
+    #
+    if trade_direction_score < 0.0 || trade_direction_score > 0.0
+      puts "********************************************"
+      puts "********************************************"
+      trade_direction = ''
+      if trade_direction_score > 0.0
+        trade_direction = 'buy'
+      elsif trade_direction_score < 0.0
+        trade_direction = 'sell'
+      end
+      Rails.logger.info(
+        {
+          message: "Proceed with new trade direction.",
+          body: "#{trade_direction}",
+          script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+        }.to_json
+      )
+
+      if trade_direction == 'buy'
+        Rake::Task["lnmarkets_trader:create_long_trade"].execute({score_log_id: score_log.id, strategy: strategy})
+      elsif trade_direction == 'sell'
+        Rake::Task["lnmarkets_trader:create_short_trade"].execute({score_log_id: score_log.id, strategy: strategy})
+      end
+      Rails.logger.info(
+        {
+          message: "Finished creating new #{trade_direction} trade.",
+          script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+        }.to_json
+      )
+      puts "********************************************"
+      puts "********************************************"
+    elsif trade_direction_score == 0.0
+      #
+      # No trade... wait for new market indicators at next trading interval
+      #
+      Rails.logger.info(
+        {
+          message: "No trade.",
+          script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+        }.to_json
+      )
+    end
+
+    Rails.logger.info(
+      {
+        message: "Data Errors: #{data_errors}",
+        script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+      }.to_json
+    )
+    if data_errors > 0
+      market_data_log.update(int_data_errors: data_errors)
+    end
+
+    puts 'End lnmarkets_trader:check_thirty_minute_trend_indicators...'
+    puts ''
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+  end
+
   task check_three_minute_trend_indicators: :environment do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
