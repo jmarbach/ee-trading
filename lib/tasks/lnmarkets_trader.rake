@@ -2256,14 +2256,31 @@ namespace :lnmarkets_trader do
         #
         lnmarkets_response = lnmarkets_client.get_options_instruments
         if lnmarkets_response[:status] == 'success'
-          filtered_instruments = lnmarkets_response[:body].select {|y| y.include?((DateTime.now + 1.day).utc.strftime("BTC.%Y-%m-%d")) }
+          all_instruments = lnmarkets_response[:body]
+          filtered_instruments = all_instruments.select {|y| y.include?((DateTime.now + 1.day).utc.strftime("BTC.%Y-%m-%d")) }
 
           if direction == 'long'
             filtered_instruments = filtered_instruments.select { |y| y.include?('.C') }
-            filtered_instruments = filtered_instruments.select { |y| y.include?((index_price_btcusd-1000).ceil(-3).to_s) }
+            price_levels = [index_price_btcusd - 1000, index_price_btcusd - 2000, index_price_btcusd - 3000]
+
+            price_levels.each do |price|
+              temp_filtered = filtered_instruments.select { |y| y.include?(price.ceil(-3).to_s) }
+              if temp_filtered.any?
+                filtered_instruments = temp_filtered
+                break
+              end
+            end
           elsif direction == 'short'
             filtered_instruments = filtered_instruments.select { |y| y.include?('.P') }
-            filtered_instruments = filtered_instruments.select { |y| y.include?((index_price_btcusd).ceil(-3).to_s) }
+            price_levels = [index_price_btcusd, index_price_btcusd + 1000, index_price_btcusd + 2000]
+
+            price_levels.each do |price|
+              temp_filtered = filtered_instruments.select { |y| y.include?(price.ceil(-3).to_s) }
+              if temp_filtered.any?
+                filtered_instruments = temp_filtered
+                break
+              end
+            end
           end
         else
           Rails.logger.fatal(
