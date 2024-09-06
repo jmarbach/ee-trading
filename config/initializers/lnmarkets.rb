@@ -8,7 +8,13 @@ require 'logger'
 class LnMarketsAPI
   MAX_RETRIES = 3
   RETRY_DELAY = 10 # seconds
-  RETRYABLE_ERRORS = [Faraday::ServerError, Faraday::ConnectionFailed]
+  RETRYABLE_ERRORS = [
+    Faraday::ServerError,
+    Faraday::ConnectionFailed,
+    Faraday::TimeoutError,
+    Faraday::ResourceNotFound,
+    Faraday::ClientError
+  ]
 
   attr_reader :logger
 
