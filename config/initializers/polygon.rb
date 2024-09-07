@@ -191,4 +191,10 @@ end
     path = "/v1/open-close/crypto/#{symbol_from}/#{symbol_to}/#{date}"
     execute_request(:get, path)
   end
+
+  def get_trades(symbol)
+    path = "/v3/trades/#{symbol}"
+    params = { limit: 100 }
+    execute_request(:get, path, params)
+  end
 end
