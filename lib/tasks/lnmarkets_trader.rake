@@ -1160,7 +1160,7 @@ namespace :lnmarkets_trader do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
 
-  task check_thirty_minute_trend_indicators: :environment do
+  task :attempt_trade_thirty_minute_trend, [:prediction] => :environment do |t, args|
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
 
@@ -1175,7 +1175,7 @@ namespace :lnmarkets_trader do
       #
       # Iterate through each trade to get its open and running status
       #
-      hourly_trend_trades_created_today.each do |t|
+      thirty_minute_trend_trades_created_today.each do |t|
         lnmarkets_client = LnMarketsAPI.new
         lnmarkets_response = lnmarkets_client.get_futures_trade(t.external_id)
         if lnmarkets_response[:status] == 'success'
@@ -1183,7 +1183,7 @@ namespace :lnmarkets_trader do
             {
               message: "Parse trade response from LnMarkets",
               body: "#{lnmarkets_response[:body]}",
-              script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+              script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
             }.to_json
           )
           if lnmarkets_response[:body]['open'] == true ||
@@ -1191,7 +1191,7 @@ namespace :lnmarkets_trader do
             Rails.logger.warn(
               {
                 message: "We already opened an hourly trend trade that is still open or running. Skip.",
-                script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+                script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
               }.to_json
             )
             exit(0)
@@ -1199,14 +1199,16 @@ namespace :lnmarkets_trader do
             Rails.logger.info(
               {
                 message: "Trade #{t.external_id} is not running or open. Update TradeLog record...",
-                script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+                script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
               }.to_json
             )
             t.update(
               open: false,
               running: false
             )
+            #
             # Proceed
+            #
           end
         else
           Rails.logger.fatal(
@@ -1230,7 +1232,7 @@ namespace :lnmarkets_trader do
       {
         message: "Run lnmarkets_trader:check_thirty_minute_trend_indicators...",
         body: "QUERY DATE: #{DateTime.now.utc.beginning_of_day} - #{timestamp_current}",
-        script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+        script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
       }.to_json
     )
 
@@ -1264,7 +1266,7 @@ namespace :lnmarkets_trader do
         {
           message: "RSI Value",
           body: "#{rsi_value}",
-          script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+          script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
         }.to_json
       )
     elsif rsi_value == 0.0
@@ -1272,7 +1274,7 @@ namespace :lnmarkets_trader do
         {
           message: "RSI Value",
           body: "#{rsi_value}",
-          script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+          script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
         }.to_json
       )
       abort 'Unable to fetch last hour RSI Value.'
@@ -1292,7 +1294,7 @@ namespace :lnmarkets_trader do
       {
         message: "Fetched Last BTCUSD Tick.",
         body: "#{price_btcusd}",
-        script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+        script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
       }.to_json
     )
 
@@ -1311,7 +1313,7 @@ namespace :lnmarkets_trader do
         {
           message: "Error. Unable to save market_data_log record.",
           body: "#{e}",
-          script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+          script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
         }.to_json
       )
       market_data_log = MarketDataLog.create(
@@ -1339,7 +1341,7 @@ namespace :lnmarkets_trader do
     Rails.logger.info(
       {
         message: "Final Trade Direction Score: #{trade_direction_score}",
-        script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+        script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
       }.to_json
     )
     begin
@@ -1353,7 +1355,7 @@ namespace :lnmarkets_trader do
         {
           message: "Error saving score_log record",
           body: e,
-          script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+          script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
         }.to_json
       )
       score_log = ScoreLog.create(
@@ -1381,7 +1383,7 @@ namespace :lnmarkets_trader do
         {
           message: "Proceed with new trade direction.",
           body: "#{trade_direction}",
-          script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+          script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
         }.to_json
       )
 
@@ -1393,7 +1395,7 @@ namespace :lnmarkets_trader do
       Rails.logger.info(
         {
           message: "Finished creating new #{trade_direction} trade.",
-          script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+          script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
         }.to_json
       )
       puts "********************************************"
@@ -1405,7 +1407,7 @@ namespace :lnmarkets_trader do
       Rails.logger.info(
         {
           message: "No trade.",
-          script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+          script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
         }.to_json
       )
     end
@@ -1413,14 +1415,14 @@ namespace :lnmarkets_trader do
     Rails.logger.info(
       {
         message: "Data Errors: #{data_errors}",
-        script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+        script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
       }.to_json
     )
     if data_errors > 0
       market_data_log.update(int_data_errors: data_errors)
     end
 
-    puts 'End lnmarkets_trader:check_thirty_minute_trend_indicators...'
+    puts 'End lnmarkets_trader:attempt_trade_thirty_minute_trend...'
     puts ''
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'

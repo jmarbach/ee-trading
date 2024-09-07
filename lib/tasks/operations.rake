@@ -1,5 +1,149 @@
 namespace :operations do
-  task update_missing_market_data: :environment do
+  task generate_thirty_minute_training_data: :environment do
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts "Begin operations:generate_thirty_minute_training_data..."
+    #
+    # Every 30mins collect new market data and 1x per day update model
+    #
+    #
+    # Initialize BigQuery client
+    #
+    PROJECT_ID = "encrypted-energy"
+    bigquery = Google::Cloud::Bigquery.new(project: PROJECT_ID)
+
+    #
+    # Set dataset, table, and table names
+    #
+    DATASET_ID = "market_indicators"
+    TABLE_ID = "thirty_minute_training_data"
+    MODEL_ID = "random_forest"
+
+    #
+    # Fetch market indicators from Polygon and other sources
+    #
+    # Collect the following market indicators:
+    # timestamp milliseconds, rsi, volume, sma, ema, macd, candle open, 
+    # candle close, candle low, candle high, price index, price coinbase, 
+    # price binance, and whether or not the price increased
+    #{"timestamp_milliseconds":, "rsi":, "volume":, "sma":, "ema":, "macd_histogram":, "candle_open":, "candle_close":, "candle_low":, "candle_high":, "price_btcusd_index":, "price_btcusd_coinbase":, "price_btcusd_binance":, "price_increased":,"implied_volatility_t3":, "avg_funding_rate":, "aggregate_open_interest":, "avg_long_short_ratio":}
+
+    #
+    # Prepare new data to insert to table
+    #
+    new_data = {
+      timestamp_milliseconds: timestamp_milliseconds,
+      rsi: rsi,
+      volume: volume,
+      simple_moving_average: simple_moving_average,
+      exponential_moving_average: exponential_moving_average,
+      macd_histogram: macd_histogram,
+      candle_open: candle_open,
+      candle_close: candle_close,
+      candle_low: candle_low,
+      candle_high: candle_high,
+      price_btcusd_index: price_btcusd_index,
+      price_btcusd_coinbase: price_btcusd_coinbase,
+      price_btcusd_binance: price_btcusd_binance,
+      avg_funding_rate: avg_funding_rate,
+      aggregate_open_interest: aggregate_open_interest,
+      implied_volatility_t3:,
+      avg_long_short_ratio:,
+      price_increased: price_increased
+    }
+    row = new_data
+
+    #
+    # Insert new data to table
+    #
+    dataset = bigquery.dataset(DATASET_ID)
+    table = dataset.table(TABLE_ID)
+    table.insert row
+
+    #
+    # Make prediction
+    #
+    query = <<-SQL
+      WITH latest_data AS (
+        SELECT
+          rsi,
+          volume,
+          simple_moving_average,
+          exponential_moving_average,
+          macd_signal,
+          candle_open,
+          candle_close,
+          candle_low,
+          candle_high
+        FROM
+          `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
+        ORDER BY timestamp DESC
+        LIMIT 1
+      )
+      SELECT
+        *
+      FROM
+        ML.PREDICT(MODEL `#{PROJECT_ID}.#{DATASET_ID}.daily_trading_model`,
+          (SELECT * FROM latest_data)
+        );
+    SQL
+
+    #
+    # Log prediction result
+    #
+    results = bigquery.query query
+    results.each do |row|
+      puts row.to_json
+    end
+
+    Rake::Task["lnmarkets_trader:attempt_trade_thirty_minute_trend"].execute({prediction: 'test'})
+
+    #
+    # 1x per day... retrain model if script is being run within 3 minutes of 04:00 UTC
+    #
+    if (Time.now.utc - Time.utc(Time.now.utc.year, Time.now.utc.month, Time.now.utc.day, 4, 0, 0)).abs <= 180
+      puts "Starting daily model retraining..."
+
+      query = <<-SQL
+        CREATE OR REPLACE MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`
+        OPTIONS(model_type='RANDOM_FOREST_CLASSIFIER',
+                input_label_cols=['price_increased']) AS
+        SELECT
+          rsi,
+          volume,
+          simple_moving_average,
+          exponential_moving_average,
+          macd_signal,
+          candle_open,
+          candle_close,
+          candle_low,
+          candle_high,
+          price_increased
+        FROM
+          `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
+        WHERE
+          timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR);
+      SQL
+
+      job = bigquery.query_job query
+      job.wait_until_done!
+
+      if job.error?
+        puts "Error retraining model: #{job.error}"
+      else
+        puts "Model retrained successfully"
+      end
+      puts "End daily model retraining."
+    end
+    #
+    # End
+    #
+    puts "End operations:generate_thirty_minute_training_data"
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+  end
+
+  task update_missing_daily_market_data: :environment do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     #
