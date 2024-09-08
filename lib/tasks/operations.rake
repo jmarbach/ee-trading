@@ -27,6 +27,70 @@ namespace :operations do
     # candle close, candle low, candle high, price index, price coinbase, 
     # price binance, and whether or not the price increased
     #{"timestamp":, "rsi":, "volume":, "sma":, "ema":, "macd_histogram":, "candle_open":, "candle_close":, "candle_low":, "candle_high":, "price_btcusd_index":, "price_btcusd_coinbase":, "price_btcusd_binance":, "price_direction":,"implied_volatility_t3":, "avg_funding_rate":, "aggregate_open_interest":, "avg_long_short_ratio":}
+    
+    # Initialize shared inputs
+    polygon_client = PolygonAPI.new
+    symbol = 'X:BTCUSD'
+
+    # Timestamp
+    time_now_utc = Time.now.utc
+    most_recent_30min_interval = time_now_utc.change(
+      min: time_now_utc.min < 30 ? 0 : 30
+    )
+    timestamp_milliseconds = most_recent_30min_interval.to_i.in_milliseconds
+
+    # RSI
+    rsi = 0.0
+    timespan = 'minute'
+    window = 30
+    series_type = 'close'
+    response_rsi = polygon_client.get_rsi(symbol, timestamp_milliseconds, timespan, window, series_type)
+    if response_rsi[:status] == 'success'
+      if response_rsi[:body]['results']['values'] != nil
+        rsi = response_rsi[:body]['results']['values'][0]['value']
+      end
+    end
+
+    # Volume, Candle Open, Candle Close, Candle Low, Candle High
+    volume = 0.0
+    candle_open = 0.0
+    candle_close = 0.0
+    candle_high = 0.0
+    candle_low = 0.0
+    aggregates_timespan = 'minute'
+    aggregates_multiplier = 30
+    start_date = (timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
+    end_date = timestamp_milliseconds
+    response_volume = polygon_client.get_aggregate_bars(symbol, aggregates_timespan, aggregates_multiplier, start_date, end_date)
+    if response_volume[:status] == 'success'
+      volume = response_volume[:body]['results'][1]['v'].round(2)
+      candle_open = response_volume[:body]['results'][1]['o'].round(2)
+      candle_close = response_volume[:body]['results'][1]['c'].round(2)
+      candle_high = response_volume[:body]['results'][1]['h'].round(2)
+      candle_low = response_volume[:body]['results'][1]['l'].round(2)
+    end
+
+    # SMA
+
+    # EMA
+
+    # MACD
+
+    # Price BTCUSD Index
+    
+    # Price BTCUSD Coinbase
+
+    # Price BTCUSD Binance
+
+    # Implied Volatility T3
+
+    # Avg Funding Rate
+    
+    # Aggregate Open Interest
+
+    # Avg Long Short Ratio
+
+    # Price Direction
 
     #
     # Prepare new data to insert to table
