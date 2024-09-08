@@ -26,13 +26,13 @@ namespace :operations do
     # timestamp milliseconds, rsi, volume, sma, ema, macd, candle open, 
     # candle close, candle low, candle high, price index, price coinbase, 
     # price binance, and whether or not the price increased
-    #{"timestamp_milliseconds":, "rsi":, "volume":, "sma":, "ema":, "macd_histogram":, "candle_open":, "candle_close":, "candle_low":, "candle_high":, "price_btcusd_index":, "price_btcusd_coinbase":, "price_btcusd_binance":, "price_increased":,"implied_volatility_t3":, "avg_funding_rate":, "aggregate_open_interest":, "avg_long_short_ratio":}
+    #{"timestamp":, "rsi":, "volume":, "sma":, "ema":, "macd_histogram":, "candle_open":, "candle_close":, "candle_low":, "candle_high":, "price_btcusd_index":, "price_btcusd_coinbase":, "price_btcusd_binance":, "price_direction":,"implied_volatility_t3":, "avg_funding_rate":, "aggregate_open_interest":, "avg_long_short_ratio":}
 
     #
     # Prepare new data to insert to table
     #
     new_data = {
-      timestamp_milliseconds: timestamp_milliseconds,
+      timestamp: timestamp_milliseconds,
       rsi: rsi,
       volume: volume,
       simple_moving_average: simple_moving_average,
@@ -47,9 +47,9 @@ namespace :operations do
       price_btcusd_binance: price_btcusd_binance,
       avg_funding_rate: avg_funding_rate,
       aggregate_open_interest: aggregate_open_interest,
-      implied_volatility_t3:,
-      avg_long_short_ratio:,
-      price_increased: price_increased
+      implied_volatility_t3: implied_volatility_t3,
+      avg_long_short_ratio: avg_long_short_ratio,
+      price_direction: price_direction
     }
     row = new_data
 
@@ -66,15 +66,24 @@ namespace :operations do
     query = <<-SQL
       WITH latest_data AS (
         SELECT
+          timestamp,
           rsi,
           volume,
           simple_moving_average,
           exponential_moving_average,
-          macd_signal,
+          macd_histogram,
           candle_open,
           candle_close,
           candle_low,
-          candle_high
+          candle_high,
+          price_btcusd_index,
+          price_btcusd_coinbase,
+          price_btcusd_binance,
+          avg_funding_rate,
+          aggregate_open_interest,
+          implied_volatility_t3,
+          avg_long_short_ratio,
+          price_increased
         FROM
           `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
         ORDER BY timestamp DESC
@@ -83,7 +92,7 @@ namespace :operations do
       SELECT
         *
       FROM
-        ML.PREDICT(MODEL `#{PROJECT_ID}.#{DATASET_ID}.daily_trading_model`,
+        ML.PREDICT(MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`,
           (SELECT * FROM latest_data)
         );
     SQL
@@ -107,18 +116,26 @@ namespace :operations do
       query = <<-SQL
         CREATE OR REPLACE MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`
         OPTIONS(model_type='RANDOM_FOREST_CLASSIFIER',
-                input_label_cols=['price_increased']) AS
+                input_label_cols=['price_direction']) AS
         SELECT
+          timestamp,
           rsi,
           volume,
           simple_moving_average,
           exponential_moving_average,
-          macd_signal,
+          macd_histogram,
           candle_open,
           candle_close,
           candle_low,
           candle_high,
-          price_increased
+          price_btcusd_index,
+          price_btcusd_coinbase,
+          price_btcusd_binance,
+          avg_funding_rate,
+          aggregate_open_interest,
+          implied_volatility_t3,
+          avg_long_short_ratio,
+          price_direction
         FROM
           `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
         WHERE
