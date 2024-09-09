@@ -20,11 +20,11 @@ namespace :operations do
     MODEL_ID = "random_forest"
 
     # Timestamp
-    time_now_utc = Time.now.utc
-    most_recent_30min_interval = time_now_utc.change(
-      min: time_now_utc.min < 30 ? 0 : 30
-    )
-    timestamp_milliseconds = most_recent_30min_interval.to_i.in_milliseconds
+    # time_now_utc = Time.now.utc
+    # most_recent_30min_interval = time_now_utc.change(
+    #   min: time_now_utc.min < 30 ? 0 : 30
+    # )
+    # timestamp_milliseconds = most_recent_30min_interval.to_i.in_milliseconds
 
     #
     # Fetch last date in the training data table
@@ -42,13 +42,13 @@ namespace :operations do
     #
     # Assign start date based on the last timestamp entry
     #
-    start_timestamp = ((timestamp_milliseconds + 30.minutes.to_i.in_milliseconds)
-    end_timestamp = (DateTime.now.utc.beginning_of_hour).to_i.in_milliseconds
+    start_timestamp_milliseconds = (last_timestamp + 30.minutes.to_i.in_milliseconds)
+    end_timestamp_milliseconds = (DateTime.now.utc.beginning_of_hour).to_i.in_milliseconds
 
     #
     # Loop through each 30min interval and fetch market indicators
     #
-    while start_timestamp <= end_timestamp
+    while start_timestamp_milliseconds <= end_timestamp_milliseconds
       #
       # Fetch market indicators from Polygon and other sources
       #
@@ -69,7 +69,7 @@ namespace :operations do
 
       # RSI
       rsi = 0.0
-      response_rsi = polygon_client.get_rsi(symbol, timestamp_milliseconds, timespan, window, series_type)
+      response_rsi = polygon_client.get_rsi(symbol, start_timestamp_milliseconds, timespan, window, series_type)
       if response_rsi[:status] == 'success'
         rsi = response_rsi[:body]['results']['values'][0]['value'].round(2)
       end
@@ -82,8 +82,8 @@ namespace :operations do
       candle_low = 0.0
       aggregates_timespan = 'minute'
       aggregates_multiplier = 30
-      start_date = (timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
-      end_date = timestamp_milliseconds
+      start_date = (start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
+      end_date = start_timestamp_milliseconds
       response_volume = polygon_client.get_aggregate_bars(symbol, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_volume[:status] == 'success'
         volume = response_volume[:body]['results'][1]['v'].round(2)
@@ -95,14 +95,14 @@ namespace :operations do
 
       # SMA
       simple_moving_average = 0.0
-      response_sma = polygon_client.get_sma(symbol, timestamp_milliseconds, timespan, window, series_type)
+      response_sma = polygon_client.get_sma(symbol, start_timestamp_milliseconds, timespan, window, series_type)
       if response_sma[:status] == 'success'
         simple_moving_average = response_sma[:body]['results']['values'][0]['value'].round(2)
       end
 
       # EMA
       exponential_moving_average = 0.0
-      response_ema = polygon_client.get_ema(symbol, timestamp_milliseconds, timespan, window, series_type)
+      response_ema = polygon_client.get_ema(symbol, start_timestamp_milliseconds, timespan, window, series_type)
       if response_ema[:status] == 'success'
         exponential_moving_average = response_ema[:body]['results']['values'][0]['value'].round(2)
       end
@@ -112,15 +112,16 @@ namespace :operations do
       short_window = 120
       long_window = 260
       signal_window = 30
-      response_macd = polygon_client.get_macd(symbol, timestamp_milliseconds, timespan, short_window, long_window, signal_window, series_type)
+      response_macd = polygon_client.get_macd(symbol, start_timestamp_milliseconds, timespan, short_window, long_window, signal_window, series_type)
       if response_macd[:status] == 'success'
         macd_histogram = response_macd[:body]['results']['values'][0]['histogram'].round(2)
       end
 
       # Price BTCUSD Index
+      # FIX - Unable to get trades because nanoseconds are required
       price_btcusd_index = 0.0
-      start_timestamp_seconds = ((timestamp_milliseconds - 1.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      end_timestamp_seconds = ((timestamp_milliseconds) / 1000.0).round(0)
+      start_timestamp_seconds = ((start_timestamp_milliseconds - 1.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
       lnmarkets_response = lnmarkets_client.get_price_btcusd_index_history(start_timestamp_seconds, end_timestamp_seconds)
       if lnmarkets_response[:status] == 'success'
         price_btcusd_index = lnmarkets_response[:body][0]['index'].round(2)
@@ -128,7 +129,8 @@ namespace :operations do
       
       # Price BTCUSD Coinbase
       price_btcusd_coinbase, price_btcusd_binance = 0.0, 0.0
-      response_btc_usd_trades = polygon_client.get_trades(symbol)
+      start_timestamp_nanoseconds = start_timestamp_milliseconds * 1_000_000
+      response_btc_usd_trades = polygon_client.get_trades(symbol, start_timestamp_nanoseconds)
       if response_macd[:status] == 'success'
         # Exchange id 1 is Coinbase
         # Exchange id 10 is Binance
@@ -155,16 +157,17 @@ namespace :operations do
       # Implied Volatility T3
       implied_volatility_t3 = 0.0
       t3_client = T3IndexAPI.new
-      current_tick = Time.at(timestamp_milliseconds / 1000).utc.strftime("%Y-%m-%d-00-00-00")
+      current_tick = Time.at(start_timestamp_milliseconds / 1000).utc.strftime("%Y-%m-%d-00-00-00")
       t3_response = t3_client.get_tick(current_tick)
       if t3_response[:status] == 'success'
         implied_volatility_t3 = t3_response[:body]['value']
       end
 
       # Avg Funding Rate
+      # Fix - Not getting any results
       avg_funding_rate = 0.0
-      start_timestamp_seconds = ((timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      end_timestamp_seconds = ((timestamp_milliseconds) / 1000.0).round(0)
+      start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
       interval = "30min"
       symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6'
       begin
@@ -183,8 +186,8 @@ namespace :operations do
 
       # Aggregate Open Interest
       aggregate_open_interest = 0.0
-      start_timestamp_seconds = ((timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      end_timestamp_seconds = ((timestamp_milliseconds) / 1000.0).round(0)
+      start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
       interval = "30min"
       symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
       begin
@@ -203,12 +206,12 @@ namespace :operations do
 
       # Avg Long Short Ratio
       avg_long_short_ratio = 0.0
-      start_timestamp_seconds = ((timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      end_timestamp_seconds = ((timestamp_milliseconds) / 1000.0).round(0)
+      start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
       interval = "30min"
       symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
       begin
-        coinalyze_response = coinalyze_client.get_long_short_ratio_history(symbols, interval, start_time, end_time)
+        coinalyze_response = coinalyze_client.get_long_short_ratio_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
         if coinalyze_response[:body].count > 0
           count_of_records = 0.0
           coinalyze_response[:body].each_with_index do |f, index|
@@ -236,7 +239,7 @@ namespace :operations do
       # Prepare new data to insert to table
       #
       new_data = {
-        timestamp: timestamp_milliseconds,
+        timestamp: start_timestamp_milliseconds,
         rsi: rsi,
         volume: volume,
         simple_moving_average: simple_moving_average,
