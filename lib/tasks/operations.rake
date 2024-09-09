@@ -19,19 +19,6 @@ namespace :operations do
     TABLE_ID = "thirty_minute_training_data"
     MODEL_ID = "random_forest"
 
-    #
-    # Fetch market indicators from Polygon and other sources
-    #
-    # Collect the following market indicators:
-    # timestamp milliseconds, rsi, volume, sma, ema, macd, candle open, 
-    # candle close, candle low, candle high, price index, price coinbase, 
-    # price binance, and whether or not the price increased
-    #{"timestamp":, "rsi":, "volume":, "sma":, "ema":, "macd_histogram":, "candle_open":, "candle_close":, "candle_low":, "candle_high":, "price_btcusd_index":, "price_btcusd_coinbase":, "price_btcusd_binance":, "price_direction":,"implied_volatility_t3":, "avg_funding_rate":, "aggregate_open_interest":, "avg_long_short_ratio":}
-    
-    # Initialize shared inputs
-    polygon_client = PolygonAPI.new
-    symbol = 'X:BTCUSD'
-
     # Timestamp
     time_now_utc = Time.now.utc
     most_recent_30min_interval = time_now_utc.change(
@@ -39,90 +26,247 @@ namespace :operations do
     )
     timestamp_milliseconds = most_recent_30min_interval.to_i.in_milliseconds
 
-    # RSI
-    rsi = 0.0
-    timespan = 'minute'
-    window = 30
-    series_type = 'close'
-    response_rsi = polygon_client.get_rsi(symbol, timestamp_milliseconds, timespan, window, series_type)
-    if response_rsi[:status] == 'success'
-      if response_rsi[:body]['results']['values'] != nil
-        rsi = response_rsi[:body]['results']['values'][0]['value']
+    #
+    # Fetch last date in the training data table
+    #
+    query = "SELECT timestamp FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}` ORDER BY timestamp DESC LIMIT 1"
+    results = bigquery.query(query)
+    last_timestamp = results.first ? results.first[:timestamp] : nil
+
+    if last_timestamp
+      puts "Last entry in the training data table: #{last_timestamp}"
+    else
+      puts "No entries found in the training data table"
+    end
+
+    #
+    # Assign start date based on the last timestamp entry
+    #
+    start_timestamp = ((timestamp_milliseconds + 30.minutes.to_i.in_milliseconds)
+    end_timestamp = (DateTime.now.utc.beginning_of_hour).to_i.in_milliseconds
+
+    #
+    # Loop through each 30min interval and fetch market indicators
+    #
+    while start_timestamp <= end_timestamp
+      #
+      # Fetch market indicators from Polygon and other sources
+      #
+      # Collect the following market indicators:
+      # timestamp milliseconds, rsi, volume, sma, ema, macd, candle open, 
+      # candle close, candle low, candle high, price index, price coinbase, 
+      # price binance, and whether or not the price increased
+      #{"timestamp":, "rsi":, "volume":, "sma":, "ema":, "macd_histogram":, "candle_open":, "candle_close":, "candle_low":, "candle_high":, "price_btcusd_index":, "price_btcusd_coinbase":, "price_btcusd_binance":, "price_direction":,"implied_volatility_t3":, "avg_funding_rate":, "aggregate_open_interest":, "avg_long_short_ratio":}
+      
+      # Initialize shared inputs
+      polygon_client = PolygonAPI.new
+      lnmarkets_client = LnMarketsAPI.new
+      coinalyze_client = CoinalyzeAPI.new
+      symbol = 'X:BTCUSD'
+      timespan = 'minute'
+      window = 30
+      series_type = 'close'
+
+      # RSI
+      rsi = 0.0
+      response_rsi = polygon_client.get_rsi(symbol, timestamp_milliseconds, timespan, window, series_type)
+      if response_rsi[:status] == 'success'
+        rsi = response_rsi[:body]['results']['values'][0]['value'].round(2)
       end
+
+      # Volume, Candle Open, Candle Close, Candle Low, Candle High
+      volume = 0.0
+      candle_open = 0.0
+      candle_close = 0.0
+      candle_high = 0.0
+      candle_low = 0.0
+      aggregates_timespan = 'minute'
+      aggregates_multiplier = 30
+      start_date = (timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
+      end_date = timestamp_milliseconds
+      response_volume = polygon_client.get_aggregate_bars(symbol, aggregates_timespan, aggregates_multiplier, start_date, end_date)
+      if response_volume[:status] == 'success'
+        volume = response_volume[:body]['results'][1]['v'].round(2)
+        candle_open = response_volume[:body]['results'][1]['o'].round(2)
+        candle_close = response_volume[:body]['results'][1]['c'].round(2)
+        candle_high = response_volume[:body]['results'][1]['h'].round(2)
+        candle_low = response_volume[:body]['results'][1]['l'].round(2)
+      end
+
+      # SMA
+      simple_moving_average = 0.0
+      response_sma = polygon_client.get_sma(symbol, timestamp_milliseconds, timespan, window, series_type)
+      if response_sma[:status] == 'success'
+        simple_moving_average = response_sma[:body]['results']['values'][0]['value'].round(2)
+      end
+
+      # EMA
+      exponential_moving_average = 0.0
+      response_ema = polygon_client.get_ema(symbol, timestamp_milliseconds, timespan, window, series_type)
+      if response_ema[:status] == 'success'
+        exponential_moving_average = response_ema[:body]['results']['values'][0]['value'].round(2)
+      end
+
+      # MACD
+      macd_histogram = 0.0
+      short_window = 120
+      long_window = 260
+      signal_window = 30
+      response_macd = polygon_client.get_macd(symbol, timestamp_milliseconds, timespan, short_window, long_window, signal_window, series_type)
+      if response_macd[:status] == 'success'
+        macd_histogram = response_macd[:body]['results']['values'][0]['histogram'].round(2)
+      end
+
+      # Price BTCUSD Index
+      price_btcusd_index = 0.0
+      start_timestamp_seconds = ((timestamp_milliseconds - 1.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      end_timestamp_seconds = ((timestamp_milliseconds) / 1000.0).round(0)
+      lnmarkets_response = lnmarkets_client.get_price_btcusd_index_history(start_timestamp_seconds, end_timestamp_seconds)
+      if lnmarkets_response[:status] == 'success'
+        price_btcusd_index = lnmarkets_response[:body][0]['index'].round(2)
+      end
+      
+      # Price BTCUSD Coinbase
+      price_btcusd_coinbase, price_btcusd_binance = 0.0, 0.0
+      response_btc_usd_trades = polygon_client.get_trades(symbol)
+      if response_macd[:status] == 'success'
+        # Exchange id 1 is Coinbase
+        # Exchange id 10 is Binance
+        response_btc_usd_trades[:body]['results'].each do |trade|
+          if trade['conditions'].include?(2) && trade['exchange'] == 1
+            price_btcusd_coinbase = trade['price']
+            break
+          end
+        end
+        response_btc_usd_trades[:body]['results'].each do |trade|
+          if trade['conditions'].include?(2) && trade['exchange'] == 10
+            price_btcusd_binance = trade['price']
+            break
+          end
+        end
+        if coinbase_price_btcusd == 0.0
+          price_btcusd_coinbase = price_btcusd_index
+        end
+        if binance_price_btcusd == 0.0
+          price_btcusd_binance = price_btcusd_index
+        end
+      end
+
+      # Implied Volatility T3
+      implied_volatility_t3 = 0.0
+      t3_client = T3IndexAPI.new
+      current_tick = Time.at(timestamp_milliseconds / 1000).utc.strftime("%Y-%m-%d-00-00-00")
+      t3_response = t3_client.get_tick(current_tick)
+      if t3_response[:status] == 'success'
+        implied_volatility_t3 = t3_response[:body]['value']
+      end
+
+      # Avg Funding Rate
+      avg_funding_rate = 0.0
+      start_timestamp_seconds = ((timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      end_timestamp_seconds = ((timestamp_milliseconds) / 1000.0).round(0)
+      interval = "30min"
+      symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6'
+      begin
+        coinalyze_response = coinalyze_client.get_avg_funding_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
+        if coinalyze_response[:body].count > 0
+          coinalyze_response[:body].each_with_index do |f, index|
+            avg_funding_rate += coinalyze_response[:body][index]['history'][0]['c']
+          end
+          avg_funding_rate = (avg_funding_rate/coinalyze_response[:body].count).round(4)
+        end
+      rescue => e
+        puts e
+        puts 'Error fetching funding rate data'
+      end
+      sleep(5)
+
+      # Aggregate Open Interest
+      aggregate_open_interest = 0.0
+      start_timestamp_seconds = ((timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      end_timestamp_seconds = ((timestamp_milliseconds) / 1000.0).round(0)
+      interval = "30min"
+      symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
+      begin
+        coinalyze_response = coinalyze_client.get_avg_open_interest_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
+        if coinalyze_response[:body].count > 0
+          coinalyze_response[:body].each_with_index do |f, index|
+            aggregate_open_interest += coinalyze_response[:body][index]['history'][0]['c']
+          end
+          aggregate_open_interest = aggregate_open_interest.round(1)
+        end
+      rescue => e
+        puts e
+        puts 'Error fetching open interest data'
+      end
+      sleep(5)
+
+      # Avg Long Short Ratio
+      avg_long_short_ratio = 0.0
+      start_timestamp_seconds = ((timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      end_timestamp_seconds = ((timestamp_milliseconds) / 1000.0).round(0)
+      interval = "30min"
+      symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
+      begin
+        coinalyze_response = coinalyze_client.get_long_short_ratio_history(symbols, interval, start_time, end_time)
+        if coinalyze_response[:body].count > 0
+          count_of_records = 0.0
+          coinalyze_response[:body].each_with_index do |f, index|
+            coinalyze_response[:body][index]['history'].each do |o|
+              count_of_records += 1.0
+              avg_long_short_ratio += o['r']
+            end
+          end
+          avg_long_short_ratio = (avg_long_short_ratio / count_of_records).round(3)
+        end
+      rescue => e
+        puts e
+        puts 'Error fetching long/short ratio data'
+      end
+      sleep(5)
+
+      # Price Direction
+      if candle_close > candle_open
+        price_direction = 'up'
+      else
+        price_direction = 'down'
+      end
+
+      #
+      # Prepare new data to insert to table
+      #
+      new_data = {
+        timestamp: timestamp_milliseconds,
+        rsi: rsi,
+        volume: volume,
+        simple_moving_average: simple_moving_average,
+        exponential_moving_average: exponential_moving_average,
+        macd_histogram: macd_histogram,
+        candle_open: candle_open,
+        candle_close: candle_close,
+        candle_low: candle_low,
+        candle_high: candle_high,
+        price_btcusd_index: price_btcusd_index,
+        price_btcusd_coinbase: price_btcusd_coinbase,
+        price_btcusd_binance: price_btcusd_binance,
+        avg_funding_rate: avg_funding_rate,
+        aggregate_open_interest: aggregate_open_interest,
+        implied_volatility_t3: implied_volatility_t3,
+        avg_long_short_ratio: avg_long_short_ratio,
+        price_direction: price_direction
+      }
+      row = new_data
+
+      #
+      # Insert new data to table
+      #
+      dataset = bigquery.dataset(DATASET_ID)
+      table = dataset.table(TABLE_ID)
+      table.insert row
+
+      puts "Inserted new data: #{new_data}"
+      start_timestamp += 30.minutes.to_i.in_milliseconds
     end
-
-    # Volume, Candle Open, Candle Close, Candle Low, Candle High
-    volume = 0.0
-    candle_open = 0.0
-    candle_close = 0.0
-    candle_high = 0.0
-    candle_low = 0.0
-    aggregates_timespan = 'minute'
-    aggregates_multiplier = 30
-    start_date = (timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
-    end_date = timestamp_milliseconds
-    response_volume = polygon_client.get_aggregate_bars(symbol, aggregates_timespan, aggregates_multiplier, start_date, end_date)
-    if response_volume[:status] == 'success'
-      volume = response_volume[:body]['results'][1]['v'].round(2)
-      candle_open = response_volume[:body]['results'][1]['o'].round(2)
-      candle_close = response_volume[:body]['results'][1]['c'].round(2)
-      candle_high = response_volume[:body]['results'][1]['h'].round(2)
-      candle_low = response_volume[:body]['results'][1]['l'].round(2)
-    end
-
-    # SMA
-
-    # EMA
-
-    # MACD
-
-    # Price BTCUSD Index
-    
-    # Price BTCUSD Coinbase
-
-    # Price BTCUSD Binance
-
-    # Implied Volatility T3
-
-    # Avg Funding Rate
-    
-    # Aggregate Open Interest
-
-    # Avg Long Short Ratio
-
-    # Price Direction
-
-    #
-    # Prepare new data to insert to table
-    #
-    new_data = {
-      timestamp: timestamp_milliseconds,
-      rsi: rsi,
-      volume: volume,
-      simple_moving_average: simple_moving_average,
-      exponential_moving_average: exponential_moving_average,
-      macd_histogram: macd_histogram,
-      candle_open: candle_open,
-      candle_close: candle_close,
-      candle_low: candle_low,
-      candle_high: candle_high,
-      price_btcusd_index: price_btcusd_index,
-      price_btcusd_coinbase: price_btcusd_coinbase,
-      price_btcusd_binance: price_btcusd_binance,
-      avg_funding_rate: avg_funding_rate,
-      aggregate_open_interest: aggregate_open_interest,
-      implied_volatility_t3: implied_volatility_t3,
-      avg_long_short_ratio: avg_long_short_ratio,
-      price_direction: price_direction
-    }
-    row = new_data
-
-    #
-    # Insert new data to table
-    #
-    dataset = bigquery.dataset(DATASET_ID)
-    table = dataset.table(TABLE_ID)
-    table.insert row
 
     #
     # Make prediction

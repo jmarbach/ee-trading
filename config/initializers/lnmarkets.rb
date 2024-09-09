@@ -228,4 +228,8 @@ class LnMarketsAPI
   def get_price_btcusd_ticker
     execute_request('GET', "/futures/ticker")
   end
+
+  def get_price_btcusd_index_history(start_timestamp_seconds, end_timestamp_seconds)
+    execute_request('GET', "/oracle/index")
+  end
 end
