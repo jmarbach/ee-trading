@@ -18,7 +18,7 @@ namespace :operations do
     #
     DATASET_ID = "market_indicators"
     TABLE_ID = "thirty_minute_training_data"
-    MODEL_ID = "random_forest"
+    MODEL_ID = "thirty_minute_random_forest"
 
     # Timestamp
     # time_now_utc = Time.now.utc
@@ -279,7 +279,7 @@ namespace :operations do
 
       puts "Inserted new data: #{new_data}"
       start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
-      sleep(1.5)
+      sleep(5)
     end
 
     #
@@ -305,7 +305,7 @@ namespace :operations do
           aggregate_open_interest,
           implied_volatility_t3,
           avg_long_short_ratio,
-          price_increased
+          price_direction
         FROM
           `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
         ORDER BY timestamp DESC
@@ -340,7 +340,6 @@ namespace :operations do
         OPTIONS(model_type='RANDOM_FOREST_CLASSIFIER',
                 input_label_cols=['price_direction']) AS
         SELECT
-          timestamp,
           rsi,
           volume,
           simple_moving_average,
