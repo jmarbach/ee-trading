@@ -9,6 +9,7 @@ namespace :operations do
     #
     # Initialize BigQuery client
     #
+    require "google/cloud/bigquery"
     PROJECT_ID = "encrypted-energy"
     bigquery = Google::Cloud::Bigquery.new(project: PROJECT_ID)
 
@@ -42,7 +43,9 @@ namespace :operations do
     #
     # Assign start date based on the last timestamp entry
     #
-    start_timestamp_milliseconds = (last_timestamp + 30.minutes.to_i.in_milliseconds)
+    parsed_last_timestamp = Time.parse(last_timestamp.to_s)
+
+    start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds + 30.minutes.to_i.in_milliseconds)
     end_timestamp_milliseconds = (DateTime.now.utc.beginning_of_hour).to_i.in_milliseconds
 
     #
@@ -118,115 +121,116 @@ namespace :operations do
       end
 
       # Price BTCUSD Index
-      # FIX - Unable to get trades because nanoseconds are required
-      price_btcusd_index = 0.0
-      start_timestamp_seconds = ((start_timestamp_milliseconds - 1.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
-      lnmarkets_response = lnmarkets_client.get_price_btcusd_index_history(start_timestamp_seconds, end_timestamp_seconds)
-      if lnmarkets_response[:status] == 'success'
-        price_btcusd_index = lnmarkets_response[:body][0]['index'].round(2)
-      end
+      price_btcusd_index = candle_open
+      # start_timestamp_milliseconds_minus_one_minute = ((start_timestamp_milliseconds - 1.minutes.to_i.in_milliseconds)).round(0)
+      # lnmarkets_response = lnmarkets_client.get_price_btcusd_index_history(start_timestamp_milliseconds_minus_one_minute, start_timestamp_milliseconds)
+      # if lnmarkets_response[:status] == 'success'
+      #   puts lnmarkets_response[:body]
+      #   price_btcusd_index = lnmarkets_response[:body][0]['index'].round(2)
+      # end
       
       # Price BTCUSD Coinbase
       price_btcusd_coinbase, price_btcusd_binance = 0.0, 0.0
-      start_timestamp_nanoseconds = start_timestamp_milliseconds * 1_000_000
-      response_btc_usd_trades = polygon_client.get_trades(symbol, start_timestamp_nanoseconds)
-      if response_macd[:status] == 'success'
-        # Exchange id 1 is Coinbase
-        # Exchange id 10 is Binance
-        response_btc_usd_trades[:body]['results'].each do |trade|
-          if trade['conditions'].include?(2) && trade['exchange'] == 1
-            price_btcusd_coinbase = trade['price']
-            break
-          end
-        end
-        response_btc_usd_trades[:body]['results'].each do |trade|
-          if trade['conditions'].include?(2) && trade['exchange'] == 10
-            price_btcusd_binance = trade['price']
-            break
-          end
-        end
-        if coinbase_price_btcusd == 0.0
-          price_btcusd_coinbase = price_btcusd_index
-        end
-        if binance_price_btcusd == 0.0
-          price_btcusd_binance = price_btcusd_index
-        end
-      end
+      # start_timestamp_nanoseconds = start_timestamp_milliseconds * 1_000_000
+      # response_btc_usd_trades = polygon_client.get_trades(symbol, start_timestamp_nanoseconds)
+      # if response_macd[:status] == 'success'
+      #   # Exchange id 1 is Coinbase
+      #   # Exchange id 10 is Binance
+      #   response_btc_usd_trades[:body]['results'].each do |trade|
+      #     if trade['conditions'].include?(2) && trade['exchange'] == 1
+      #       price_btcusd_coinbase = trade['price']
+      #       break
+      #     end
+      #   end
+      #   response_btc_usd_trades[:body]['results'].each do |trade|
+      #     if trade['conditions'].include?(2) && trade['exchange'] == 10
+      #       price_btcusd_binance = trade['price']
+      #       break
+      #     end
+      #   end
+      #   if coinbase_price_btcusd == 0.0
+      #     price_btcusd_coinbase = price_btcusd_index
+      #   end
+      #   if binance_price_btcusd == 0.0
+      #     price_btcusd_binance = price_btcusd_index
+      #   end
+      # end
 
       # Implied Volatility T3
       implied_volatility_t3 = 0.0
       t3_client = T3IndexAPI.new
-      current_tick = Time.at(start_timestamp_milliseconds / 1000).utc.strftime("%Y-%m-%d-00-00-00")
+      current_tick = Time.at(start_timestamp_milliseconds / 1000).utc.strftime("%Y-%m-%d-%H-%M-%S")
       t3_response = t3_client.get_tick(current_tick)
       if t3_response[:status] == 'success'
+        puts "T3 RESPONSE:"
+        puts t3_response[:body]
         implied_volatility_t3 = t3_response[:body]['value']
       end
 
       # Avg Funding Rate
       # Fix - Not getting any results
       avg_funding_rate = 0.0
-      start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
-      interval = "30min"
-      symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6'
-      begin
-        coinalyze_response = coinalyze_client.get_avg_funding_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
-        if coinalyze_response[:body].count > 0
-          coinalyze_response[:body].each_with_index do |f, index|
-            avg_funding_rate += coinalyze_response[:body][index]['history'][0]['c']
-          end
-          avg_funding_rate = (avg_funding_rate/coinalyze_response[:body].count).round(4)
-        end
-      rescue => e
-        puts e
-        puts 'Error fetching funding rate data'
-      end
-      sleep(5)
+      # start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      # end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
+      # interval = "30min"
+      # symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6'
+      # begin
+      #   coinalyze_response = coinalyze_client.get_avg_funding_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
+      #   if coinalyze_response[:body].count > 0
+      #     coinalyze_response[:body].each_with_index do |f, index|
+      #       avg_funding_rate += coinalyze_response[:body][index]['history'][0]['c']
+      #     end
+      #     avg_funding_rate = (avg_funding_rate/coinalyze_response[:body].count).round(4)
+      #   end
+      # rescue => e
+      #   puts e
+      #   puts 'Error fetching funding rate data'
+      # end
+      # sleep(5)
 
       # Aggregate Open Interest
       aggregate_open_interest = 0.0
-      start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
-      interval = "30min"
-      symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
-      begin
-        coinalyze_response = coinalyze_client.get_avg_open_interest_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
-        if coinalyze_response[:body].count > 0
-          coinalyze_response[:body].each_with_index do |f, index|
-            aggregate_open_interest += coinalyze_response[:body][index]['history'][0]['c']
-          end
-          aggregate_open_interest = aggregate_open_interest.round(1)
-        end
-      rescue => e
-        puts e
-        puts 'Error fetching open interest data'
-      end
-      sleep(5)
+      # start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      # end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
+      # interval = "30min"
+      # symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
+      # begin
+      #   coinalyze_response = coinalyze_client.get_avg_open_interest_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
+      #   if coinalyze_response[:body].count > 0
+      #     coinalyze_response[:body].each_with_index do |f, index|
+      #       aggregate_open_interest += coinalyze_response[:body][index]['history'][0]['c']
+      #     end
+      #     aggregate_open_interest = aggregate_open_interest.round(1)
+      #   end
+      # rescue => e
+      #   puts e
+      #   puts 'Error fetching open interest data'
+      # end
+      # sleep(5)
 
       # Avg Long Short Ratio
       avg_long_short_ratio = 0.0
-      start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
-      interval = "30min"
-      symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
-      begin
-        coinalyze_response = coinalyze_client.get_long_short_ratio_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
-        if coinalyze_response[:body].count > 0
-          count_of_records = 0.0
-          coinalyze_response[:body].each_with_index do |f, index|
-            coinalyze_response[:body][index]['history'].each do |o|
-              count_of_records += 1.0
-              avg_long_short_ratio += o['r']
-            end
-          end
-          avg_long_short_ratio = (avg_long_short_ratio / count_of_records).round(3)
-        end
-      rescue => e
-        puts e
-        puts 'Error fetching long/short ratio data'
-      end
-      sleep(5)
+      # start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      # end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
+      # interval = "30min"
+      # symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
+      # begin
+      #   coinalyze_response = coinalyze_client.get_long_short_ratio_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
+      #   if coinalyze_response[:body].count > 0
+      #     count_of_records = 0.0
+      #     coinalyze_response[:body].each_with_index do |f, index|
+      #       coinalyze_response[:body][index]['history'].each do |o|
+      #         count_of_records += 1.0
+      #         avg_long_short_ratio += o['r']
+      #       end
+      #     end
+      #     avg_long_short_ratio = (avg_long_short_ratio / count_of_records).round(3)
+      #   end
+      # rescue => e
+      #   puts e
+      #   puts 'Error fetching long/short ratio data'
+      # end
+      # sleep(5)
 
       # Price Direction
       if candle_close > candle_open
@@ -235,11 +239,17 @@ namespace :operations do
         price_direction = 'down'
       end
 
+      
+      #
+      # Format timestamp
+      #
+      formatted_timestamp_milliseconds = Time.at(start_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
+
       #
       # Prepare new data to insert to table
       #
       new_data = {
-        timestamp: start_timestamp_milliseconds,
+        timestamp: formatted_timestamp_milliseconds,
         rsi: rsi,
         volume: volume,
         simple_moving_average: simple_moving_average,
@@ -268,7 +278,8 @@ namespace :operations do
       table.insert row
 
       puts "Inserted new data: #{new_data}"
-      start_timestamp += 30.minutes.to_i.in_milliseconds
+      start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
+      sleep(1.5)
     end
 
     #
