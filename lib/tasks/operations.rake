@@ -30,7 +30,7 @@ namespace :operations do
     if last_timestamp
       puts "Last entry in the training data table: #{last_timestamp}"
     else
-      puts "No entries found in the training data table"
+      abort "No entries found in the training data table"
     end
 
     #
@@ -117,15 +117,6 @@ namespace :operations do
       if response_macd[:status] == 'success'
         macd_histogram = response_macd[:body]['results']['values'][0]['histogram'].round(2)
       end
-
-      # Price BTCUSD Index
-      price_btcusd_index = candle_open
-      # start_timestamp_milliseconds_minus_one_minute = ((start_timestamp_milliseconds - 1.minutes.to_i.in_milliseconds)).round(0)
-      # lnmarkets_response = lnmarkets_client.get_price_btcusd_index_history(start_timestamp_milliseconds_minus_one_minute, start_timestamp_milliseconds)
-      # if lnmarkets_response[:status] == 'success'
-      #   puts lnmarkets_response[:body]
-      #   price_btcusd_index = lnmarkets_response[:body][0]['index'].round(2)
-      # end
       
       # Price BTCUSD Coinbase
       price_btcusd_coinbase, price_btcusd_binance = 0.0, 0.0
@@ -252,7 +243,8 @@ namespace :operations do
         timestamp_close: formatted_end_timestamp_milliseconds,
         rsi_open: rsi,
         rsi_close: rsi,
-        volume: volume,
+        volume_prev_interval: volume,
+        volume_open_to_close: volume,
         simple_moving_average_open: simple_moving_average,
         simple_moving_average_close: simple_moving_average,
         exponential_moving_average_open: exponential_moving_average,
@@ -263,8 +255,6 @@ namespace :operations do
         candle_close: candle_close,
         candle_low: candle_low,
         candle_high: candle_high,
-        price_btcusd_index_open: price_btcusd_index,
-        price_btcusd_index_close: price_btcusd_index,
         price_btcusd_coinbase_open: price_btcusd_coinbase,
         price_btcusd_coinbase_close: price_btcusd_coinbase,
         price_btcusd_binance_open: price_btcusd_binance,
@@ -299,24 +289,18 @@ namespace :operations do
     query = <<-SQL
       WITH latest_data AS (
         SELECT
-          timestamp,
-          rsi,
-          volume,
-          simple_moving_average,
-          exponential_moving_average,
-          macd_histogram,
+          rsi_open,
+          volume_prev_interval,
+          simple_moving_average_open,
+          exponential_moving_average_open,
+          macd_histogram_open,
           candle_open,
-          candle_close,
-          candle_low,
-          candle_high,
-          price_btcusd_index,
-          price_btcusd_coinbase,
-          price_btcusd_binance,
-          avg_funding_rate,
-          aggregate_open_interest,
-          implied_volatility_t3,
-          avg_long_short_ratio,
-          price_direction
+          price_btcusd_coinbase_open,
+          price_btcusd_binance_open,
+          avg_funding_rate_open,
+          aggregate_open_interest_open,
+          implied_volatility_t3_open,
+          avg_long_short_ratio_open
         FROM
           `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
         ORDER BY timestamp DESC
@@ -351,22 +335,32 @@ namespace :operations do
         OPTIONS(model_type='RANDOM_FOREST_CLASSIFIER',
                 input_label_cols=['price_direction']) AS
         SELECT
-          rsi,
-          volume,
-          simple_moving_average,
-          exponential_moving_average,
-          macd_histogram,
+          rsi_open,
+          rsi_close,
+          volume_prev_interval,
+          volume_open_to_close,
+          simple_moving_average_open,
+          simple_moving_average_close,
+          exponential_moving_average_open,
+          exponential_moving_average_close,
+          macd_histogram_open,
+          macd_histogram_close,
           candle_open,
           candle_close,
           candle_low,
           candle_high,
-          price_btcusd_index,
-          price_btcusd_coinbase,
-          price_btcusd_binance,
-          avg_funding_rate,
-          aggregate_open_interest,
-          implied_volatility_t3,
-          avg_long_short_ratio,
+          price_btcusd_coinbase_open,
+          price_btcusd_coinbase_close,
+          price_btcusd_binance_open,
+          price_btcusd_binance_close,
+          avg_funding_rate_open,
+          avg_funding_rate_close,
+          aggregate_open_interest_open,
+          aggregate_open_interest_close,
+          implied_volatility_t3_open,
+          implied_volatility_t3_close,
+          avg_long_short_ratio_open,
+          avg_long_short_ratio_close,
           price_direction
         FROM
           `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
