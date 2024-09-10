@@ -20,13 +20,6 @@ namespace :operations do
     TABLE_ID = "thirty_minute_training_data"
     MODEL_ID = "thirty_minute_random_forest"
 
-    # Timestamp
-    # time_now_utc = Time.now.utc
-    # most_recent_30min_interval = time_now_utc.change(
-    #   min: time_now_utc.min < 30 ? 0 : 30
-    # )
-    # timestamp_milliseconds = most_recent_30min_interval.to_i.in_milliseconds
-
     #
     # Fetch last date in the training data table
     #
@@ -46,7 +39,12 @@ namespace :operations do
     parsed_last_timestamp = Time.parse(last_timestamp.to_s)
 
     start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds + 30.minutes.to_i.in_milliseconds)
-    end_timestamp_milliseconds = (DateTime.now.utc.beginning_of_hour).to_i.in_milliseconds
+
+    time_now_utc = Time.now.utc
+    most_recent_30min_interval = time_now_utc.change(
+      min: time_now_utc.min < 30 ? 0 : 30
+    )
+    end_timestamp_milliseconds = most_recent_30min_interval.to_i.in_milliseconds
 
     #
     # Loop through each 30min interval and fetch market indicators
@@ -243,29 +241,42 @@ namespace :operations do
       #
       # Format timestamp
       #
-      formatted_timestamp_milliseconds = Time.at(start_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
+      formatted_start_timestamp_milliseconds = Time.at(start_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
+      formatted_end_timestamp_milliseconds = Time.at(end_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
 
       #
       # Prepare new data to insert to table
       #
       new_data = {
-        timestamp: formatted_timestamp_milliseconds,
-        rsi: rsi,
+        timestamp_open: formatted_start_timestamp_milliseconds,
+        timestamp_close: formatted_end_timestamp_milliseconds,
+        rsi_open: rsi,
+        rsi_close: rsi,
         volume: volume,
-        simple_moving_average: simple_moving_average,
-        exponential_moving_average: exponential_moving_average,
-        macd_histogram: macd_histogram,
+        simple_moving_average_open: simple_moving_average,
+        simple_moving_average_close: simple_moving_average,
+        exponential_moving_average_open: exponential_moving_average,
+        exponential_moving_average_close: exponential_moving_average,
+        macd_histogram_open: macd_histogram,
+        macd_histogram_close: macd_histogram,
         candle_open: candle_open,
         candle_close: candle_close,
         candle_low: candle_low,
         candle_high: candle_high,
-        price_btcusd_index: price_btcusd_index,
-        price_btcusd_coinbase: price_btcusd_coinbase,
-        price_btcusd_binance: price_btcusd_binance,
-        avg_funding_rate: avg_funding_rate,
-        aggregate_open_interest: aggregate_open_interest,
-        implied_volatility_t3: implied_volatility_t3,
-        avg_long_short_ratio: avg_long_short_ratio,
+        price_btcusd_index_open: price_btcusd_index,
+        price_btcusd_index_close: price_btcusd_index,
+        price_btcusd_coinbase_open: price_btcusd_coinbase,
+        price_btcusd_coinbase_close: price_btcusd_coinbase,
+        price_btcusd_binance_open: price_btcusd_binance,
+        price_btcusd_binance_close: price_btcusd_binance,
+        avg_funding_rate_open: avg_funding_rate,
+        avg_funding_rate_close: avg_funding_rate,
+        aggregate_open_interest_open: aggregate_open_interest,
+        aggregate_open_interest_close: aggregate_open_interest,
+        implied_volatility_t3_open: implied_volatility_t3,
+        implied_volatility_t3_close: implied_volatility_t3,
+        avg_long_short_ratio_open: avg_long_short_ratio,
+        avg_long_short_ratio_close: avg_long_short_ratio,
         price_direction: price_direction
       }
       row = new_data
@@ -327,7 +338,7 @@ namespace :operations do
       puts row.to_json
     end
 
-    Rake::Task["lnmarkets_trader:attempt_trade_thirty_minute_trend"].execute({prediction: 'test'})
+    #Rake::Task["lnmarkets_trader:attempt_trade_thirty_minute_trend"].execute({prediction: 'test'})
 
     #
     # 1x per day... retrain model if script is being run within 3 minutes of 04:00 UTC
