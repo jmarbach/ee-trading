@@ -1,8 +1,78 @@
 namespace :operations do
-  task generate_thirty_minute_training_data: :environment do
+  task generate_thirty_minute_training_data_previous_interval: :environment do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
-    puts "Begin operations:generate_thirty_minute_training_data..."
+    puts "Begin operations:generate_thirty_minute_training_data_previous_interval..."
+    #
+    # Every 30mins collect new market data and 1x per day update model
+    #
+    #
+    # Initialize BigQuery client
+    #
+    require "google/cloud/bigquery"
+    PROJECT_ID = "encrypted-energy"
+    bigquery = Google::Cloud::Bigquery.new(project: PROJECT_ID)
+
+    #
+    # Set dataset, table, and table names
+    #
+    DATASET_ID = "market_indicators"
+    TABLE_ID = "thirty_minute_training_data"
+    MODEL_ID = "thirty_minute_random_forest"
+
+
+    #
+    # Fetch last row from BigQuery
+    #
+    query = "SELECT * FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}` ORDER BY timestamp_close DESC LIMIT 1"
+    results = bigquery.query(query)
+    last_row = results.first
+
+    if last_row
+      puts "Last entry in the training data table: #{last_row[:timestamp_close]}"
+    else
+      abort "No entries found in the training data table"
+    end
+
+    #
+    # Update the fetched row with new data
+    #
+    updated_row = {
+      rsi_close: rsi,
+      volume_open_to_close: volume,
+      simple_moving_average_close: simple_moving_average,
+      exponential_moving_average_close: exponential_moving_average,
+      macd_histogram_close: macd_histogram,
+      candle_close: candle_close,
+      price_btcusd_coinbase_close: price_btcusd_coinbase,
+      price_btcusd_binance_close: price_btcusd_binance,
+      avg_funding_rate_close: avg_funding_rate,
+      aggregate_open_interest_close: aggregate_open_interest,
+      implied_volatility_t3_close: implied_volatility_t3,
+      avg_long_short_ratio_close: avg_long_short_ratio,
+      price_direction: price_direction
+    }
+
+    #
+    # Update the row in BigQuery using the native update method
+    #
+    dataset = bigquery.dataset(DATASET_ID)
+    table = dataset.table(TABLE_ID)
+
+    row_key = { timestamp_close: last_row[:timestamp_close] }
+    update_response = table.update row_key, updated_row
+
+    if update_response.success?
+      puts "Row updated successfully"
+    else
+      puts "Error updating row: #{update_response.error}"
+    end
+  end
+
+  task generate_thirty_minute_training_data_next_interval: :environment do
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts "Begin operations:generate_thirty_minute_training_data_next_interval..."
     #
     # Every 30mins collect new market data and 1x per day update model
     #
@@ -38,27 +108,22 @@ namespace :operations do
     #
     parsed_last_timestamp = Time.parse(last_timestamp.to_s)
 
-    start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds + 30.minutes.to_i.in_milliseconds)
+    loop_start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds + 30.minutes.to_i.in_milliseconds)
 
     time_now_utc = Time.now.utc
     most_recent_30min_interval = time_now_utc.change(
       min: time_now_utc.min < 30 ? 0 : 30
     )
-    end_timestamp_milliseconds = most_recent_30min_interval.to_i.in_milliseconds
+    loop_end_timestamp_milliseconds = most_recent_30min_interval.to_i.in_milliseconds
 
     #
     # Loop through each 30min interval and fetch market indicators
     #
-    while start_timestamp_milliseconds <= end_timestamp_milliseconds
+    while loop_start_timestamp_milliseconds <= loop_end_timestamp_milliseconds
+      puts "Start timestamp: #{loop_start_timestamp_milliseconds}"
       #
       # Fetch market indicators from Polygon and other sources
       #
-      # Collect the following market indicators:
-      # timestamp milliseconds, rsi, volume, sma, ema, macd, candle open, 
-      # candle close, candle low, candle high, price index, price coinbase, 
-      # price binance, and whether or not the price increased
-      #{"timestamp":, "rsi":, "volume":, "sma":, "ema":, "macd_histogram":, "candle_open":, "candle_close":, "candle_low":, "candle_high":, "price_btcusd_index":, "price_btcusd_coinbase":, "price_btcusd_binance":, "price_direction":,"implied_volatility_t3":, "avg_funding_rate":, "aggregate_open_interest":, "avg_long_short_ratio":}
-      
       # Initialize shared inputs
       polygon_client = PolygonAPI.new
       lnmarkets_client = LnMarketsAPI.new
@@ -66,32 +131,16 @@ namespace :operations do
       symbol = 'X:BTCUSD'
       timespan = 'minute'
       window = 30
-      series_type = 'close'
 
+      #
+      # Fetch Close metrics
+      #
+      series_types = 'close'
       # RSI
       rsi = 0.0
       response_rsi = polygon_client.get_rsi(symbol, start_timestamp_milliseconds, timespan, window, series_type)
       if response_rsi[:status] == 'success'
         rsi = response_rsi[:body]['results']['values'][0]['value'].round(2)
-      end
-
-      # Volume, Candle Open, Candle Close, Candle Low, Candle High
-      volume = 0.0
-      candle_open = 0.0
-      candle_close = 0.0
-      candle_high = 0.0
-      candle_low = 0.0
-      aggregates_timespan = 'minute'
-      aggregates_multiplier = 30
-      start_date = (start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
-      end_date = start_timestamp_milliseconds
-      response_volume = polygon_client.get_aggregate_bars(symbol, aggregates_timespan, aggregates_multiplier, start_date, end_date)
-      if response_volume[:status] == 'success'
-        volume = response_volume[:body]['results'][1]['v'].round(2)
-        candle_open = response_volume[:body]['results'][1]['o'].round(2)
-        candle_close = response_volume[:body]['results'][1]['c'].round(2)
-        candle_high = response_volume[:body]['results'][1]['h'].round(2)
-        candle_low = response_volume[:body]['results'][1]['l'].round(2)
       end
 
       # SMA
@@ -116,6 +165,54 @@ namespace :operations do
       response_macd = polygon_client.get_macd(symbol, start_timestamp_milliseconds, timespan, short_window, long_window, signal_window, series_type)
       if response_macd[:status] == 'success'
         macd_histogram = response_macd[:body]['results']['values'][0]['histogram'].round(2)
+      end
+
+      # Implied Volatility T3
+      implied_volatility_t3 = 0.0
+      t3_client = T3IndexAPI.new
+      current_tick = Time.at(start_timestamp_milliseconds / 1000).utc.strftime("%Y-%m-%d-%H-%M-%S")
+      t3_response = t3_client.get_tick(current_tick)
+      if t3_response[:status] == 'success'
+        puts "T3 RESPONSE:"
+        puts t3_response[:body]
+        implied_volatility_t3 = t3_response[:body]['value']
+      end
+
+      #
+      # Update last row in BigQuery
+      #
+      
+      #
+      # Fetch Open metrics
+      #
+      series_type = 'open'
+
+
+       
+
+      #
+      # Insert new row to BigQuery
+      #
+
+
+
+      # Volume, Candle Open, Candle Close, Candle Low, Candle High
+      volume = 0.0
+      candle_open = 0.0
+      candle_close = 0.0
+      candle_high = 0.0
+      candle_low = 0.0
+      aggregates_timespan = 'minute'
+      aggregates_multiplier = 30
+      start_date = (start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
+      end_date = start_timestamp_milliseconds
+      response_volume = polygon_client.get_aggregate_bars(symbol, aggregates_timespan, aggregates_multiplier, start_date, end_date)
+      if response_volume[:status] == 'success'
+        volume = response_volume[:body]['results'][1]['v'].round(2)
+        candle_open = response_volume[:body]['results'][1]['o'].round(2)
+        candle_close = response_volume[:body]['results'][1]['c'].round(2)
+        candle_high = response_volume[:body]['results'][1]['h'].round(2)
+        candle_low = response_volume[:body]['results'][1]['l'].round(2)
       end
       
       # Price BTCUSD Coinbase
@@ -145,16 +242,6 @@ namespace :operations do
       #   end
       # end
 
-      # Implied Volatility T3
-      implied_volatility_t3 = 0.0
-      t3_client = T3IndexAPI.new
-      current_tick = Time.at(start_timestamp_milliseconds / 1000).utc.strftime("%Y-%m-%d-%H-%M-%S")
-      t3_response = t3_client.get_tick(current_tick)
-      if t3_response[:status] == 'success'
-        puts "T3 RESPONSE:"
-        puts t3_response[:body]
-        implied_volatility_t3 = t3_response[:body]['value']
-      end
 
       # Avg Funding Rate
       # Fix - Not getting any results
@@ -279,7 +366,7 @@ namespace :operations do
       table.insert row
 
       puts "Inserted new data: #{new_data}"
-      start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
+      loop_start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
       sleep(5)
     end
 
@@ -381,7 +468,7 @@ namespace :operations do
     #
     # End
     #
-    puts "End operations:generate_thirty_minute_training_data"
+    puts "End operations:generate_thirty_minute_training_data_next_interval"
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
