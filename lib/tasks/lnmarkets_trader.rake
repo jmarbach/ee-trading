@@ -2688,7 +2688,14 @@ namespace :lnmarkets_trader do
               elsif index_price_btcusd > (entry_price * 1.0016)
                 new_stoploss = (entry_price * 0.99).round(0)
               else
-                new_stoploss = (index_price_btcusd * 0.94).round(0)
+                #
+                # Check for liquidation levels edge case for 'unknown' trades
+                #
+                if f['liquidation'] > (index_price_btcusd * 0.94).round(0)
+                  new_stoploss = (f['liquidation'] + 1.00).round(0)
+                else
+                  new_stoploss = (index_price_btcusd * 0.94).round(0)
+                end
               end
             elsif trade_direction == 'short'
               if index_price_btcusd < (entry_price * 0.9865)
@@ -2710,7 +2717,14 @@ namespace :lnmarkets_trader do
               elsif index_price_btcusd < (entry_price * 0.9984)
                 new_stoploss = (entry_price * 1.01).round(0)
               else
-                new_stoploss = (index_price_btcusd * 1.06).round(0)
+                #
+                # Check for liquidation levels edge case for 'unknown' trades
+                #
+                if f['liquidation'] > (index_price_btcusd * 1.06).round(0)
+                  new_stoploss = (f['liquidation'] - 1.00).round(0)
+                else
+                  new_stoploss = (index_price_btcusd * 1.06).round(0)
+                end
               end
             end
           end
@@ -2769,7 +2783,7 @@ namespace :lnmarkets_trader do
             else
               Rails.logger.error(
                 {
-                  message: "Error. Unable to update futures trade, #{f['id']}.",
+                  message: "Error. Unable to update stoploss for futures trade, #{f['id']}.",
                   script: "lnmarkets_trader:check_stops"
                 }.to_json
               )
