@@ -78,8 +78,8 @@ class LnMarketsAPI
       if retries < MAX_RETRIES
         retries += 1
         delay = [BASE_DELAY * (2 ** (retries - 1)), MAX_DELAY].min
-        @logger.warn("Request failed with #{e.class}. Retrying in #{RETRY_DELAY} seconds (Attempt #{retries}/#{MAX_RETRIES})")
-        sleep RETRY_DELAY
+        @logger.warn("Request failed with #{e.class}. Retrying in #{delay} seconds (Attempt #{retries}/#{MAX_RETRIES})")
+        sleep delay
         retry
       else
         hash_method_response = handle_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time, method)
