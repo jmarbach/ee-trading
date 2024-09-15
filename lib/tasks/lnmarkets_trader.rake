@@ -2515,10 +2515,11 @@ namespace :lnmarkets_trader do
         )
 
         #
-        # Get trade entry price and previous stop-loss
+        # Get trade entry price and previous stoploss/takeprofits
         #
         entry_price = f['entry_price']
         previous_stoploss = f['stoploss']
+        previous_takeprofit = f['takeprofit']
         Rails.logger.info(
           {
             message: "Trade Entry Price: #{entry_price.to_fs(:delimited)}",
@@ -2754,27 +2755,37 @@ namespace :lnmarkets_trader do
               #
               # Then if stoploss was updated, update takeprofit for 'three-minute' and 'unknown' trades
               #
-              if strategy == 'three-minute-trend' || strategy == 'unknown'
+              if ['three-minute-trend', 'unknown'].include?(strategy)
                 if trade_direction == 'long'
                   new_takeprofit = (entry_price * 1.015).round(0)
                 elsif trade_direction == 'short'
                   new_takeprofit = (entry_price * 0.985).round(0)
                 end
-                # Send update to LnMarkets
-                lnmarkets_response = lnmarkets_client.update_futures_trade(f['id'], 'takeprofit', new_takeprofit)
 
-                if lnmarkets_response[:status] == 'success'
-                  Rails.logger.info(
-                    {
-                      message: "Updated takeprofit for #{f['id']}:",
-                      body: lnmarkets_response[:body]['takeprofit'],
-                      script: "lnmarkets_trader:check_stops"
-                    }.to_json
-                  )
+                if new_takeprofit != previous_takeprofit
+                  # Send update to LnMarkets
+                  lnmarkets_response = lnmarkets_client.update_futures_trade(f['id'], 'takeprofit', new_takeprofit)
+
+                  if lnmarkets_response[:status] == 'success'
+                    Rails.logger.info(
+                      {
+                        message: "Updated takeprofit for #{f['id']}:",
+                        body: lnmarkets_response[:body]['takeprofit'],
+                        script: "lnmarkets_trader:check_stops"
+                      }.to_json
+                    )
+                  else
+                    Rails.logger.error(
+                      {
+                        message: "Error. Unable to update takeprofit for futures trade, #{f['id']}.",
+                        script: "lnmarkets_trader:check_stops"
+                      }.to_json
+                    )
+                  end
                 else
-                  Rails.logger.error(
+                  Rails.logger.warn(
                     {
-                      message: "Error. Unable to update takeprofit for futures trade, #{f['id']}.",
+                      message: "Warning. New takeprofit is equal to previous takeprofit. Skipped updating futures trade.",
                       script: "lnmarkets_trader:check_stops"
                     }.to_json
                   )

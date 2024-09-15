@@ -8,6 +8,7 @@ class GrafanaCloudInfluxPushAPI
   end
 
   def push_metrics(metrics)
+    puts "Push metrics to Grafana Cloud: #{metrics}"
     begin
       response = @connection.post do |req|
         req.body = metrics
