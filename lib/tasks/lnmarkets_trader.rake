@@ -920,7 +920,7 @@ namespace :lnmarkets_trader do
           Rails.logger.info(
             {
               message: "Parse trade response from LnMarkets",
-              body: "#{lnmarkets_response[:body]}",
+              body: "#{JSON.generate(lnmarkets_response[:body])}",
               script: "lnmarkets_trader:check_hourly_trend_indicators"
             }.to_json
           )
@@ -1182,7 +1182,7 @@ namespace :lnmarkets_trader do
           Rails.logger.info(
             {
               message: "Parse trade response from LnMarkets",
-              body: "#{lnmarkets_response[:body]}",
+              body: "#{JSON.generate(lnmarkets_response[:body])}",
               script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
             }.to_json
           )
@@ -1450,7 +1450,7 @@ namespace :lnmarkets_trader do
           Rails.logger.info(
             {
               message: "Parse trade response from LnMarkets",
-              body: "#{lnmarkets_response[:body]}",
+              body: "#{JSON.generate(lnmarkets_response[:body])}",
               script: "lnmarkets_trader:check_three_minute_trend_indicators"
             }.to_json
           )
