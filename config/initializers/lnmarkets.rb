@@ -80,10 +80,10 @@ class LnMarketsAPI
         sleep RETRY_DELAY
         retry
       else
-        hash_method_response = handle_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time)
+        hash_method_response = handle_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time, method)
       end
     rescue => e
-      hash_method_response = handle_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time)
+      hash_method_response = handle_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time, method)
     end
 
     hash_method_response
@@ -135,8 +135,24 @@ class LnMarketsAPI
     
     @logger.error("LnMarketsAPI Request failed. Error: #{error.class}, Message: #{error_message}, Elapsed time: #{elapsed_time.round(3)}s")
     @logger.debug("Full error response object: #{JSON.pretty_generate(error_response)}")
+
+    # Push metric to Grafana Cloud
+    push_error_metric(error, method)
     
     error_response
+  end
+
+  def push_error_metric(error, method)
+    # Initialize GrafanaCloudInfluxPushAPI
+    grafana_cloud_auth_token = Base64.strict_encode64('210825' + ':' + ENV['GRAFANA_CLOUD_METRICS_API_KEY'])
+    @grafana_api = GrafanaCloudInfluxPushAPI.new(grafana_cloud_auth_token)
+
+    # Configure metric payload
+    timestamp = Time.now.to_i * 1_000_000_000 # Convert to nanoseconds
+    metric = "lnmarkets_api_error,error_class=#{error.class},status_code=#{error.respond_to?(:response) ? error.response[:status].to_s : 'unknown'},method=#{method} value=1 #{timestamp}"
+
+    # Push metric
+    @grafana_api.push_metrics(metric)
   end
 
   public
