@@ -2443,15 +2443,15 @@ namespace :lnmarkets_trader do
       #
       # Fetch latest price of BTCUSD
       #
-      index_price_btcusd, ask_price_btc_usd, bid_price_btcusd = 0.0, 0.0, 0.0
+      index_price_btcusd, ask_price_btcusd, bid_price_btcusd = 0.0, 0.0, 0.0
       lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
       if lnmarkets_response[:status] == 'success'
         index_price_btcusd = lnmarkets_response[:body]['index']
-        ask_price_btc_usd = lnmarkets_response[:body]['askPrice']
+        ask_price_btcusd = lnmarkets_response[:body]['askPrice']
         bid_price_btcusd = lnmarkets_response[:body]['bidPrice']
         Rails.logger.info(
           {
-            message: "INDEX: #{index_price_btcusd.to_fs(:delimited)} | ASK: #{ask_price_btc_usd.to_fs(:delimited)} | BID: #{bid_price_btcusd.to_fs(:delimited)}",
+            message: "INDEX: #{index_price_btcusd.to_fs(:delimited)} | ASK: #{ask_price_btcusd.to_fs(:delimited)} | BID: #{bid_price_btcusd.to_fs(:delimited)}",
             script: "lnmarkets_trader:check_stops"
           }.to_json
         )
@@ -2540,7 +2540,7 @@ namespace :lnmarkets_trader do
         #
         update_trade_stoploss_price = false
         if trade_direction == 'long'
-          if bid_price_btc_usd > entry_price
+          if bid_price_btcusd > entry_price
             #
             # Update the position's stop-loss
             #
@@ -2564,7 +2564,7 @@ namespace :lnmarkets_trader do
             next
           end
         elsif trade_direction == 'short'
-          if ask_price_btc_usd < entry_price
+          if ask_price_btcusd < entry_price
             #
             # Update the position's stop-loss
             #
@@ -2604,129 +2604,129 @@ namespace :lnmarkets_trader do
           #
           if strategy == 'daily-trend'
             if trade_direction == 'long'
-              if bid_price_btc_usd > (entry_price * 1.035)
+              if bid_price_btcusd > (entry_price * 1.035)
                 new_stoploss = (entry_price * 1.035).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.026)
+              elsif bid_price_btcusd > (entry_price * 1.026)
                 new_stoploss = (entry_price * 1.026).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.025)
+              elsif bid_price_btcusd > (entry_price * 1.025)
                 new_stoploss = (entry_price * 1.025).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.02)
+              elsif bid_price_btcusd > (entry_price * 1.02)
                 new_stoploss = (entry_price * 1.01).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.015)
+              elsif bid_price_btcusd > (entry_price * 1.015)
                 new_stoploss = (entry_price * 1.0).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.01)
+              elsif bid_price_btcusd > (entry_price * 1.01)
                 new_stoploss = (entry_price * 0.99).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.005)
+              elsif bid_price_btcusd > (entry_price * 1.005)
                 new_stoploss = (entry_price * 0.95).round(0)
               else
-                new_stoploss = (bid_price_btc_usd * 0.94).round(0)
+                new_stoploss = (bid_price_btcusd * 0.94).round(0)
               end
             elsif trade_direction == 'short'
-              if ask_price_btc_usd < (entry_price * 0.965)
+              if ask_price_btcusd < (entry_price * 0.965)
                 new_stoploss = (entry_price * 0.965).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.974)
+              elsif ask_price_btcusd < (entry_price * 0.974)
                 new_stoploss = (entry_price * 0.974).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.975)
+              elsif ask_price_btcusd < (entry_price * 0.975)
                 new_stoploss = (entry_price * 0.975).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.98)
+              elsif ask_price_btcusd < (entry_price * 0.98)
                 new_stoploss = (entry_price * 0.99).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.985)
+              elsif ask_price_btcusd < (entry_price * 0.985)
                 new_stoploss = (entry_price * 1.0).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.99)
+              elsif ask_price_btcusd < (entry_price * 0.99)
                 new_stoploss = (entry_price * 1.01).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.995)
+              elsif ask_price_btcusd < (entry_price * 0.995)
                 new_stoploss = (entry_price * 1.05).round(0)
               else
-                new_stoploss = (ask_price_btc_usd * 1.06).round(0)
+                new_stoploss = (ask_price_btcusd * 1.06).round(0)
               end
             end
           elsif strategy == 'hourly-trend'
             if trade_direction == 'long'
-              if bid_price_btc_usd > (entry_price * 1.025)
+              if bid_price_btcusd > (entry_price * 1.025)
                 new_stoploss = (entry_price * 1.025).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.02)
+              elsif bid_price_btcusd > (entry_price * 1.02)
                 new_stoploss = (entry_price * 1.02).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.015)
+              elsif bid_price_btcusd > (entry_price * 1.015)
                 new_stoploss = (entry_price * 1.015).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.01)
+              elsif bid_price_btcusd > (entry_price * 1.01)
                 new_stoploss = (entry_price * 1.01).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.005)
+              elsif bid_price_btcusd > (entry_price * 1.005)
                 new_stoploss = (entry_price * 1.005).round(0)
               else
-                new_stoploss = (bid_price_btc_usd * 0.94).round(0)
+                new_stoploss = (bid_price_btcusd * 0.94).round(0)
               end
             elsif trade_direction == 'short'
-              if ask_price_btc_usd < (entry_price * 0.975)
+              if ask_price_btcusd < (entry_price * 0.975)
                 new_stoploss = (entry_price * 0.975).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.98)
+              elsif ask_price_btcusd < (entry_price * 0.98)
                 new_stoploss = (entry_price * 0.98).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.985)
+              elsif ask_price_btcusd < (entry_price * 0.985)
                 new_stoploss = (entry_price * 0.985).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.99)
+              elsif ask_price_btcusd < (entry_price * 0.99)
                 new_stoploss = (entry_price * 0.99).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.995)
+              elsif ask_price_btcusd < (entry_price * 0.995)
                 new_stoploss = (entry_price * 0.995).round(0)
               else
-                new_stoploss = (ask_price_btc_usd * 1.06).round(0)
+                new_stoploss = (ask_price_btcusd * 1.06).round(0)
               end
             end
           elsif strategy == 'three-minute-trend' || strategy == 'unknown'
             if trade_direction == 'long'
-              if bid_price_btc_usd > (entry_price * 1.0135)
+              if bid_price_btcusd > (entry_price * 1.0135)
                 new_stoploss = (entry_price * 1.0135).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.0125)
+              elsif bid_price_btcusd > (entry_price * 1.0125)
                 new_stoploss = (entry_price * 1.0125).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.01)
+              elsif bid_price_btcusd > (entry_price * 1.01)
                 new_stoploss = (entry_price * 1.01).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.0075)
+              elsif bid_price_btcusd > (entry_price * 1.0075)
                 new_stoploss = (entry_price * 1.0075).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.0060)
+              elsif bid_price_btcusd > (entry_price * 1.0060)
                 new_stoploss = (entry_price * 1.0060).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.005)
+              elsif bid_price_btcusd > (entry_price * 1.005)
                 new_stoploss = (entry_price * 1.005).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.0032)
+              elsif bid_price_btcusd > (entry_price * 1.0032)
                 new_stoploss = (entry_price * 1.0032).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.00219)
+              elsif bid_price_btcusd > (entry_price * 1.00219)
                 new_stoploss = (entry_price * 1.00219).round(0)
-              elsif bid_price_btc_usd > (entry_price * 1.0016)
+              elsif bid_price_btcusd > (entry_price * 1.0016)
                 new_stoploss = (entry_price * 0.99).round(0)
               else
                 #
                 # Check for liquidation levels edge case for 'unknown' trades
                 #
-                if f['liquidation'] > (bid_price_btc_usd * 0.94).round(0)
+                if f['liquidation'] > (bid_price_btcusd * 0.94).round(0)
                   new_stoploss = (f['liquidation'] + 1.00).round(0)
                 else
-                  new_stoploss = (bid_price_btc_usd * 0.94).round(0)
+                  new_stoploss = (bid_price_btcusd * 0.94).round(0)
                 end
               end
             elsif trade_direction == 'short'
-              if ask_price_btc_usd < (entry_price * 0.9865)
+              if ask_price_btcusd < (entry_price * 0.9865)
                 new_stoploss = (entry_price * 0.9865).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.9875)
+              elsif ask_price_btcusd < (entry_price * 0.9875)
                 new_stoploss = (entry_price * 0.9875).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.99)
+              elsif ask_price_btcusd < (entry_price * 0.99)
                 new_stoploss = (entry_price * 0.99).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.9925)
+              elsif ask_price_btcusd < (entry_price * 0.9925)
                 new_stoploss = (entry_price * 0.9925).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.994)
+              elsif ask_price_btcusd < (entry_price * 0.994)
                 new_stoploss = (entry_price * 0.994).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.995)
+              elsif ask_price_btcusd < (entry_price * 0.995)
                 new_stoploss = (entry_price * 0.995).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.9968)
+              elsif ask_price_btcusd < (entry_price * 0.9968)
                 new_stoploss = (entry_price * 0.9968).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.9781)
+              elsif ask_price_btcusd < (entry_price * 0.9781)
                 new_stoploss = (entry_price * 0.9781).round(0)
-              elsif ask_price_btc_usd < (entry_price * 0.9984)
+              elsif ask_price_btcusd < (entry_price * 0.9984)
                 new_stoploss = (entry_price * 1.01).round(0)
               else
                 #
                 # Check for liquidation levels edge case for 'unknown' trades
                 #
-                if f['liquidation'] > (ask_price_btc_usd * 1.06).round(0)
+                if f['liquidation'] > (ask_price_btcusd * 1.06).round(0)
                   new_stoploss = (f['liquidation'] - 1.00).round(0)
                 else
-                  new_stoploss = (ask_price_btc_usd * 1.06).round(0)
+                  new_stoploss = (ask_price_btcusd * 1.06).round(0)
                 end
               end
             end
