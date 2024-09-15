@@ -46,6 +46,8 @@ class LnMarketsAPI
 
   def execute_request(method, path, data = {})
     hash_method_response = { status: '', message: '', body: '', elapsed_time: '' }
+    caller_info = caller(1..1).first
+    caller_method = caller_info[/`([^']*)'/, 1]
     retries = 0
     begin
       start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -82,10 +84,10 @@ class LnMarketsAPI
         sleep delay
         retry
       else
-        hash_method_response = handle_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time, method)
+        hash_method_response = handle_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time, caller_method)
       end
     rescue => e
-      hash_method_response = handle_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time, method)
+      hash_method_response = handle_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time, caller_method)
     end
 
     hash_method_response
@@ -123,7 +125,7 @@ class LnMarketsAPI
     response_object
   end
 
-  def handle_error(error, elapsed_time, method)
+  def handle_error(error, elapsed_time, caller_method)
     error_body = error.respond_to?(:response) ? (JSON.parse(error.response[:body]) rescue error.response[:body]) : nil
     error_message = error_body.is_a?(Hash) ? error_body['message'] : error.message
     
@@ -139,19 +141,19 @@ class LnMarketsAPI
     @logger.debug("Full error response object: #{JSON.pretty_generate(error_response)}")
 
     # Push metric to Grafana Cloud
-    push_error_metric(error, method)
+    push_error_metric(error, caller_method)
     
     error_response
   end
 
-  def push_error_metric(error, method)
+  def push_error_metric(error, caller_method)
     # Initialize GrafanaCloudInfluxPushAPI
     grafana_cloud_auth_token = Base64.strict_encode64('210825' + ':' + ENV['GRAFANA_CLOUD_METRICS_API_KEY'])
     @grafana_api = GrafanaCloudInfluxPushAPI.new(grafana_cloud_auth_token)
 
     # Configure metric payload
     timestamp = Time.now.to_i * 1_000_000_000 # Convert to nanoseconds
-    metric = "lnmarkets_api_error,error_class=#{error.class},status_code=#{error.respond_to?(:response) ? error.response[:status].to_s : 'unknown'},method=#{method} value=1 #{timestamp}"
+    metric = "lnmarkets_api_error,error_class=#{error.class},status_code=#{error.respond_to?(:response) ? error.response[:status].to_s : 'unknown'},method=#{caller_method} value=1 #{timestamp}"
 
     # Push metric
     @grafana_api.push_metrics(metric)
