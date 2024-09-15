@@ -2723,7 +2723,7 @@ namespace :lnmarkets_trader do
                 #
                 # Check for liquidation levels edge case for 'unknown' trades
                 #
-                if f['liquidation'] > (ask_price_btcusd * 1.06).round(0)
+                if f['liquidation'] < (ask_price_btcusd * 1.06).round(0)
                   new_stoploss = (f['liquidation'] - 1.00).round(0)
                 else
                   new_stoploss = (ask_price_btcusd * 1.06).round(0)
