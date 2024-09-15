@@ -7,7 +7,8 @@ require 'logger'
 
 class LnMarketsAPI
   MAX_RETRIES = 3
-  RETRY_DELAY = 10 # seconds
+  BASE_DELAY = 2 # second
+  MAX_DELAY = 8 # seconds
   RETRYABLE_ERRORS = [
     Faraday::ServerError,
     Faraday::ConnectionFailed,
@@ -76,6 +77,7 @@ class LnMarketsAPI
     rescue *RETRYABLE_ERRORS => e
       if retries < MAX_RETRIES
         retries += 1
+        delay = [BASE_DELAY * (2 ** (retries - 1)), MAX_DELAY].min
         @logger.warn("Request failed with #{e.class}. Retrying in #{RETRY_DELAY} seconds (Attempt #{retries}/#{MAX_RETRIES})")
         sleep RETRY_DELAY
         retry
@@ -121,7 +123,7 @@ class LnMarketsAPI
     response_object
   end
 
-  def handle_error(error, elapsed_time)
+  def handle_error(error, elapsed_time, method)
     error_body = error.respond_to?(:response) ? (JSON.parse(error.response[:body]) rescue error.response[:body]) : nil
     error_message = error_body.is_a?(Hash) ? error_body['message'] : error.message
     
