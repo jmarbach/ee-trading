@@ -20,7 +20,6 @@ namespace :operations do
     TABLE_ID = "thirty_minute_training_data"
     MODEL_ID = "thirty_minute_random_forest"
 
-
     #
     # Fetch last row from BigQuery
     #
@@ -33,6 +32,26 @@ namespace :operations do
     else
       abort "No entries found in the training data table"
     end
+
+    #
+    # Fetch previous interval Close metrics
+    #
+    # rsi
+    # volume
+    # simple_moving_average
+    # exponential_moving_average
+    # macd histogram
+    # candle close
+    # candle high
+    # candle low
+    # price btcusd coinbase
+    # price btcusd binance
+    # avg funding rate
+    # aggregate open interest
+    # implied volatility t3
+    # avg long short ratio
+    # price direction
+
 
     #
     # Update the fetched row with new data
@@ -315,7 +334,11 @@ namespace :operations do
         price_direction = 'down'
       end
 
-      
+      # Get the next ID
+      next_id_query = "SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`"
+      next_id_result = bigquery.query next_id_query
+      next_id = next_id_result.first[:next_id]
+
       #
       # Format timestamp
       #
@@ -326,6 +349,7 @@ namespace :operations do
       # Prepare new data to insert to table
       #
       new_data = {
+        id: next_id,
         timestamp_open: formatted_start_timestamp_milliseconds,
         timestamp_close: formatted_end_timestamp_milliseconds,
         rsi_open: rsi,
@@ -417,10 +441,22 @@ namespace :operations do
     if (Time.now.utc - Time.utc(Time.now.utc.year, Time.now.utc.month, Time.now.utc.day, 4, 0, 0)).abs <= 180
       puts "Starting daily model retraining..."
 
+      # Additional tuning options
+      # max_parallel_trials=5,
+      # max_trees=100,
+      # max_depth=10,
+      # min_tree_child_weight=1,
+      # subsample=0.8,
+      # auto_class_weights=true,
+
       query = <<-SQL
         CREATE OR REPLACE MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`
-        OPTIONS(model_type='RANDOM_FOREST_CLASSIFIER',
-                input_label_cols=['price_direction']) AS
+        OPTIONS(
+          model_type='RANDOM_FOREST_CLASSIFIER',
+          input_label_cols=['price_direction'],
+          num_trials=10,
+          HPARAM_TUNING_OBJECTIVES=['AUC']
+        ) AS
         SELECT
           rsi_open,
           rsi_close,
