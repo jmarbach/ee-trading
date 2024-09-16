@@ -2030,7 +2030,7 @@ namespace :lnmarkets_trader do
       side = 's'
       type = 'l'
       leverage = 4
-      price = (bid_price_btcusd * 1.000025).round(0)
+      price = (ask_price_btcusd * 1.000025).round(0)
       quantity = capital_waged_usd
       takeprofit = (index_price_btcusd * 0.93).round(0)
       stoploss = (index_price_btcusd * 1.06).round(0)
