@@ -63,6 +63,8 @@ namespace :operations do
       exponential_moving_average_close: exponential_moving_average,
       macd_histogram_close: macd_histogram,
       candle_close: candle_close,
+      candle_high: candle_high,
+      candle_low: candle_low,
       price_btcusd_coinbase_close: price_btcusd_coinbase,
       price_btcusd_binance_close: price_btcusd_binance,
       avg_funding_rate_close: avg_funding_rate,
@@ -353,32 +355,17 @@ namespace :operations do
         timestamp_open: formatted_start_timestamp_milliseconds,
         timestamp_close: formatted_end_timestamp_milliseconds,
         rsi_open: rsi,
-        rsi_close: rsi,
         volume_prev_interval: volume,
-        volume_open_to_close: volume,
         simple_moving_average_open: simple_moving_average,
-        simple_moving_average_close: simple_moving_average,
         exponential_moving_average_open: exponential_moving_average,
-        exponential_moving_average_close: exponential_moving_average,
         macd_histogram_open: macd_histogram,
-        macd_histogram_close: macd_histogram,
         candle_open: candle_open,
-        candle_close: candle_close,
-        candle_low: candle_low,
-        candle_high: candle_high,
         price_btcusd_coinbase_open: price_btcusd_coinbase,
-        price_btcusd_coinbase_close: price_btcusd_coinbase,
         price_btcusd_binance_open: price_btcusd_binance,
-        price_btcusd_binance_close: price_btcusd_binance,
         avg_funding_rate_open: avg_funding_rate,
-        avg_funding_rate_close: avg_funding_rate,
         aggregate_open_interest_open: aggregate_open_interest,
-        aggregate_open_interest_close: aggregate_open_interest,
         implied_volatility_t3_open: implied_volatility_t3,
-        implied_volatility_t3_close: implied_volatility_t3,
         avg_long_short_ratio_open: avg_long_short_ratio,
-        avg_long_short_ratio_close: avg_long_short_ratio,
-        price_direction: price_direction
       }
       row = new_data
 
@@ -432,6 +419,21 @@ namespace :operations do
     results.each do |row|
       puts row.to_json
     end
+
+    # Assuming you've just inserted a row and have its ID
+    last_inserted_id = next_id
+
+    # New value for price_direction
+    price_direction_prediction = results
+
+    # Prepare the row for update
+    row_to_update = {
+      id: inserted_id,
+      price_direction_prediction: price_direction_prediction
+    }
+
+    # Perform the update
+    table.update row_to_update
 
     #Rake::Task["lnmarkets_trader:attempt_trade_thirty_minute_trend"].execute({prediction: 'test'})
 
