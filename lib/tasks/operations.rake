@@ -114,12 +114,12 @@ namespace :operations do
     #
     # Fetch last date in the training data table
     #
-    query = "SELECT timestamp FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}` ORDER BY timestamp DESC LIMIT 1"
+    query = "SELECT timestamp_open FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}` ORDER BY timestamp_open DESC LIMIT 1"
     results = bigquery.query(query)
-    last_timestamp = results.first ? results.first[:timestamp] : nil
+    last_timestamp_open = results.first ? results.first[:timestamp_open] : nil
 
-    if last_timestamp
-      puts "Last entry in the training data table: #{last_timestamp}"
+    if last_timestamp_open
+      puts "Last entry in the training data table: #{last_timestamp_open}"
     else
       abort "No entries found in the training data table"
     end
@@ -127,7 +127,7 @@ namespace :operations do
     #
     # Assign start date based on the last timestamp entry
     #
-    parsed_last_timestamp = Time.parse(last_timestamp.to_s)
+    parsed_last_timestamp = Time.parse(last_timestamp_open.to_s)
 
     loop_start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds + 30.minutes.to_i.in_milliseconds)
 
@@ -139,9 +139,11 @@ namespace :operations do
 
     #
     # Loop through each 30min interval and fetch market indicators
+    #   + Make prediction if latest start timestamp is within the last 30 minutes
     #
     while loop_start_timestamp_milliseconds <= loop_end_timestamp_milliseconds
-      puts "Start timestamp: #{loop_start_timestamp_milliseconds}"
+      puts "Loop start timestamp milliseconds: #{loop_start_timestamp_milliseconds}"
+      puts ""
       #
       # Fetch market indicators from Polygon and other sources
       #
@@ -156,24 +158,24 @@ namespace :operations do
       #
       # Fetch Close metrics
       #
-      series_types = 'close'
+      series_type = 'open'
       # RSI
       rsi = 0.0
-      response_rsi = polygon_client.get_rsi(symbol, start_timestamp_milliseconds, timespan, window, series_type)
+      response_rsi = polygon_client.get_rsi(symbol, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_rsi[:status] == 'success'
         rsi = response_rsi[:body]['results']['values'][0]['value'].round(2)
       end
 
       # SMA
       simple_moving_average = 0.0
-      response_sma = polygon_client.get_sma(symbol, start_timestamp_milliseconds, timespan, window, series_type)
+      response_sma = polygon_client.get_sma(symbol, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_sma[:status] == 'success'
         simple_moving_average = response_sma[:body]['results']['values'][0]['value'].round(2)
       end
 
       # EMA
       exponential_moving_average = 0.0
-      response_ema = polygon_client.get_ema(symbol, start_timestamp_milliseconds, timespan, window, series_type)
+      response_ema = polygon_client.get_ema(symbol, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_ema[:status] == 'success'
         exponential_moving_average = response_ema[:body]['results']['values'][0]['value'].round(2)
       end
@@ -183,39 +185,10 @@ namespace :operations do
       short_window = 120
       long_window = 260
       signal_window = 30
-      response_macd = polygon_client.get_macd(symbol, start_timestamp_milliseconds, timespan, short_window, long_window, signal_window, series_type)
+      response_macd = polygon_client.get_macd(symbol, loop_start_timestamp_milliseconds, timespan, short_window, long_window, signal_window, series_type)
       if response_macd[:status] == 'success'
         macd_histogram = response_macd[:body]['results']['values'][0]['histogram'].round(2)
       end
-
-      # Implied Volatility T3
-      implied_volatility_t3 = 0.0
-      t3_client = T3IndexAPI.new
-      current_tick = Time.at(start_timestamp_milliseconds / 1000).utc.strftime("%Y-%m-%d-%H-%M-%S")
-      t3_response = t3_client.get_tick(current_tick)
-      if t3_response[:status] == 'success'
-        puts "T3 RESPONSE:"
-        puts t3_response[:body]
-        implied_volatility_t3 = t3_response[:body]['value']
-      end
-
-      #
-      # Update last row in BigQuery
-      #
-      
-      #
-      # Fetch Open metrics
-      #
-      series_type = 'open'
-
-
-       
-
-      #
-      # Insert new row to BigQuery
-      #
-
-
 
       # Volume, Candle Open, Candle Close, Candle Low, Candle High
       volume = 0.0
@@ -225,158 +198,169 @@ namespace :operations do
       candle_low = 0.0
       aggregates_timespan = 'minute'
       aggregates_multiplier = 30
-      start_date = (start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
-      end_date = start_timestamp_milliseconds
+      start_date = (loop_start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
+      end_date = loop_start_timestamp_milliseconds
       response_volume = polygon_client.get_aggregate_bars(symbol, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_volume[:status] == 'success'
-        volume = response_volume[:body]['results'][1]['v'].round(2)
-        candle_open = response_volume[:body]['results'][1]['o'].round(2)
-        candle_close = response_volume[:body]['results'][1]['c'].round(2)
-        candle_high = response_volume[:body]['results'][1]['h'].round(2)
-        candle_low = response_volume[:body]['results'][1]['l'].round(2)
-      end
-      
-      # Price BTCUSD Coinbase
-      price_btcusd_coinbase, price_btcusd_binance = 0.0, 0.0
-      # start_timestamp_nanoseconds = start_timestamp_milliseconds * 1_000_000
-      # response_btc_usd_trades = polygon_client.get_trades(symbol, start_timestamp_nanoseconds)
-      # if response_macd[:status] == 'success'
-      #   # Exchange id 1 is Coinbase
-      #   # Exchange id 10 is Binance
-      #   response_btc_usd_trades[:body]['results'].each do |trade|
-      #     if trade['conditions'].include?(2) && trade['exchange'] == 1
-      #       price_btcusd_coinbase = trade['price']
-      #       break
-      #     end
-      #   end
-      #   response_btc_usd_trades[:body]['results'].each do |trade|
-      #     if trade['conditions'].include?(2) && trade['exchange'] == 10
-      #       price_btcusd_binance = trade['price']
-      #       break
-      #     end
-      #   end
-      #   if coinbase_price_btcusd == 0.0
-      #     price_btcusd_coinbase = price_btcusd_index
-      #   end
-      #   if binance_price_btcusd == 0.0
-      #     price_btcusd_binance = price_btcusd_index
-      #   end
-      # end
-
-
-      # Avg Funding Rate
-      # Fix - Not getting any results
-      avg_funding_rate = 0.0
-      # start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      # end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
-      # interval = "30min"
-      # symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6'
-      # begin
-      #   coinalyze_response = coinalyze_client.get_avg_funding_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
-      #   if coinalyze_response[:body].count > 0
-      #     coinalyze_response[:body].each_with_index do |f, index|
-      #       avg_funding_rate += coinalyze_response[:body][index]['history'][0]['c']
-      #     end
-      #     avg_funding_rate = (avg_funding_rate/coinalyze_response[:body].count).round(4)
-      #   end
-      # rescue => e
-      #   puts e
-      #   puts 'Error fetching funding rate data'
-      # end
-      # sleep(5)
-
-      # Aggregate Open Interest
-      aggregate_open_interest = 0.0
-      # start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      # end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
-      # interval = "30min"
-      # symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
-      # begin
-      #   coinalyze_response = coinalyze_client.get_avg_open_interest_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
-      #   if coinalyze_response[:body].count > 0
-      #     coinalyze_response[:body].each_with_index do |f, index|
-      #       aggregate_open_interest += coinalyze_response[:body][index]['history'][0]['c']
-      #     end
-      #     aggregate_open_interest = aggregate_open_interest.round(1)
-      #   end
-      # rescue => e
-      #   puts e
-      #   puts 'Error fetching open interest data'
-      # end
-      # sleep(5)
-
-      # Avg Long Short Ratio
-      avg_long_short_ratio = 0.0
-      # start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      # end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
-      # interval = "30min"
-      # symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
-      # begin
-      #   coinalyze_response = coinalyze_client.get_long_short_ratio_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
-      #   if coinalyze_response[:body].count > 0
-      #     count_of_records = 0.0
-      #     coinalyze_response[:body].each_with_index do |f, index|
-      #       coinalyze_response[:body][index]['history'].each do |o|
-      #         count_of_records += 1.0
-      #         avg_long_short_ratio += o['r']
-      #       end
-      #     end
-      #     avg_long_short_ratio = (avg_long_short_ratio / count_of_records).round(3)
-      #   end
-      # rescue => e
-      #   puts e
-      #   puts 'Error fetching long/short ratio data'
-      # end
-      # sleep(5)
-
-      # Price Direction
-      if candle_close > candle_open
-        price_direction = 'up'
-      else
-        price_direction = 'down'
+        volume = response_volume[:body]['results'][0]['v'].round(2)
+        candle_open = response_volume[:body]['results'][0]['o'].round(2)
+        candle_close = response_volume[:body]['results'][0]['c'].round(2)
+        candle_high = response_volume[:body]['results'][0]['h'].round(2)
+        candle_low = response_volume[:body]['results'][0]['l'].round(2)
       end
 
-      # Get the next ID
-      next_id_query = "SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`"
-      next_id_result = bigquery.query next_id_query
-      next_id = next_id_result.first[:next_id]
+      # # Implied Volatility T3
+      # implied_volatility_t3 = 0.0
+      # t3_client = T3IndexAPI.new
+      # current_tick = Time.at(start_timestamp_milliseconds / 1000).utc.strftime("%Y-%m-%d-%H-%M-%S")
+      # t3_response = t3_client.get_tick(current_tick)
+      # if t3_response[:status] == 'success'
+      #   puts "T3 RESPONSE:"
+      #   puts t3_response[:body]
+      #   implied_volatility_t3 = t3_response[:body]['value']
+      # end
 
-      #
-      # Format timestamp
-      #
-      formatted_start_timestamp_milliseconds = Time.at(start_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
-      formatted_end_timestamp_milliseconds = Time.at(end_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
+      # # Price BTCUSD Coinbase
+      # price_btcusd_coinbase, price_btcusd_binance = 0.0, 0.0
+      # # start_timestamp_nanoseconds = start_timestamp_milliseconds * 1_000_000
+      # # response_btc_usd_trades = polygon_client.get_trades(symbol, start_timestamp_nanoseconds)
+      # # if response_macd[:status] == 'success'
+      # #   # Exchange id 1 is Coinbase
+      # #   # Exchange id 10 is Binance
+      # #   response_btc_usd_trades[:body]['results'].each do |trade|
+      # #     if trade['conditions'].include?(2) && trade['exchange'] == 1
+      # #       price_btcusd_coinbase = trade['price']
+      # #       break
+      # #     end
+      # #   end
+      # #   response_btc_usd_trades[:body]['results'].each do |trade|
+      # #     if trade['conditions'].include?(2) && trade['exchange'] == 10
+      # #       price_btcusd_binance = trade['price']
+      # #       break
+      # #     end
+      # #   end
+      # #   if coinbase_price_btcusd == 0.0
+      # #     price_btcusd_coinbase = price_btcusd_index
+      # #   end
+      # #   if binance_price_btcusd == 0.0
+      # #     price_btcusd_binance = price_btcusd_index
+      # #   end
+      # # end
 
-      #
-      # Prepare new data to insert to table
-      #
-      new_data = {
-        id: next_id,
-        timestamp_open: formatted_start_timestamp_milliseconds,
-        timestamp_close: formatted_end_timestamp_milliseconds,
-        rsi_open: rsi,
-        volume_prev_interval: volume,
-        simple_moving_average_open: simple_moving_average,
-        exponential_moving_average_open: exponential_moving_average,
-        macd_histogram_open: macd_histogram,
-        candle_open: candle_open,
-        price_btcusd_coinbase_open: price_btcusd_coinbase,
-        price_btcusd_binance_open: price_btcusd_binance,
-        avg_funding_rate_open: avg_funding_rate,
-        aggregate_open_interest_open: aggregate_open_interest,
-        implied_volatility_t3_open: implied_volatility_t3,
-        avg_long_short_ratio_open: avg_long_short_ratio,
-      }
-      row = new_data
 
-      #
-      # Insert new data to table
-      #
-      dataset = bigquery.dataset(DATASET_ID)
-      table = dataset.table(TABLE_ID)
-      table.insert row
+      # # Avg Funding Rate
+      # # Fix - Not getting any results
+      # avg_funding_rate = 0.0
+      # # start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      # # end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
+      # # interval = "30min"
+      # # symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6'
+      # # begin
+      # #   coinalyze_response = coinalyze_client.get_avg_funding_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
+      # #   if coinalyze_response[:body].count > 0
+      # #     coinalyze_response[:body].each_with_index do |f, index|
+      # #       avg_funding_rate += coinalyze_response[:body][index]['history'][0]['c']
+      # #     end
+      # #     avg_funding_rate = (avg_funding_rate/coinalyze_response[:body].count).round(4)
+      # #   end
+      # # rescue => e
+      # #   puts e
+      # #   puts 'Error fetching funding rate data'
+      # # end
+      # # sleep(5)
 
-      puts "Inserted new data: #{new_data}"
+      # # Aggregate Open Interest
+      # aggregate_open_interest = 0.0
+      # # start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      # # end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
+      # # interval = "30min"
+      # # symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
+      # # begin
+      # #   coinalyze_response = coinalyze_client.get_avg_open_interest_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
+      # #   if coinalyze_response[:body].count > 0
+      # #     coinalyze_response[:body].each_with_index do |f, index|
+      # #       aggregate_open_interest += coinalyze_response[:body][index]['history'][0]['c']
+      # #     end
+      # #     aggregate_open_interest = aggregate_open_interest.round(1)
+      # #   end
+      # # rescue => e
+      # #   puts e
+      # #   puts 'Error fetching open interest data'
+      # # end
+      # # sleep(5)
+
+      # # Avg Long Short Ratio
+      # avg_long_short_ratio = 0.0
+      # # start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      # # end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
+      # # interval = "30min"
+      # # symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
+      # # begin
+      # #   coinalyze_response = coinalyze_client.get_long_short_ratio_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
+      # #   if coinalyze_response[:body].count > 0
+      # #     count_of_records = 0.0
+      # #     coinalyze_response[:body].each_with_index do |f, index|
+      # #       coinalyze_response[:body][index]['history'].each do |o|
+      # #         count_of_records += 1.0
+      # #         avg_long_short_ratio += o['r']
+      # #       end
+      # #     end
+      # #     avg_long_short_ratio = (avg_long_short_ratio / count_of_records).round(3)
+      # #   end
+      # # rescue => e
+      # #   puts e
+      # #   puts 'Error fetching long/short ratio data'
+      # # end
+      # # sleep(5)
+
+      # # Price Direction
+      # if candle_close > candle_open
+      #   price_direction = 'up'
+      # else
+      #   price_direction = 'down'
+      # end
+
+      # # Get the next ID
+      # next_id_query = "SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`"
+      # next_id_result = bigquery.query next_id_query
+      # next_id = next_id_result.first[:next_id]
+
+      # #
+      # # Format timestamp
+      # #
+      # formatted_start_timestamp_milliseconds = Time.at(start_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
+      # formatted_end_timestamp_milliseconds = Time.at(end_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
+
+      # #
+      # # Prepare new data to insert to table
+      # #
+      # new_data = {
+      #   id: next_id,
+      #   timestamp_open: formatted_start_timestamp_milliseconds,
+      #   timestamp_close: formatted_end_timestamp_milliseconds,
+      #   rsi_open: rsi,
+      #   volume_prev_interval: volume,
+      #   simple_moving_average_open: simple_moving_average,
+      #   exponential_moving_average_open: exponential_moving_average,
+      #   macd_histogram_open: macd_histogram,
+      #   candle_open: candle_open,
+      #   price_btcusd_coinbase_open: price_btcusd_coinbase,
+      #   price_btcusd_binance_open: price_btcusd_binance,
+      #   avg_funding_rate_open: avg_funding_rate,
+      #   aggregate_open_interest_open: aggregate_open_interest,
+      #   implied_volatility_t3_open: implied_volatility_t3,
+      #   avg_long_short_ratio_open: avg_long_short_ratio,
+      # }
+      # row = new_data
+
+      # #
+      # # Insert new data to table
+      # #
+      # dataset = bigquery.dataset(DATASET_ID)
+      # table = dataset.table(TABLE_ID)
+      # table.insert row
+
+      # puts "Inserted new data: #{new_data}"
       loop_start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
       sleep(5)
     end
@@ -384,125 +368,125 @@ namespace :operations do
     #
     # Make prediction
     #
-    query = <<-SQL
-      WITH latest_data AS (
-        SELECT
-          rsi_open,
-          volume_prev_interval,
-          simple_moving_average_open,
-          exponential_moving_average_open,
-          macd_histogram_open,
-          candle_open,
-          price_btcusd_coinbase_open,
-          price_btcusd_binance_open,
-          avg_funding_rate_open,
-          aggregate_open_interest_open,
-          implied_volatility_t3_open,
-          avg_long_short_ratio_open
-        FROM
-          `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
-        ORDER BY timestamp DESC
-        LIMIT 1
-      )
-      SELECT
-        *
-      FROM
-        ML.PREDICT(MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`,
-          (SELECT * FROM latest_data)
-        );
-    SQL
+    # query = <<-SQL
+    #   WITH latest_data AS (
+    #     SELECT
+    #       rsi_open,
+    #       volume_prev_interval,
+    #       simple_moving_average_open,
+    #       exponential_moving_average_open,
+    #       macd_histogram_open,
+    #       candle_open,
+    #       price_btcusd_coinbase_open,
+    #       price_btcusd_binance_open,
+    #       avg_funding_rate_open,
+    #       aggregate_open_interest_open,
+    #       implied_volatility_t3_open,
+    #       avg_long_short_ratio_open
+    #     FROM
+    #       `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
+    #     ORDER BY timestamp DESC
+    #     LIMIT 1
+    #   )
+    #   SELECT
+    #     *
+    #   FROM
+    #     ML.PREDICT(MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`,
+    #       (SELECT * FROM latest_data)
+    #     );
+    # SQL
 
-    #
-    # Log prediction result
-    #
-    results = bigquery.query query
-    results.each do |row|
-      puts row.to_json
-    end
+    # #
+    # # Log prediction result
+    # #
+    # results = bigquery.query query
+    # results.each do |row|
+    #   puts row.to_json
+    # end
 
-    # Assuming you've just inserted a row and have its ID
-    last_inserted_id = next_id
+    # # Assuming you've just inserted a row and have its ID
+    # last_inserted_id = next_id
 
-    # New value for price_direction
-    price_direction_prediction = results
+    # # New value for price_direction
+    # price_direction_prediction = results
 
-    # Prepare the row for update
-    row_to_update = {
-      id: inserted_id,
-      price_direction_prediction: price_direction_prediction
-    }
+    # # Prepare the row for update
+    # row_to_update = {
+    #   id: inserted_id,
+    #   price_direction_prediction: price_direction_prediction
+    # }
 
-    # Perform the update
-    table.update row_to_update
+    # # Perform the update
+    # table.update row_to_update
 
-    #Rake::Task["lnmarkets_trader:attempt_trade_thirty_minute_trend"].execute({prediction: 'test'})
+    # #Rake::Task["lnmarkets_trader:attempt_trade_thirty_minute_trend"].execute({prediction: 'test'})
 
-    #
-    # 1x per day... retrain model if script is being run within 3 minutes of 04:00 UTC
-    #
-    if (Time.now.utc - Time.utc(Time.now.utc.year, Time.now.utc.month, Time.now.utc.day, 4, 0, 0)).abs <= 180
-      puts "Starting daily model retraining..."
+    # #
+    # # 1x per day... retrain model if script is being run within 3 minutes of 04:00 UTC
+    # #
+    # if (Time.now.utc - Time.utc(Time.now.utc.year, Time.now.utc.month, Time.now.utc.day, 4, 0, 0)).abs <= 180
+    #   puts "Starting daily model retraining..."
 
-      # Additional tuning options
-      # max_parallel_trials=5,
-      # max_trees=100,
-      # max_depth=10,
-      # min_tree_child_weight=1,
-      # subsample=0.8,
-      # auto_class_weights=true,
+    #   # Additional tuning options
+    #   # max_parallel_trials=5,
+    #   # max_trees=100,
+    #   # max_depth=10,
+    #   # min_tree_child_weight=1,
+    #   # subsample=0.8,
+    #   # auto_class_weights=true,
 
-      query = <<-SQL
-        CREATE OR REPLACE MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`
-        OPTIONS(
-          model_type='RANDOM_FOREST_CLASSIFIER',
-          input_label_cols=['price_direction'],
-          num_trials=10,
-          HPARAM_TUNING_OBJECTIVES=['AUC']
-        ) AS
-        SELECT
-          rsi_open,
-          rsi_close,
-          volume_prev_interval,
-          volume_open_to_close,
-          simple_moving_average_open,
-          simple_moving_average_close,
-          exponential_moving_average_open,
-          exponential_moving_average_close,
-          macd_histogram_open,
-          macd_histogram_close,
-          candle_open,
-          candle_close,
-          candle_low,
-          candle_high,
-          price_btcusd_coinbase_open,
-          price_btcusd_coinbase_close,
-          price_btcusd_binance_open,
-          price_btcusd_binance_close,
-          avg_funding_rate_open,
-          avg_funding_rate_close,
-          aggregate_open_interest_open,
-          aggregate_open_interest_close,
-          implied_volatility_t3_open,
-          implied_volatility_t3_close,
-          avg_long_short_ratio_open,
-          avg_long_short_ratio_close,
-          price_direction
-        FROM
-          `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
-        WHERE
-          timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR);
-      SQL
+    #   query = <<-SQL
+    #     CREATE OR REPLACE MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`
+    #     OPTIONS(
+    #       model_type='RANDOM_FOREST_CLASSIFIER',
+    #       input_label_cols=['price_direction'],
+    #       num_trials=10,
+    #       HPARAM_TUNING_OBJECTIVES=['AUC']
+    #     ) AS
+    #     SELECT
+    #       rsi_open,
+    #       rsi_close,
+    #       volume_prev_interval,
+    #       volume_open_to_close,
+    #       simple_moving_average_open,
+    #       simple_moving_average_close,
+    #       exponential_moving_average_open,
+    #       exponential_moving_average_close,
+    #       macd_histogram_open,
+    #       macd_histogram_close,
+    #       candle_open,
+    #       candle_close,
+    #       candle_low,
+    #       candle_high,
+    #       price_btcusd_coinbase_open,
+    #       price_btcusd_coinbase_close,
+    #       price_btcusd_binance_open,
+    #       price_btcusd_binance_close,
+    #       avg_funding_rate_open,
+    #       avg_funding_rate_close,
+    #       aggregate_open_interest_open,
+    #       aggregate_open_interest_close,
+    #       implied_volatility_t3_open,
+    #       implied_volatility_t3_close,
+    #       avg_long_short_ratio_open,
+    #       avg_long_short_ratio_close,
+    #       price_direction
+    #     FROM
+    #       `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
+    #     WHERE
+    #       timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR);
+    #   SQL
 
-      job = bigquery.query_job query
-      job.wait_until_done!
+    #   job = bigquery.query_job query
+    #   job.wait_until_done!
 
-      if job.error?
-        puts "Error retraining model: #{job.error}"
-      else
-        puts "Model retrained successfully"
-      end
-      puts "End daily model retraining."
-    end
+    #   if job.error?
+    #     puts "Error retraining model: #{job.error}"
+    #   else
+    #     puts "Model retrained successfully"
+    #   end
+    #   puts "End daily model retraining."
+    # end
     #
     # End
     #
