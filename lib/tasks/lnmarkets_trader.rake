@@ -2035,6 +2035,13 @@ namespace :lnmarkets_trader do
       takeprofit = (index_price_btcusd * 0.93).round(0)
       stoploss = (index_price_btcusd * 1.06).round(0)
 
+      Rails.logger.info(
+        {
+          message: "Attempt to create new futures trade. Current timestamp: #{DateTime.now.utc.to_i.in_milliseconds}",
+          script: "lnmarkets_trader:create_short_trade"
+        }.to_json
+      )
+
       lnmarkets_response = lnmarkets_client.create_futures_trades(side, type, leverage, price, quantity, takeprofit, stoploss)
       if lnmarkets_response[:status] == 'success'
         Rails.logger.info(

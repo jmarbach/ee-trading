@@ -50,6 +50,9 @@ class LnMarketsAPI
     caller_method = caller_info[/`([^']*)'/, 1]
     retries = 0
     begin
+      if retries > 0
+        @logger.info("Retry request (#{retries}/#{MAX_RETRIES}) attempting...")
+      end
       start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       timestamp = (Time.now.to_f * 1000).to_i.to_s
       full_path = "/v2#{path}"
