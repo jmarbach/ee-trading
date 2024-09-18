@@ -136,6 +136,7 @@ namespace :operations do
       min: time_now_utc.min < 30 ? 0 : 30
     )
     loop_end_timestamp_milliseconds = most_recent_30min_interval.to_i.in_milliseconds
+    minutes_since_loop_end_interval = ((time_now_utc - most_recent_30min_interval) / 60).to_i
 
     #
     # Loop through each 30min interval and fetch market indicators
@@ -209,6 +210,52 @@ namespace :operations do
         candle_low = response_volume[:body]['results'][0]['l'].round(2)
       end
 
+      #
+      # Only fetch this data when script is being run within 10 minutes of interval start
+      #
+      if minutes_since_loop_end_interval <= 10
+        # Price BTCUSD Coinbase and Price BTCUSD Binance
+        price_btcusd_coinbase, price_btcusd_binance = 0.0, 0.0
+        response_btc_usd_trades = polygon_client.get_trades(symbol)
+        if response_macd[:status] == 'success'
+          # Exchange id 1 is Coinbase
+          # Exchange id 10 is Binance
+          exchange_1_entry = response_btc_usd_trades[:body]["results"].find { |entry| entry["exchange"] == 1 && entry["conditions"].include?(2) }
+          exchange_10_entry = response_btc_usd_trades[:body]["results"].find { |entry| entry["exchange"] == 10 && entry["conditions"].include?(2) }
+
+          exchange_1_price = exchange_1_entry&.[]("price")
+          exchange_10_price = exchange_10_entry&.[]("price")
+
+          if exchange_1_price == nil
+            # Get Index price as a backup
+            lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
+            if lnmarkets_response[:status] == 'success'
+              price_btcusd_index = lnmarkets_response[:body]['index']
+            else
+              price_btcusd_index = 0.0
+            end
+            price_btcusd_coinbase = price_btcusd_index
+          else
+            price_btcusd_coinbase = exchange_1_price
+          end
+
+          if exchange_10_price == nil
+            # Get Index price as a backup
+            lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
+            if lnmarkets_response[:status] == 'success'
+              price_btcusd_index = lnmarkets_response[:body]['index']
+            else
+              price_btcusd_index = 0.0
+            end
+            price_btcusd_binance = price_btcusd_index
+          else
+            price_btcusd_coinbase = exchange_10_price
+          end
+        end
+      else
+        puts 'Skip prices for Coinbase and Binance since interval start timestamp not in the last 10 minutes.'
+      end
+
       # # Implied Volatility T3
       # implied_volatility_t3 = 0.0
       # t3_client = T3IndexAPI.new
@@ -219,33 +266,6 @@ namespace :operations do
       #   puts t3_response[:body]
       #   implied_volatility_t3 = t3_response[:body]['value']
       # end
-
-      # # Price BTCUSD Coinbase
-      # price_btcusd_coinbase, price_btcusd_binance = 0.0, 0.0
-      # # start_timestamp_nanoseconds = start_timestamp_milliseconds * 1_000_000
-      # # response_btc_usd_trades = polygon_client.get_trades(symbol, start_timestamp_nanoseconds)
-      # # if response_macd[:status] == 'success'
-      # #   # Exchange id 1 is Coinbase
-      # #   # Exchange id 10 is Binance
-      # #   response_btc_usd_trades[:body]['results'].each do |trade|
-      # #     if trade['conditions'].include?(2) && trade['exchange'] == 1
-      # #       price_btcusd_coinbase = trade['price']
-      # #       break
-      # #     end
-      # #   end
-      # #   response_btc_usd_trades[:body]['results'].each do |trade|
-      # #     if trade['conditions'].include?(2) && trade['exchange'] == 10
-      # #       price_btcusd_binance = trade['price']
-      # #       break
-      # #     end
-      # #   end
-      # #   if coinbase_price_btcusd == 0.0
-      # #     price_btcusd_coinbase = price_btcusd_index
-      # #   end
-      # #   if binance_price_btcusd == 0.0
-      # #     price_btcusd_binance = price_btcusd_index
-      # #   end
-      # # end
 
 
       # # Avg Funding Rate
