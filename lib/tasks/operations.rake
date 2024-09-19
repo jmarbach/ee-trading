@@ -215,7 +215,7 @@ namespace :operations do
       #
       if minutes_since_loop_end_interval <= 10
         # Price BTCUSD Coinbase and Price BTCUSD Binance
-        price_btcusd_coinbase, price_btcusd_binance = 0.0, 0.0
+        price_btcusd_coinbase_open, price_btcusd_binance_open = 0.0, 0.0
         response_btc_usd_trades = polygon_client.get_trades(symbol)
         if response_macd[:status] == 'success'
           # Exchange id 1 is Coinbase
@@ -234,9 +234,9 @@ namespace :operations do
             else
               price_btcusd_index = 0.0
             end
-            price_btcusd_coinbase = price_btcusd_index
+            price_btcusd_coinbase_open = price_btcusd_index
           else
-            price_btcusd_coinbase = exchange_1_price
+            price_btcusd_coinbase_open = exchange_1_price
           end
 
           if exchange_10_price == nil
@@ -247,26 +247,25 @@ namespace :operations do
             else
               price_btcusd_index = 0.0
             end
-            price_btcusd_binance = price_btcusd_index
+            price_btcusd_binance_open = price_btcusd_index
           else
-            price_btcusd_coinbase = exchange_10_price
+            price_btcusd_binance_open = exchange_10_price
           end
         end
       else
         puts 'Skip prices for Coinbase and Binance since interval start timestamp not in the last 10 minutes.'
       end
 
-      # # Implied Volatility T3
-      # implied_volatility_t3 = 0.0
-      # t3_client = T3IndexAPI.new
-      # current_tick = Time.at(start_timestamp_milliseconds / 1000).utc.strftime("%Y-%m-%d-%H-%M-%S")
-      # t3_response = t3_client.get_tick(current_tick)
-      # if t3_response[:status] == 'success'
-      #   puts "T3 RESPONSE:"
-      #   puts t3_response[:body]
-      #   implied_volatility_t3 = t3_response[:body]['value']
-      # end
-
+      # Implied Volatility T3
+      implied_volatility_t3_open = 0.0
+      t3_client = T3IndexAPI.new
+      current_tick = Time.at(loop_start_timestamp_milliseconds / 1000).utc.strftime("%Y-%m-%d-%H-%M-%S")
+      t3_response = t3_client.get_tick(current_tick)
+      if t3_response[:status] == 'success'
+        puts "T3 RESPONSE:"
+        puts t3_response[:body]
+        implied_volatility_t3_open = t3_response[:body]['value']
+      end
 
       # # Avg Funding Rate
       # # Fix - Not getting any results
