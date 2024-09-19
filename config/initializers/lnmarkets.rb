@@ -9,12 +9,14 @@ class LnMarketsAPI
   MAX_RETRIES = 3
   BASE_DELAY = 2 # second
   MAX_DELAY = 8 # seconds
+  REQUEST_TIMEOUT = 30 # seconds
   RETRYABLE_ERRORS = [
     Faraday::ServerError,
     Faraday::ConnectionFailed,
     Faraday::TimeoutError,
     Faraday::ResourceNotFound,
-    Faraday::ClientError
+    Faraday::ClientError,
+    Net::ReadTimeout
   ]
 
   attr_reader :logger
@@ -37,7 +39,7 @@ class LnMarketsAPI
       },
       ssl: { verify: true },
       proxy: ENV["SQUID_PROXY_URL"],
-      request: { timeout: 60 }
+      request: { timeout: REQUEST_TIMEOUT, open_timeout: REQUEST_TIMEOUT }
     ) do |faraday|
       faraday.response :raise_error
       faraday.adapter Faraday.default_adapter
@@ -129,7 +131,11 @@ class LnMarketsAPI
   end
 
   def handle_error(error, elapsed_time, caller_method)
-    error_body = error.respond_to?(:response) ? (JSON.parse(error.response[:body]) rescue error.response[:body]) : nil
+    error_body = if error.respond_to?(:response) && error.response
+                   JSON.parse(error.response[:body]) rescue error.response[:body]
+                 else
+                   nil
+                 end
     error_message = error_body.is_a?(Hash) ? error_body['message'] : error.message
     
     error_response = {
