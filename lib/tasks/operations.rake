@@ -53,6 +53,14 @@ namespace :operations do
     # price direction
 
 
+    # # Price Direction
+    # if candle_close > candle_open
+    #   price_direction = 'up'
+    # else
+    #   price_direction = 'down'
+    # end
+
+
     #
     # Update the fetched row with new data
     #
@@ -267,6 +275,7 @@ namespace :operations do
         implied_volatility_t3_open = t3_response[:body]['value']
       end
 
+      # CoinGlass Indicators - https://docs.coinglass.com/reference/version-10
       # # Avg Funding Rate
       # # Fix - Not getting any results
       # avg_funding_rate = 0.0
@@ -332,13 +341,6 @@ namespace :operations do
       # # end
       # # sleep(5)
 
-      # # Price Direction
-      # if candle_close > candle_open
-      #   price_direction = 'up'
-      # else
-      #   price_direction = 'down'
-      # end
-
       # # Get the next ID
       # next_id_query = "SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`"
       # next_id_result = bigquery.query next_id_query
@@ -347,7 +349,7 @@ namespace :operations do
       # #
       # # Format timestamp
       # #
-      # formatted_start_timestamp_milliseconds = Time.at(start_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
+      # formatted_start_timestamp_milliseconds = Time.at(loop_start_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
       # formatted_end_timestamp_milliseconds = Time.at(end_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
 
       # #
