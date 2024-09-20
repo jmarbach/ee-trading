@@ -71,7 +71,7 @@ class PolygonAPI
     rescue => e
       handle_unexpected_error(e, start_time)
     end
-end
+  end
 
   def handle_response(response, start_time, caller_method:)
     elapsed_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
