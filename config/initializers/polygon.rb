@@ -2,7 +2,7 @@ require 'faraday'
 require 'json'
 require 'logger'
 
-class CoinglassAPI
+class PolygonAPI
   MAX_RETRIES = 3
   RETRY_DELAY = 10
   RETRYABLE_ERRORS = [
@@ -13,23 +13,32 @@ class CoinglassAPI
     Faraday::ClientError
   ]
 
+  SKIP_LOGGING_METHODS = ['get_last_trade']
+
+
   attr_reader :logger
 
   def initialize(log_level: Logger::INFO)
-    @conn = Faraday.new(
-      url: "https://open-api-v3.coinglass.com",
+    @conn = create_connection
+    @logger = Logger.new(STDOUT)
+    @logger.level = log_level
+  end
+
+  private
+
+  def create_connection
+    Faraday.new(
+      url: "https://api.polygon.io",
       headers: {
-        'CG-API-KEY' => "#{ENV["COINGLASS_API_TOKEN"]}",
+        'Authorization' => "Bearer #{ENV.fetch("POLYGON_API_TOKEN")}",
         'Accept' => 'application/json'
       },
       ssl: { verify: true },
       proxy: ENV["SQUID_PROXY_URL"],
-      request: { timeout: 30 }
+      request: { timeout: 10 }
     ) do |faraday|
       faraday.response :raise_error
     end
-    @logger = Logger.new(STDOUT)
-    @logger.level = log_level
   end
 
   def execute_request(method, path, params = {})
@@ -53,7 +62,7 @@ class CoinglassAPI
     rescue *RETRYABLE_ERRORS => e
       retries += 1
       if retries <= MAX_RETRIES
-        @logger.warn("CoinglassAPI Error: #{e.class} - #{e.message}. Retrying in #{RETRY_DELAY} seconds (Attempt #{retries}/#{MAX_RETRIES})")
+        @logger.warn("PolygonAPI Error: #{e.class} - #{e.message}. Retrying in #{RETRY_DELAY} seconds (Attempt #{retries}/#{MAX_RETRIES})")
         sleep RETRY_DELAY
         retry
       else
@@ -66,7 +75,7 @@ class CoinglassAPI
 
   def handle_response(response, start_time, caller_method:)
     elapsed_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
-    parsed_body = parse(response)
+    parsed_body = JSON.parse(response.body)
     
     full_response = {
       status: 'success',
@@ -75,15 +84,19 @@ class CoinglassAPI
       elapsed_time: elapsed_time.round(6)
     }
     
-    @logger.info("CoinglassAPI Response for #{caller_method}: #{JSON.pretty_generate(full_response)}")
+    if SKIP_LOGGING_METHODS.include?(caller_method)
+      @logger.info("PolygonAPI Request successful for #{caller_method}. Status: #{response.status}, Elapsed time: #{elapsed_time.round(3)}s")
+    else
+      @logger.info("PolygonAPI Response: #{JSON.pretty_generate(full_response)}")
+    end
     
     full_response
   end
 
   def handle_error(error, start_time)
     elapsed_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
-    error_body = error.response ? (parse(error.response) rescue error.response[:body]) : nil
-    error_message = error_body.is_a?(Hash) ? error_body['msg'] : error.message
+    error_body = error.response ? (JSON.parse(error.response[:body]) rescue error.response[:body]) : nil
+    error_message = error_body.is_a?(Hash) ? error_body['message'] : error.message
     
     full_error_response = {
       status: 'error',
@@ -93,7 +106,7 @@ class CoinglassAPI
       elapsed_time: elapsed_time.round(6)
     }
     
-    @logger.error("CoinglassAPI Error: #{JSON.pretty_generate(full_error_response)}")
+    @logger.error("PolygonAPI Error: #{JSON.pretty_generate(full_error_response)}")
 
     full_error_response
   end
@@ -108,46 +121,80 @@ class CoinglassAPI
       elapsed_time: elapsed_time.round(6)
     }
     
-    @logger.error("CoinglassAPI Unexpected Error: #{JSON.pretty_generate(full_error_response)}")
+    @logger.error("PolygonAPI Unexpected Error: #{JSON.pretty_generate(full_error_response)}")
     
     full_error_response
   end
 
-  def get_aggregated_open_interest(symbol, interval, start_time_seconds, end_time_seconds)
-    path = "/api/futures/openInterest/ohlc-aggregated-history"
-    params = {
-      symbol: symbol,
-      interval: interval,
-      startTime: start_time_seconds,
-      endTime: end_time_seconds
-    }.compact
+  public
+
+  def get_aggregate_bars(symbol, timespan, multiplier, start_date, end_date)
+    path = "/v2/aggs/ticker/#{symbol}/range/#{multiplier}/#{timespan}/#{start_date}/#{end_date}"
+    params = { sort: 'desc' }
     execute_request(:get, path, params)
   end
 
-  def get_aggregated_funding_rates(symbol, interval, start_time_seconds, end_time_seconds)
-    path = "/api/futures/fundingRate/oi-weight-ohlc-history"
+  def get_sma(symbol, timestamp, timespan, window, series_type)
+    path = "/v1/indicators/sma/#{symbol}"
     params = {
-      symbol: symbol,
-      interval: interval,
-      startTime: start_time_seconds,
-      endTime: end_time_seconds
-    }.compact
+      timespan: timespan,
+      window: window,
+      series_type: series_type,
+      limit: 60,
+      timestamp: timestamp
+    }
     execute_request(:get, path, params)
   end
 
-  def get_accounts_long_short_ratio(exchange, symbol, interval, start_time_seconds, end_time_seconds)
-    path = "/api/futures/globalLongShortAccountRatio/history"
+  def get_ema(symbol, timestamp, timespan, window, series_type)
+    path = "/v1/indicators/ema/#{symbol}"
     params = {
-      exchange: exchange,
-      symbol: symbol,
-      interval: interval,
-      startTime: start_time_seconds,
-      endTime: end_time_seconds
-    }.compact
+      timespan: timespan,
+      window: window,
+      series_type: series_type,
+      limit: 60,
+      timestamp: timestamp
+    }
     execute_request(:get, path, params)
   end
 
-  def parse(response)
-    JSON.parse(response.body)
+  def get_macd(symbol, timestamp, timespan, short_window, long_window, signal_window, series_type)
+    path = "/v1/indicators/macd/#{symbol}"
+    params = {
+      timespan: timespan,
+      short_window: short_window,
+      long_window: long_window,
+      signal_window: signal_window,
+      series_type: series_type,
+      timestamp: timestamp
+    }
+    execute_request(:get, path, params)
+  end
+
+  def get_rsi(symbol, timestamp, timespan, window, series_type)
+    path = "/v1/indicators/rsi/#{symbol}"
+    params = {
+      timespan: timespan,
+      window: window,
+      series_type: series_type,
+      timestamp: timestamp
+    }
+    execute_request(:get, path, params)
+  end
+
+  def get_last_trade(symbol_from, symbol_to)
+    path = "/v1/last/crypto/#{symbol_from}/#{symbol_to}"
+    execute_request(:get, path)
+  end
+
+  def get_daily_open_close(symbol_from, symbol_to, date)
+    path = "/v1/open-close/crypto/#{symbol_from}/#{symbol_to}/#{date}"
+    execute_request(:get, path)
+  end
+
+  def get_trades(symbol)
+    path = "/v3/trades/#{symbol}"
+    params = { limit: 10000 }
+    execute_request(:get, path, params)
   end
 end
