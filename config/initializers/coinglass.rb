@@ -1,7 +1,10 @@
 require 'faraday'
+require 'json'
+require 'logger'
+
 class CoinglassAPI
   MAX_RETRIES = 3
-  RETRY_DELAY = 10
+  RETRY_DELAY = 5
 
   def initialize()
     @conn = Faraday.new(
@@ -37,7 +40,7 @@ class CoinglassAPI
       end
       
       handle_response(response, start_time, caller_method: caller_locations(1,1)[0].label)
-    rescue *RETRYABLE_ERRORS => e
+    rescue => e
       retries += 1
       if retries <= MAX_RETRIES
         @logger.warn("CoinglassAPI Error: #{e.class} - #{e.message}. Retrying in #{RETRY_DELAY} seconds (Attempt #{retries}/#{MAX_RETRIES})")
@@ -53,6 +56,13 @@ class CoinglassAPI
 
   def get_aggregated_open_interest(symbol, interval, start_time_seconds, end_time_seconds)
     path = "/api/futures/openInterest/ohlc-aggregated-history"
+    params = {
+      symbol: symbol,
+      interval: interval,
+      start_time_seconds: start_time_seconds,
+      start_time_seconds: end_time_seconds
+    }.compact
+    execute_request(:get, path, params)
   end
 
   def get_aggregated_funding_rates(symbol, interval, start_time_seconds, end_time_seconds)

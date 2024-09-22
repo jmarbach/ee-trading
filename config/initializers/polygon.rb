@@ -194,7 +194,7 @@ class PolygonAPI
 
   def get_trades(symbol)
     path = "/v3/trades/#{symbol}"
-    params = { limit: 10000 }
+    params = { limit: 50000 }
     execute_request(:get, path, params)
   end
 end
