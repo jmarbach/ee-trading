@@ -161,31 +161,37 @@ namespace :operations do
       lnmarkets_client = LnMarketsAPI.new
       coinglass_client = CoinglassAPI.new
       t3_client = T3IndexAPI.new
-      symbol_polygon = 'X:BTCUSD'
-      timespan = 'minute'
-      window = 30
 
       #
       # Fetch Close metrics
       #
+
+      # Polygon inputs
+      symbol_polygon = 'X:BTCUSD'
+      timespan = 'minute'
+      window = 30
       series_type = 'open'
+
       # RSI
       rsi_open = 0.0
-      response_rsi = polygon_client.get_rsi(symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
+      response_rsi = polygon_client.get_rsi(
+        symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_rsi[:status] == 'success'
         rsi_open = response_rsi[:body]['results']['values'][0]['value'].round(2)
       end
 
       # SMA
       simple_moving_average_open = 0.0
-      response_sma = polygon_client.get_sma(symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
+      response_sma = polygon_client.get_sma(
+        symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_sma[:status] == 'success'
         simple_moving_average_open = response_sma[:body]['results']['values'][0]['value'].round(2)
       end
 
       # EMA
       exponential_moving_average_open = 0.0
-      response_ema = polygon_client.get_ema(symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
+      response_ema = polygon_client.get_ema(
+        symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_ema[:status] == 'success'
         exponential_moving_average_open = response_ema[:body]['results']['values'][0]['value'].round(2)
       end
@@ -195,7 +201,8 @@ namespace :operations do
       short_window = 120
       long_window = 260
       signal_window = 30
-      response_macd = polygon_client.get_macd(symbol_polygon, loop_start_timestamp_milliseconds, timespan, short_window, long_window, signal_window, series_type)
+      response_macd = polygon_client.get_macd(
+        symbol_polygon, loop_start_timestamp_milliseconds, timespan, short_window, long_window, signal_window, series_type)
       if response_macd[:status] == 'success'
         macd_histogram_open = response_macd[:body]['results']['values'][0]['histogram'].round(2)
       end
@@ -206,7 +213,8 @@ namespace :operations do
       aggregates_multiplier = 30
       start_date = (loop_start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
       end_date = loop_start_timestamp_milliseconds
-      response_volume = polygon_client.get_aggregate_bars(symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
+      response_volume = polygon_client.get_aggregate_bars(
+        symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_volume[:status] == 'success'
         volume_prev_interval = response_volume[:body]['results'][0]['v'].round(2)
       end
@@ -217,55 +225,47 @@ namespace :operations do
       aggregates_multiplier = 30
       start_date = loop_start_timestamp_milliseconds
       end_date = (loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds)
-      response_volume = polygon_client.get_aggregate_bars(symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
+      response_volume = polygon_client.get_aggregate_bars(
+        symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_volume[:status] == 'success'
         candle_open = response_volume[:body]['results'][1]['o'].round(2)
       end
 
+      # Price BTCUSD Coinbase and Price BTCUSD Index
+      price_btcusd_coinbase_open, price_btcusd_index_open = 0.0, 0.0
       #
       # Only fetch this data when script is being run within 10 minutes of interval start
       #
       if minutes_since_loop_end_interval <= 10
-        # Price BTCUSD Coinbase and Price BTCUSD Binance
-        price_btcusd_coinbase_open, price_btcusd_binance_open = 0.0, 0.0
+        # Get Index
+        lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
+        if lnmarkets_response[:status] == 'success'
+          price_btcusd_index = lnmarkets_response[:body]['index']
+        else
+          price_btcusd_index = 0.0
+        end
+        price_btcusd_index_open = price_btcusd_index
+
+        # Get Coinbase
         response_btc_usd_trades = polygon_client.get_trades(symbol_polygon)
         if response_macd[:status] == 'success'
           # Exchange id 1 is Coinbase
           # Exchange id 10 is Binance
-          exchange_1_entry = response_btc_usd_trades[:body]["results"].find { |entry| entry["exchange"] == 1 && entry["conditions"].include?(2) }
-          exchange_10_entry = response_btc_usd_trades[:body]["results"].find { |entry| entry["exchange"] == 10 && entry["conditions"].include?(2) }
+          exchange_1_entry = response_btc_usd_trades[:body]["results"]
+            .sort_by { |entry| -entry["participant_timestamp"].to_i }
+            .find { |entry| entry["exchange"] == 1 && entry["conditions"].include?(2) }
 
           exchange_1_price = exchange_1_entry&.[]("price")
           exchange_10_price = exchange_10_entry&.[]("price")
 
           if exchange_1_price == nil
-            # Get Index price as a backup
-            lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
-            if lnmarkets_response[:status] == 'success'
-              price_btcusd_index = lnmarkets_response[:body]['index']
-            else
-              price_btcusd_index = 0.0
-            end
             price_btcusd_coinbase_open = price_btcusd_index
           else
             price_btcusd_coinbase_open = exchange_1_price
           end
-
-          if exchange_10_price == nil
-            # Get Index price as a backup
-            lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
-            if lnmarkets_response[:status] == 'success'
-              price_btcusd_index = lnmarkets_response[:body]['index']
-            else
-              price_btcusd_index = 0.0
-            end
-            price_btcusd_binance_open = price_btcusd_index
-          else
-            price_btcusd_binance_open = exchange_10_price
-          end
         end
       else
-        puts 'Skip prices for Coinbase and Binance since interval start timestamp not in the last 10 minutes.'
+        puts 'Skip prices for Coinbase and Index since interval start timestamp not in the last 10 minutes.'
       end
 
       # Implied Volatility T3
@@ -288,21 +288,24 @@ namespace :operations do
 
       # Avg Funding Rate
       avg_funding_rate_open = 0.0
-      coinglass_response = coinglass_client.get_aggregated_funding_rates(symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
+      coinglass_response = coinglass_client.get_aggregated_funding_rates(
+        symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success'
         avg_funding_rate_open = coinglass_response[:body]['data'][0]['c']
       end
 
       # Aggregate Open Interest
       aggregate_open_interest_open = 0.0
-      coinglass_response = coinglass_client.get_aggregated_open_interest(symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
+      coinglass_response = coinglass_client.get_aggregated_open_interest(
+        symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success'
         aggregate_open_interest_open = coinglass_response[:body]['data'][0]['c']
       end
 
       # Avg Long Short Ratio
       avg_long_short_ratio_open = 0.0
-      coinglass_response = coinglass_client.get_accounts_long_short_ratio(exchange, symbol_coinglass_long_short_ratio, interval, start_timestamp_seconds, end_timestamp_seconds)
+      coinglass_response = coinglass_client.get_accounts_long_short_ratio(
+        exchange, symbol_coinglass_long_short_ratio, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success'
         avg_long_short_ratio_open = coinglass_response[:body]['data'][0]['longShortRatio']
       end
@@ -312,11 +315,13 @@ namespace :operations do
       next_id_result = bigquery.query next_id_query
       next_id = next_id_result.first[:next_id]
 
-      # #
-      # # Format timestamp
-      # #
-      # formatted_start_timestamp_milliseconds = Time.at(loop_start_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
-      # formatted_end_timestamp_milliseconds = Time.at(end_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
+      #
+      # Format timestamp
+      #
+      formatted_start_timestamp_milliseconds = Time.at(
+        loop_start_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
+      formatted_end_timestamp_milliseconds = Time.at(
+        (loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds) / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
 
       #
       # Prepare new data to insert to table
@@ -330,9 +335,9 @@ namespace :operations do
         simple_moving_average_open: simple_moving_average_open,
         exponential_moving_average_open: exponential_moving_average_open,
         macd_histogram_open: macd_histogram_open,
-        candle_open: candle_close,
+        candle_open: candle_open,
         price_btcusd_coinbase_open: price_btcusd_coinbase_open,
-        price_btcusd_binance_open: price_btcusd_binance_open,
+        price_btcusd_index_open: price_btcusd_index_open,
         avg_funding_rate_open: avg_funding_rate_open,
         aggregate_open_interest_open: aggregate_open_interest_open,
         implied_volatility_t3_open: implied_volatility_t3_open,
