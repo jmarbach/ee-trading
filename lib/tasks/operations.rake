@@ -161,7 +161,7 @@ namespace :operations do
       lnmarkets_client = LnMarketsAPI.new
       coinglass_client = CoinglassAPI.new
       t3_client = T3IndexAPI.new
-      symbol = 'X:BTCUSD'
+      symbol_polygon = 'X:BTCUSD'
       timespan = 'minute'
       window = 30
 
@@ -171,21 +171,21 @@ namespace :operations do
       series_type = 'open'
       # RSI
       rsi_open = 0.0
-      response_rsi = polygon_client.get_rsi(symbol, loop_start_timestamp_milliseconds, timespan, window, series_type)
+      response_rsi = polygon_client.get_rsi(symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_rsi[:status] == 'success'
         rsi_open = response_rsi[:body]['results']['values'][0]['value'].round(2)
       end
 
       # SMA
       simple_moving_average_open = 0.0
-      response_sma = polygon_client.get_sma(symbol, loop_start_timestamp_milliseconds, timespan, window, series_type)
+      response_sma = polygon_client.get_sma(symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_sma[:status] == 'success'
         simple_moving_average_open = response_sma[:body]['results']['values'][0]['value'].round(2)
       end
 
       # EMA
       exponential_moving_average_open = 0.0
-      response_ema = polygon_client.get_ema(symbol, loop_start_timestamp_milliseconds, timespan, window, series_type)
+      response_ema = polygon_client.get_ema(symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_ema[:status] == 'success'
         exponential_moving_average_open = response_ema[:body]['results']['values'][0]['value'].round(2)
       end
@@ -195,7 +195,7 @@ namespace :operations do
       short_window = 120
       long_window = 260
       signal_window = 30
-      response_macd = polygon_client.get_macd(symbol, loop_start_timestamp_milliseconds, timespan, short_window, long_window, signal_window, series_type)
+      response_macd = polygon_client.get_macd(symbol_polygon, loop_start_timestamp_milliseconds, timespan, short_window, long_window, signal_window, series_type)
       if response_macd[:status] == 'success'
         macd_histogram_open = response_macd[:body]['results']['values'][0]['histogram'].round(2)
       end
@@ -206,7 +206,7 @@ namespace :operations do
       aggregates_multiplier = 30
       start_date = (loop_start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
       end_date = loop_start_timestamp_milliseconds
-      response_volume = polygon_client.get_aggregate_bars(symbol, aggregates_timespan, aggregates_multiplier, start_date, end_date)
+      response_volume = polygon_client.get_aggregate_bars(symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_volume[:status] == 'success'
         volume_prev_interval = response_volume[:body]['results'][0]['v'].round(2)
       end
@@ -217,7 +217,7 @@ namespace :operations do
       aggregates_multiplier = 30
       start_date = loop_start_timestamp_milliseconds
       end_date = (loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds)
-      response_volume = polygon_client.get_aggregate_bars(symbol, aggregates_timespan, aggregates_multiplier, start_date, end_date)
+      response_volume = polygon_client.get_aggregate_bars(symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_volume[:status] == 'success'
         candle_open = response_volume[:body]['results'][1]['o'].round(2)
       end
@@ -228,7 +228,7 @@ namespace :operations do
       if minutes_since_loop_end_interval <= 10
         # Price BTCUSD Coinbase and Price BTCUSD Binance
         price_btcusd_coinbase_open, price_btcusd_binance_open = 0.0, 0.0
-        response_btc_usd_trades = polygon_client.get_trades(symbol)
+        response_btc_usd_trades = polygon_client.get_trades(symbol_polygon)
         if response_macd[:status] == 'success'
           # Exchange id 1 is Coinbase
           # Exchange id 10 is Binance
@@ -279,71 +279,38 @@ namespace :operations do
       #
       # CoinGlass Indicators - https://docs.coinglass.com/reference/version-10
       #
+      symbol_coinglass = 'BTC'
+      symbol_coinglass_long_short_ratio = 'BTCUSDT'
+      start_timestamp_seconds = ((loop_start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      end_timestamp_seconds = ((loop_start_timestamp_milliseconds) / 1000.0).round(0)
+      interval = "30m"
+      exchange = "Binance"
+
       # Avg Funding Rate
       avg_funding_rate_open = 0.0
-      # start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      # end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
-      # interval = "30min"
-      # symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6'
-      # begin
-      #   coinalyze_response = coinalyze_client.get_avg_funding_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
-      #   if coinalyze_response[:body].count > 0
-      #     coinalyze_response[:body].each_with_index do |f, index|
-      #       avg_funding_rate += coinalyze_response[:body][index]['history'][0]['c']
-      #     end
-      #     avg_funding_rate = (avg_funding_rate/coinalyze_response[:body].count).round(4)
-      #   end
-      # rescue => e
-      #   puts e
-      #   puts 'Error fetching funding rate data'
-      # end
+      coinglass_response = coinglass_client.get_aggregated_funding_rates(symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
+      if coinglass_response[:status] == 'success'
+        avg_funding_rate_open = coinglass_response[:body]['data'][0]['c']
+      end
 
       # Aggregate Open Interest
       aggregate_open_interest_open = 0.0
-      # start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      # end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
-      # interval = "30min"
-      # symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
-      # begin
-      #   coinalyze_response = coinalyze_client.get_avg_open_interest_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
-      #   if coinalyze_response[:body].count > 0
-      #     coinalyze_response[:body].each_with_index do |f, index|
-      #       aggregate_open_interest += coinalyze_response[:body][index]['history'][0]['c']
-      #     end
-      #     aggregate_open_interest = aggregate_open_interest.round(1)
-      #   end
-      # rescue => e
-      #   puts e
-      #   puts 'Error fetching open interest data'
-      # end
+      coinglass_response = coinglass_client.get_aggregated_open_interest(symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
+      if coinglass_response[:status] == 'success'
+        aggregate_open_interest_open = coinglass_response[:body]['data'][0]['c']
+      end
 
       # Avg Long Short Ratio
       avg_long_short_ratio_open = 0.0
-      # start_timestamp_seconds = ((start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      # end_timestamp_seconds = ((start_timestamp_milliseconds) / 1000.0).round(0)
-      # interval = "30min"
-      # symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
-      # begin
-      #   coinalyze_response = coinalyze_client.get_long_short_ratio_history(symbols, interval, start_timestamp_seconds, end_timestamp_seconds)
-      #   if coinalyze_response[:body].count > 0
-      #     count_of_records = 0.0
-      #     coinalyze_response[:body].each_with_index do |f, index|
-      #       coinalyze_response[:body][index]['history'].each do |o|
-      #         count_of_records += 1.0
-      #         avg_long_short_ratio += o['r']
-      #       end
-      #     end
-      #     avg_long_short_ratio = (avg_long_short_ratio / count_of_records).round(3)
-      #   end
-      # rescue => e
-      #   puts e
-      #   puts 'Error fetching long/short ratio data'
-      # end
+      coinglass_response = coinglass_client.get_accounts_long_short_ratio(exchange, symbol_coinglass_long_short_ratio, interval, start_timestamp_seconds, end_timestamp_seconds)
+      if coinglass_response[:status] == 'success'
+        avg_long_short_ratio_open = coinglass_response[:body]['data'][0]['longShortRatio']
+      end
 
-      # # Get the next ID
-      # next_id_query = "SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`"
-      # next_id_result = bigquery.query next_id_query
-      # next_id = next_id_result.first[:next_id]
+      # Get the next ID
+      next_id_query = "SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`"
+      next_id_result = bigquery.query next_id_query
+      next_id = next_id_result.first[:next_id]
 
       # #
       # # Format timestamp
@@ -366,10 +333,10 @@ namespace :operations do
         candle_open: candle_close,
         price_btcusd_coinbase_open: price_btcusd_coinbase_open,
         price_btcusd_binance_open: price_btcusd_binance_open,
-        avg_funding_rate_open: avg_funding_rate,
-        aggregate_open_interest_open: aggregate_open_interest,
+        avg_funding_rate_open: avg_funding_rate_open,
+        aggregate_open_interest_open: aggregate_open_interest_open,
         implied_volatility_t3_open: implied_volatility_t3_open,
-        avg_long_short_ratio_open: avg_long_short_ratio,
+        avg_long_short_ratio_open: avg_long_short_ratio_open,
       }
       row = new_data
 
