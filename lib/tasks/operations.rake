@@ -236,7 +236,8 @@ namespace :operations do
       #
       # Only fetch this data when script is being run within 10 minutes of interval start
       #
-      if minutes_since_loop_end_interval <= 10
+      if loop_start_timestamp_milliseconds == loop_end_timestamp_milliseconds &&
+        minutes_since_loop_end_interval <= 10
         # Get Index
         lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
         if lnmarkets_response[:status] == 'success'
@@ -256,7 +257,6 @@ namespace :operations do
             .find { |entry| entry["exchange"] == 1 && entry["conditions"].include?(2) }
 
           exchange_1_price = exchange_1_entry&.[]("price")
-          exchange_10_price = exchange_10_entry&.[]("price")
 
           if exchange_1_price == nil
             price_btcusd_coinbase_open = price_btcusd_index
