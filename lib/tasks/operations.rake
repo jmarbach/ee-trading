@@ -89,7 +89,20 @@ namespace :operations do
     table = dataset.table(TABLE_ID)
 
     row_key = { timestamp_close: last_row[:timestamp_close] }
-    update_response = table.update row_key, updated_row
+
+    max_retries = 3
+    retries = 0
+    begin
+      update_response = table.update row_key, updated_row
+    rescue Google::Cloud::Error, HTTPClient::ReceiveTimeoutError => e
+      if retries < max_retries
+        retries += 1
+        sleep(2 ** retries) # Exponential backoff
+        retry
+      else
+        raise e
+      end
+    end
 
     if update_response.success?
       puts "Row updated successfully"
@@ -312,7 +325,19 @@ namespace :operations do
 
       # Get the next ID
       next_id_query = "SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`"
-      next_id_result = bigquery.query next_id_query
+      max_retries = 3
+      retries = 0
+      begin
+        next_id_result = bigquery.query next_id_query
+      rescue Google::Cloud::Error, HTTPClient::ReceiveTimeoutError => e
+        if retries < max_retries
+          retries += 1
+          sleep(2 ** retries) # Exponential backoff
+          retry
+        else
+          raise e
+        end
+      end
       next_id = next_id_result.first[:next_id]
 
       #
@@ -350,7 +375,21 @@ namespace :operations do
       #
       dataset = bigquery.dataset(DATASET_ID)
       table = dataset.table(TABLE_ID)
-      table.insert row
+
+      # Retry on select Google Cloud errors
+      max_retries = 3
+      retries = 0
+      begin
+        table.insert row
+      rescue Google::Cloud::Error, HTTPClient::ReceiveTimeoutError => e
+        if retries < max_retries
+          retries += 1
+          sleep(2 ** retries) # Exponential backoff
+          retry
+        else
+          raise e
+        end
+      end
 
       # puts "Inserted new data: #{new_data}"
       loop_start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
