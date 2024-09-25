@@ -189,24 +189,33 @@ namespace :operations do
       rsi_open = 0.0
       response_rsi = polygon_client.get_rsi(
         symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
-      if response_rsi[:status] == 'success'
+      if response_rsi[:status] == 'success' &&
+        response_rsi[:body]['results']['values'].present?
         rsi_open = response_rsi[:body]['results']['values'][0]['value'].round(2)
+      else
+        rsi_open = 0.0
       end
 
       # SMA
       simple_moving_average_open = 0.0
       response_sma = polygon_client.get_sma(
         symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
-      if response_sma[:status] == 'success'
+      if response_sma[:status] == 'success' &&
+        response_sma[:body]['results']['values'].present?
         simple_moving_average_open = response_sma[:body]['results']['values'][0]['value'].round(2)
+      else
+        simple_moving_average_open = 0.0
       end
 
       # EMA
       exponential_moving_average_open = 0.0
       response_ema = polygon_client.get_ema(
         symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
-      if response_ema[:status] == 'success'
+      if response_ema[:status] == 'success' &&
+        response_ema[:body]['results']['values'].present?
         exponential_moving_average_open = response_ema[:body]['results']['values'][0]['value'].round(2)
+      else
+        exponential_moving_average_open = 0.0
       end
 
       # MACD
@@ -216,8 +225,11 @@ namespace :operations do
       signal_window = 30
       response_macd = polygon_client.get_macd(
         symbol_polygon, loop_start_timestamp_milliseconds, timespan, short_window, long_window, signal_window, series_type)
-      if response_macd[:status] == 'success'
+      if response_macd[:status] == 'success' &&
+        response_macd[:body]['results']['values'].present?
         macd_histogram_open = response_macd[:body]['results']['values'][0]['histogram'].round(2)
+      else
+        macd_histogram_open = 0.0
       end
 
       # Volume
@@ -226,10 +238,13 @@ namespace :operations do
       aggregates_multiplier = 30
       start_date = (loop_start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
       end_date = loop_start_timestamp_milliseconds
-      response_volume = polygon_client.get_aggregate_bars(
+      response_prev_volume = polygon_client.get_aggregate_bars(
         symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
-      if response_volume[:status] == 'success'
-        volume_prev_interval = response_volume[:body]['results'][0]['v'].round(2)
+      if response_prev_volume[:status] == 'success' &&
+        response_prev_volume[:body]['resultsCount'] > 0
+        volume_prev_interval = response_prev_volume[:body]['results'][0]['v'].round(2)
+      else
+        volume_prev_interval = 0.0
       end
 
       # Candle Open
@@ -240,8 +255,12 @@ namespace :operations do
       end_date = (loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds)
       response_volume = polygon_client.get_aggregate_bars(
         symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
-      if response_volume[:status] == 'success'
+      if response_volume[:status] == 'success' && 
+        response_volume[:body]['resultsCount'] > 0
         candle_open = response_volume[:body]['results'][1]['o'].round(2)
+      else
+        # No results found
+        candle_open = 0.0
       end
 
       # Price BTCUSD Coinbase and Price BTCUSD Index
@@ -311,16 +330,22 @@ namespace :operations do
       aggregate_open_interest_open = 0.0
       coinglass_response = coinglass_client.get_aggregated_open_interest(
         symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
-      if coinglass_response[:status] == 'success'
+      if coinglass_response[:status] == 'success' && 
+        coinglass_response[:body]['data'].present?
         aggregate_open_interest_open = coinglass_response[:body]['data'][0]['c']
+      else
+        aggregate_open_interest_open = 0.0
       end
 
       # Avg Long Short Ratio
       avg_long_short_ratio_open = 0.0
       coinglass_response = coinglass_client.get_accounts_long_short_ratio(
         exchange, symbol_coinglass_long_short_ratio, interval, start_timestamp_seconds, end_timestamp_seconds)
-      if coinglass_response[:status] == 'success'
+      if coinglass_response[:status] == 'success' &&
+        coinglass_response[:body]['data'].present?
         avg_long_short_ratio_open = coinglass_response[:body]['data'][0]['longShortRatio']
+      else
+        avg_long_short_ratio_open = 0.0
       end
 
       # Get the next ID
