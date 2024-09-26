@@ -420,45 +420,55 @@ namespace :operations do
       loop_start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
       sleep(5)
     end
+    puts "Loop finished before next interval: #{loop_start_timestamp_milliseconds}"
+    puts "End operations:generate_thirty_minute_training_data_next_interval"
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+  end
 
+  task generate_thirty_minute_prediction: :environment do
+    puts "Begin operations:generate_thirty_minute_training_data_next_interval"
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     #
     # Make prediction
     #
-    # query = <<-SQL
-    #   WITH latest_data AS (
-    #     SELECT
-    #       rsi_open,
-    #       volume_prev_interval,
-    #       simple_moving_average_open,
-    #       exponential_moving_average_open,
-    #       macd_histogram_open,
-    #       candle_open,
-    #       price_btcusd_coinbase_open,
-    #       price_btcusd_binance_open,
-    #       avg_funding_rate_open,
-    #       aggregate_open_interest_open,
-    #       implied_volatility_t3_open,
-    #       avg_long_short_ratio_open
-    #     FROM
-    #       `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
-    #     ORDER BY timestamp DESC
-    #     LIMIT 1
-    #   )
-    #   SELECT
-    #     *
-    #   FROM
-    #     ML.PREDICT(MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`,
-    #       (SELECT * FROM latest_data)
-    #     );
-    # SQL
+    query = <<-SQL
+      WITH latest_data AS (
+        SELECT
+          rsi_open,
+          volume_prev_interval,
+          simple_moving_average_open,
+          exponential_moving_average_open,
+          macd_histogram_open,
+          candle_open,
+          price_btcusd_coinbase_open,
+          price_btcusd_index_open,
+          avg_funding_rate_open,
+          aggregate_open_interest_open,
+          implied_volatility_t3_open,
+          avg_long_short_ratio_open
+        FROM
+          `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
+        WHERE timestamp_close >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
+        ORDER BY id DESC
+        LIMIT 1
+      )
+      SELECT
+        *
+      FROM
+        ML.PREDICT(MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`,
+          (SELECT * FROM latest_data)
+        );
+    SQL
 
-    # #
-    # # Log prediction result
-    # #
-    # results = bigquery.query query
-    # results.each do |row|
-    #   puts row.to_json
-    # end
+    #
+    # Log prediction result
+    #
+    results = bigquery.query query
+    results.each do |row|
+      puts row.to_json
+    end
 
     # # Assuming you've just inserted a row and have its ID
     # last_inserted_id = next_id
@@ -546,7 +556,7 @@ namespace :operations do
     #
     # End
     #
-    puts "End operations:generate_thirty_minute_training_data_next_interval"
+    puts "End operations:generate_thirty_minute_prediction"
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
