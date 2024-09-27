@@ -123,14 +123,21 @@ namespace :operations do
     #
     require "google/cloud/bigquery"
     PROJECT_ID = "encrypted-energy"
-    bigquery = Google::Cloud::Bigquery.new(project: PROJECT_ID)
+
+
+    if rails.env?
+    bigquery = if Rails.env.production?
+                  credentials = JSON.parse(ENV['GOOGLE_APPLICATION_CREDENTIALS'], symbolize_names: true)
+                  bigquery = Google::Cloud::Bigquery.new(credentials: credentials, project: PROJECT_ID)
+                else
+                   bigquery = Google::Cloud::Bigquery.new(project: PROJECT_ID)
+                end
 
     #
     # Set dataset, table, and table names
     #
     DATASET_ID = "market_indicators"
     TABLE_ID = "thirty_minute_training_data"
-    MODEL_ID = "thirty_minute_random_forest"
 
     #
     # Fetch last date in the training data table
