@@ -163,7 +163,7 @@ namespace :operations do
     # Loop through each 30min interval and fetch market indicators
     #   + Make prediction if latest start timestamp is within the last 30 minutes
     #
-    while loop_start_timestamp_milliseconds <= loop_end_timestamp_milliseconds
+    while loop_start_timestamp_milliseconds < loop_end_timestamp_milliseconds
       puts "Loop start timestamp milliseconds: #{loop_start_timestamp_milliseconds}"
       puts ""
       #
