@@ -162,13 +162,14 @@ namespace :operations do
       min: time_now_utc.min < 30 ? 0 : 30
     )
     loop_end_timestamp_milliseconds = most_recent_30min_interval.to_i.in_milliseconds
+    last_loop_start_timestamp_milliseconds = (loop_end_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
     minutes_since_loop_end_interval = ((time_now_utc - most_recent_30min_interval) / 60).to_i
 
     #
     # Loop through each 30min interval and fetch market indicators
     #   + Make prediction if latest start timestamp is within the last 30 minutes
     #
-    while loop_start_timestamp_milliseconds < loop_end_timestamp_milliseconds
+    while loop_start_timestamp_milliseconds <= last_loop_start_timestamp_milliseconds
       puts "Loop start timestamp milliseconds: #{loop_start_timestamp_milliseconds}"
       puts ""
       #
@@ -273,7 +274,7 @@ namespace :operations do
       #
       # Only fetch this data when script is being run within 10 minutes of interval start
       #
-      if loop_start_timestamp_milliseconds == loop_end_timestamp_milliseconds &&
+      if loop_start_timestamp_milliseconds == last_loop_start_timestamp_milliseconds &&
         minutes_since_loop_end_interval <= 10
         # Get Index
         lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
