@@ -124,8 +124,6 @@ namespace :operations do
     require "google/cloud/bigquery"
     PROJECT_ID = "encrypted-energy"
 
-
-    if rails.env?
     bigquery = if Rails.env.production?
                   credentials = JSON.parse(ENV['GOOGLE_APPLICATION_CREDENTIALS'], symbolize_names: true)
                   bigquery = Google::Cloud::Bigquery.new(credentials: credentials, project: PROJECT_ID)
