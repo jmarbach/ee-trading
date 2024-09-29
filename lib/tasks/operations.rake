@@ -62,7 +62,9 @@ namespace :operations do
       #
       # Fetch relevant row
       #
-      query = "SELECT id FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}` WHERE timestamp_close = '#{parsed_last_timestamp}' LIMIT 1"
+      interval_timestamp_close = loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds
+      time_obj_interval_timestamp_close = Time.at(interval_timestamp_close / 1000.0).utc
+      query = "SELECT id FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}` WHERE timestamp_close = '#{time_obj_interval_timestamp_close}' LIMIT 1"
       results = bigquery.query(query)
       row_id = results.first ? results.first[:id] : nil
 
@@ -650,7 +652,7 @@ namespace :operations do
           avg_long_short_ratio_open
         FROM
           `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
-        WHERE timestamp_close >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
+        WHERE timestamp_close >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 MINUTE)
         ORDER BY id DESC
         LIMIT 1
       )
