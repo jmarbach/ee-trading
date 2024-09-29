@@ -11,104 +11,300 @@ namespace :operations do
     #
     require "google/cloud/bigquery"
     PROJECT_ID = "encrypted-energy"
-    bigquery = Google::Cloud::Bigquery.new(project: PROJECT_ID)
+
+    bigquery = if Rails.env.production?
+                  credentials = JSON.parse(ENV['GOOGLE_APPLICATION_CREDENTIALS'], symbolize_names: true)
+                  bigquery = Google::Cloud::Bigquery.new(credentials: credentials, project: PROJECT_ID)
+                else
+                   bigquery = Google::Cloud::Bigquery.new(project: PROJECT_ID)
+                end
 
     #
     # Set dataset, table, and table names
     #
     DATASET_ID = "market_indicators"
     TABLE_ID = "thirty_minute_training_data"
-    MODEL_ID = "thirty_minute_random_forest"
 
     #
-    # Fetch last row from BigQuery
+    # Fetch last date in the training data table
     #
-    query = "SELECT * FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}` ORDER BY timestamp_close DESC LIMIT 1"
+    query = "SELECT timestamp_close FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}` WHERE candle_open IS NOT NULL AND candle_close IS NULL ORDER BY timestamp_close ASC LIMIT 1"
     results = bigquery.query(query)
-    last_row = results.first
+    last_timestamp_close = results.first ? results.first[:timestamp_close] : nil
 
-    if last_row
-      puts "Last entry in the training data table: #{last_row[:timestamp_close]}"
+    if last_timestamp_close
+      puts "Last entry in the training data table: #{last_timestamp_close}"
     else
       abort "No entries found in the training data table"
     end
 
     #
-    # Fetch previous interval Close metrics
+    # Assign initial loop start date based on the last timestamp entry with candle_open value but no candle_close value
     #
-    # rsi
-    # volume
-    # simple_moving_average
-    # exponential_moving_average
-    # macd histogram
-    # candle close
-    # candle high
-    # candle low
-    # price btcusd coinbase
-    # price btcusd binance
-    # avg funding rate
-    # aggregate open interest
-    # implied volatility t3
-    # avg long short ratio
-    # price direction
+    parsed_last_timestamp = Time.parse(last_timestamp_close.to_s).utc
+    loop_start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds - 30.minutes.to_i.in_milliseconds)
 
-
-    # # Price Direction
-    # if candle_close > candle_open
-    #   price_direction = 'up'
-    # else
-    #   price_direction = 'down'
-    # end
-
+    time_now_utc = Time.now.utc
+    most_recent_30min_interval = time_now_utc.change(
+      min: time_now_utc.min < 30 ? 0 : 30
+    )
+    loop_end_timestamp_milliseconds = most_recent_30min_interval.to_i.in_milliseconds
+    last_loop_start_timestamp_milliseconds = (loop_end_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
+    minutes_since_loop_end_interval = ((time_now_utc - most_recent_30min_interval) / 60).to_i
 
     #
-    # Update the fetched row with new data
+    # Loop through each 30min interval and fetch interval Close market indicators
+    #   + Make prediction if latest start timestamp is within the last 30 minutes
     #
-    updated_row = {
-      rsi_close: rsi,
-      volume_open_to_close: volume,
-      simple_moving_average_close: simple_moving_average,
-      exponential_moving_average_close: exponential_moving_average,
-      macd_histogram_close: macd_histogram,
-      candle_close: candle_close,
-      candle_high: candle_high,
-      candle_low: candle_low,
-      price_btcusd_coinbase_close: price_btcusd_coinbase,
-      price_btcusd_binance_close: price_btcusd_binance,
-      avg_funding_rate_close: avg_funding_rate,
-      aggregate_open_interest_close: aggregate_open_interest,
-      implied_volatility_t3_close: implied_volatility_t3,
-      avg_long_short_ratio_close: avg_long_short_ratio,
-      price_direction: price_direction
-    }
+    while loop_start_timestamp_milliseconds <= last_loop_start_timestamp_milliseconds
+      puts "Loop start timestamp milliseconds: #{loop_start_timestamp_milliseconds}"
+      puts ""
+      #
+      # Fetch relevant row
+      #
+      query = "SELECT id FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}` WHERE timestamp_close = '#{parsed_last_timestamp}' LIMIT 1"
+      results = bigquery.query(query)
+      row_id = results.first ? results.first[:id] : nil
 
-    #
-    # Update the row in BigQuery using the native update method
-    #
-    dataset = bigquery.dataset(DATASET_ID)
-    table = dataset.table(TABLE_ID)
-
-    row_key = { timestamp_close: last_row[:timestamp_close] }
-
-    max_retries = 3
-    retries = 0
-    begin
-      update_response = table.update row_key, updated_row
-    rescue Google::Cloud::Error, HTTPClient::ReceiveTimeoutError => e
-      if retries < max_retries
-        retries += 1
-        sleep(2 ** retries) # Exponential backoff
-        retry
+      if row_id
+        puts "Update row #{row} in #{TABLE_ID}."
       else
-        raise e
+        abort "No entries found in the training data table"
       end
-    end
 
-    if update_response.success?
-      puts "Row updated successfully"
-    else
-      puts "Error updating row: #{update_response.error}"
+      #
+      # Fetch market indicators from Polygon and other sources
+      #
+      # Initialize shared inputs
+      polygon_client = PolygonAPI.new
+      lnmarkets_client = LnMarketsAPI.new
+      coinglass_client = CoinglassAPI.new
+      t3_client = T3IndexAPI.new
+
+      #
+      # Fetch Close metrics
+      #
+
+      # Polygon inputs
+      symbol_polygon = 'X:BTCUSD'
+      timespan = 'minute'
+      window = 30
+      series_type = 'close'
+
+      # RSI
+      rsi_close = 0.0
+      response_rsi = polygon_client.get_rsi(
+        symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
+      if response_rsi[:status] == 'success' &&
+        response_rsi[:body]['results']['values'].present?
+        rsi_close = response_rsi[:body]['results']['values'][0]['value'].round(2)
+      else
+        rsi_close = 0.0
+      end
+
+      # SMA
+      simple_moving_average_close = 0.0
+      response_sma = polygon_client.get_sma(
+        symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
+      if response_sma[:status] == 'success' &&
+        response_sma[:body]['results']['values'].present?
+        simple_moving_average_close = response_sma[:body]['results']['values'][0]['value'].round(2)
+      else
+        simple_moving_average_close = 0.0
+      end
+
+      # EMA
+      exponential_moving_average_close = 0.0
+      response_ema = polygon_client.get_ema(
+        symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
+      if response_ema[:status] == 'success' &&
+        response_ema[:body]['results']['values'].present?
+        exponential_moving_average_close = response_ema[:body]['results']['values'][0]['value'].round(2)
+      else
+        exponential_moving_average_close = 0.0
+      end
+
+      # MACD
+      macd_histogram_close = 0.0
+      short_window = 120
+      long_window = 260
+      signal_window = 30
+      response_macd = polygon_client.get_macd(
+        symbol_polygon, loop_start_timestamp_milliseconds, timespan, short_window, long_window, signal_window, series_type)
+      if response_macd[:status] == 'success' &&
+        response_macd[:body]['results']['values'].present?
+        macd_histogram_close = response_macd[:body]['results']['values'][0]['histogram'].round(2)
+      else
+        macd_histogram_close = 0.0
+      end
+
+      # Volume, Candle Close, Candle High, Candle Low
+      volume_open_to_close = 0.0
+      candle_open, candle_close, candle_high, candle_low = 0.0, 0.0, 0.0, 0.0
+      aggregates_timespan = 'minute'
+      aggregates_multiplier = 30
+      start_date = loop_start_timestamp_milliseconds
+      end_date = (loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds)
+      response_open_to_close_volume = polygon_client.get_aggregate_bars(
+        symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
+      if response_open_to_close_volume[:status] == 'success' &&
+        response_open_to_close_volume[:body]['resultsCount'] > 0
+        volume_open_to_close = response_open_to_close_volume[:body]['results'][0]['v'].round(2)
+        candle_open = response_open_to_close_volume[:body]['results'][0]['o'].round(2)
+        candle_close = response_open_to_close_volume[:body]['results'][0]['c'].round(2)
+        candle_high = response_open_to_close_volume[:body]['results'][0]['h'].round(2)
+        candle_low = response_open_to_close_volume[:body]['results'][0]['l'].round(2)
+      else
+        # No results
+      end
+
+      # Price Direction
+      if candle_close > candle_open
+        price_direction = 'up'
+      else
+        price_direction = 'down'
+      end
+
+      # Price BTCUSD Coinbase and Price BTCUSD Index
+      price_btcusd_coinbase_close, price_btcusd_index_close = 0.0, 0.0
+      #
+      # Only fetch this data when script is being run within 10 minutes of interval start
+      #
+      if loop_start_timestamp_milliseconds == last_loop_start_timestamp_milliseconds &&
+        minutes_since_loop_end_interval <= 10
+        # Get Index
+        lnmarkets_response = lnmarkets_client.get_price_btcusd_ticker
+        if lnmarkets_response[:status] == 'success'
+          price_btcusd_index = lnmarkets_response[:body]['index']
+        else
+          price_btcusd_index = 0.0
+        end
+        price_btcusd_index_close = price_btcusd_index
+
+        # Get Coinbase
+        response_btc_usd_trades = polygon_client.get_trades(symbol_polygon)
+        if response_macd[:status] == 'success'
+          # Exchange id 1 is Coinbase
+          # Exchange id 10 is Binance
+          exchange_1_entry = response_btc_usd_trades[:body]["results"]
+            .sort_by { |entry| -entry["participant_timestamp"].to_i }
+            .find { |entry| entry["exchange"] == 1 && entry["conditions"].include?(2) }
+
+          exchange_1_price = exchange_1_entry&.[]("price")
+
+          if exchange_1_price == nil
+            price_btcusd_coinbase_close = price_btcusd_index
+          else
+            price_btcusd_coinbase_close = exchange_1_price
+          end
+        end
+      else
+        puts 'Skip prices for Coinbase and Index since interval start timestamp not in the last 10 minutes.'
+      end
+
+      # Implied Volatility T3
+      implied_volatility_t3_close = 0.0
+      current_tick = Time.at(loop_start_timestamp_milliseconds / 1000).utc.strftime("%Y-%m-%d-%H-%M-%S")
+      t3_response = t3_client.get_tick(current_tick)
+      if t3_response[:status] == 'success'
+        implied_volatility_t3_close = t3_response[:body]['value']
+      end
+
+      #
+      # CoinGlass Indicators - https://docs.coinglass.com/reference/version-10
+      #
+      symbol_coinglass = 'BTC'
+      symbol_coinglass_long_short_ratio = 'BTCUSDT'
+      start_timestamp_seconds = ((loop_start_timestamp_milliseconds) / 1000.0).round(0)
+      end_timestamp_seconds = ((loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      interval = "30m"
+      exchange = "Binance"
+
+      # Avg Funding Rate
+      avg_funding_rate_close = 0.0
+      coinglass_response = coinglass_client.get_aggregated_funding_rates(
+        symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
+      if coinglass_response[:status] == 'success'
+        avg_funding_rate_close = coinglass_response[:body]['data'][0]['c']
+      end
+
+      # Aggregate Open Interest
+      aggregate_open_interest_close = 0.0
+      coinglass_response = coinglass_client.get_aggregated_open_interest(
+        symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
+      if coinglass_response[:status] == 'success' &&
+        coinglass_response[:body]['data'].present?
+        aggregate_open_interest_close = coinglass_response[:body]['data'][0]['c']
+      else
+        aggregate_open_interest_close = 0.0
+      end
+
+      # Avg Long Short Ratio
+      avg_long_short_ratio_close = 0.0
+      coinglass_response = coinglass_client.get_accounts_long_short_ratio(
+        exchange, symbol_coinglass_long_short_ratio, interval, start_timestamp_seconds, end_timestamp_seconds)
+      if coinglass_response[:status] == 'success' &&
+        coinglass_response[:body]['data'].present?
+        avg_long_short_ratio_close = coinglass_response[:body]['data'][0]['longShortRatio']
+      else
+        avg_long_short_ratio_close = 0.0
+      end
+
+      #
+      # Update the fetched row with new data
+      #
+      updated_row = {
+        rsi_close: rsi_close,
+        volume_open_to_close: volume_open_to_close,
+        simple_moving_average_close: simple_moving_average_close,
+        exponential_moving_average_close: exponential_moving_average_close,
+        macd_histogram_close: macd_histogram_close,
+        candle_close: candle_close,
+        candle_high: candle_high,
+        candle_low: candle_low,
+        price_btcusd_coinbase_close: price_btcusd_coinbase_close,
+        price_btcusd_index_close: price_btcusd_binance_close,
+        avg_funding_rate_close: avg_funding_rate_close,
+        aggregate_open_interest_close: aggregate_open_interest_close,
+        implied_volatility_t3_close: implied_volatility_t3_close,
+        avg_long_short_ratio_close: avg_long_short_ratio_close,
+        price_direction: price_direction
+      }
+
+      #
+      # Update the row in BigQuery using the native update method
+      #
+      dataset = bigquery.dataset(DATASET_ID)
+      table = dataset.table(TABLE_ID)
+
+      row_key = { id: row_id }
+
+      max_retries = 3
+      retries = 0
+      begin
+        update_response = table.update row_key, updated_row
+      rescue Google::Cloud::Error, HTTPClient::ReceiveTimeoutError => e
+        if retries < max_retries
+          retries += 1
+          sleep(2 ** retries) # Exponential backoff
+          retry
+        else
+          raise e
+        end
+      end
+
+      if update_response.success?
+        puts "Row updated successfully"
+      else
+        puts "Error updating row: #{update_response.error}"
+      end
+
+      loop_start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
+      sleep(5)
     end
+    puts "End operations:generate_thirty_minute_training_data_previous_interval"
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
 
   task generate_thirty_minute_training_data_next_interval: :environment do
@@ -153,8 +349,7 @@ namespace :operations do
     #
     # Assign start date based on the last timestamp entry
     #
-    parsed_last_timestamp = Time.parse(last_timestamp_open.to_s)
-
+    parsed_last_timestamp = Time.parse(last_timestamp_open.to_s).utc
     loop_start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds + 30.minutes.to_i.in_milliseconds)
 
     time_now_utc = Time.now.utc
@@ -182,7 +377,7 @@ namespace :operations do
       t3_client = T3IndexAPI.new
 
       #
-      # Fetch Close metrics
+      # Fetch Open metrics
       #
 
       # Polygon inputs
@@ -248,7 +443,7 @@ namespace :operations do
         symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_prev_volume[:status] == 'success' &&
         response_prev_volume[:body]['resultsCount'] > 0
-        volume_prev_interval = response_prev_volume[:body]['results'][0]['v'].round(2)
+        volume_prev_interval = response_prev_volume[:body]['results'][1]['v'].round(2)
       else
         volume_prev_interval = 0.0
       end
@@ -266,7 +461,6 @@ namespace :operations do
         candle_open = response_volume[:body]['results'][1]['o'].round(2)
       else
         # No results found
-        candle_open = 0.0
       end
 
       # Price BTCUSD Coinbase and Price BTCUSD Index
