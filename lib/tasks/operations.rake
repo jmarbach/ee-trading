@@ -151,11 +151,11 @@ namespace :operations do
         symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_open_to_close_volume[:status] == 'success' &&
         response_open_to_close_volume[:body]['resultsCount'] > 0
-        volume_open_to_close = response_open_to_close_volume[:body]['results'][0]['v'].round(2)
-        candle_open = response_open_to_close_volume[:body]['results'][0]['o'].round(2)
-        candle_close = response_open_to_close_volume[:body]['results'][0]['c'].round(2)
-        candle_high = response_open_to_close_volume[:body]['results'][0]['h'].round(2)
-        candle_low = response_open_to_close_volume[:body]['results'][0]['l'].round(2)
+        volume_open_to_close = response_open_to_close_volume[:body]['results'][1]['v'].round(2)
+        candle_open = response_open_to_close_volume[:body]['results'][1]['o'].round(2)
+        candle_close = response_open_to_close_volume[:body]['results'][1]['c'].round(2)
+        candle_high = response_open_to_close_volume[:body]['results'][1]['h'].round(2)
+        candle_low = response_open_to_close_volume[:body]['results'][1]['l'].round(2)
       else
         # No results
       end
@@ -338,6 +338,7 @@ namespace :operations do
     # Initialize BigQuery client
     #
     require "google/cloud/bigquery"
+    require "tempfile"
     PROJECT_ID = "encrypted-energy"
 
     bigquery = if Rails.env.production?
@@ -543,7 +544,7 @@ namespace :operations do
       coinglass_response = coinglass_client.get_aggregated_funding_rates(
         symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success'
-        avg_funding_rate_open = coinglass_response[:body]['data'][0]['c']
+        avg_funding_rate_open = coinglass_response[:body]['data'][0]['c'].to_f
       end
 
       # Aggregate Open Interest
@@ -552,7 +553,7 @@ namespace :operations do
         symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success' && 
         coinglass_response[:body]['data'].present?
-        aggregate_open_interest_open = coinglass_response[:body]['data'][0]['c']
+        aggregate_open_interest_open = coinglass_response[:body]['data'][0]['c'].to_f
       else
         aggregate_open_interest_open = 0.0
       end
@@ -563,7 +564,7 @@ namespace :operations do
         exchange, symbol_coinglass_long_short_ratio, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success' &&
         coinglass_response[:body]['data'].present?
-        avg_long_short_ratio_open = coinglass_response[:body]['data'][0]['longShortRatio']
+        avg_long_short_ratio_open = coinglass_response[:body]['data'][0]['longShortRatio'].to_f
       else
         avg_long_short_ratio_open = 0.0
       end
@@ -625,13 +626,30 @@ namespace :operations do
       max_retries = 3
       retries = 0
       begin
-        # Replace the streaming insert with a load job
-        load_job = table.load_job [row], write: 'WRITE_APPEND'
-        load_job.wait_until_done!
-        if load_job.failed?
-          raise load_job.error
+        # Create a temporary file with JSON data
+        temp_file = Tempfile.new(['bigquery_insert', '.json'])
+        temp_file.write(JSON.generate(row))
+        temp_file.close
+
+        # Create a load job
+        load_job = dataset.load_job TABLE_ID, temp_file.path, format: "json" do |job|
+          job.autodetect = true
+          job.write = "WRITE_APPEND"
         end
-      rescue Google::Cloud::Error, HTTPClient::ReceiveTimeoutError => e
+
+        puts "Starting job #{load_job.job_id}"
+
+        # Wait for the job to complete
+        load_job.wait_until_done!
+
+        if load_job.failed?
+          puts "Job failed with error: #{load_job.error}"
+          raise load_job.error
+        else
+          puts "Row successfully inserted."
+        end
+
+      rescue => e
         if retries < max_retries
           retries += 1
           sleep(2 ** retries) # Exponential backoff
@@ -639,6 +657,9 @@ namespace :operations do
         else
           raise e
         end
+      ensure
+        # Make sure to delete the temporary file
+        temp_file.unlink
       end
 
       # puts "Inserted new data: #{new_data}"

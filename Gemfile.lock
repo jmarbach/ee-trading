@@ -247,6 +247,7 @@ GEM
       sprockets (>= 3.0.0)
     stringio (3.1.1)
     strscan (3.1.0)
+    tempfile (0.2.1)
     thor (1.3.1)
     timeout (0.4.1)
     trailblazer-option (0.1.2)
@@ -283,6 +284,7 @@ DEPENDENCIES
   rails (~> 7.0.8, >= 7.0.8.4)
   selenium-webdriver
   sprockets-rails
+  tempfile
   tzinfo-data
   web-console
 
