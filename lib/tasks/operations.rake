@@ -69,7 +69,7 @@ namespace :operations do
       row_id = results.first ? results.first[:id] : nil
 
       if row_id
-        puts "Update row #{row} in #{TABLE_ID}."
+        puts "Update row #{row_id} in #{TABLE_ID}."
       else
         abort "No entries found in the training data table"
       end
@@ -227,7 +227,7 @@ namespace :operations do
       coinglass_response = coinglass_client.get_aggregated_funding_rates(
         symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success'
-        avg_funding_rate_close = coinglass_response[:body]['data'][0]['c']
+        avg_funding_rate_close = coinglass_response[:body]['data'][0]['c'].to_f
       end
 
       # Aggregate Open Interest
@@ -236,7 +236,7 @@ namespace :operations do
         symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success' &&
         coinglass_response[:body]['data'].present?
-        aggregate_open_interest_close = coinglass_response[:body]['data'][0]['c']
+        aggregate_open_interest_close = coinglass_response[:body]['data'][0]['c'].to_f
       else
         aggregate_open_interest_close = 0.0
       end
@@ -247,13 +247,19 @@ namespace :operations do
         exchange, symbol_coinglass_long_short_ratio, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success' &&
         coinglass_response[:body]['data'].present?
-        avg_long_short_ratio_close = coinglass_response[:body]['data'][0]['longShortRatio']
+        avg_long_short_ratio_close = coinglass_response[:body]['data'][0]['longShortRatio'].to_f
       else
         avg_long_short_ratio_close = 0.0
       end
 
       #
-      # Update the fetched row with new data
+      # Update row
+      #
+      dataset = bigquery.dataset(DATASET_ID)
+      table = dataset.table(TABLE_ID)
+
+      #
+      # Prep new data
       #
       updated_row = {
         rsi_close: rsi_close,
@@ -265,7 +271,7 @@ namespace :operations do
         candle_high: candle_high,
         candle_low: candle_low,
         price_btcusd_coinbase_close: price_btcusd_coinbase_close,
-        price_btcusd_index_close: price_btcusd_binance_close,
+        price_btcusd_index_close: price_btcusd_index_close,
         avg_funding_rate_close: avg_funding_rate_close,
         aggregate_open_interest_close: aggregate_open_interest_close,
         implied_volatility_t3_close: implied_volatility_t3_close,
@@ -273,18 +279,36 @@ namespace :operations do
         price_direction: price_direction
       }
 
-      #
-      # Update the row in BigQuery using the native update method
-      #
-      dataset = bigquery.dataset(DATASET_ID)
-      table = dataset.table(TABLE_ID)
+      # Construct the MERGE SQL statement
+      update_set = updated_row.map { |k, v| "#{k} = @#{k}" }.join(", ")
+      merge_sql = <<-SQL
+        MERGE `#{table.project_id}.#{table.dataset_id}.#{table.table_id}` T
+        USING (SELECT @id AS id) S
+        ON T.id = S.id
+        WHEN MATCHED THEN
+          UPDATE SET #{update_set}
+      SQL
 
-      row_key = { id: row_id }
+      # Set up query parameters
+      query_params = updated_row.merge(id: row_id)
 
+      # Execute the MERGE operation with retries
       max_retries = 3
       retries = 0
+
       begin
-        update_response = table.update row_key, updated_row
+        job = dataset.query_job(
+          merge_sql,
+          params: query_params
+        )
+        job.wait_until_done!
+
+        if job.failed?
+          puts "Error updating row: #{job.error}"
+          raise job.error
+        else
+          puts "Row updated successfully"
+        end
       rescue Google::Cloud::Error, HTTPClient::ReceiveTimeoutError => e
         if retries < max_retries
           retries += 1
@@ -293,12 +317,6 @@ namespace :operations do
         else
           raise e
         end
-      end
-
-      if update_response.success?
-        puts "Row updated successfully"
-      else
-        puts "Error updating row: #{update_response.error}"
       end
 
       loop_start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
@@ -607,7 +625,12 @@ namespace :operations do
       max_retries = 3
       retries = 0
       begin
-        table.insert row
+        # Replace the streaming insert with a load job
+        load_job = table.load_job [row], write: 'WRITE_APPEND'
+        load_job.wait_until_done!
+        if load_job.failed?
+          raise load_job.error
+        end
       rescue Google::Cloud::Error, HTTPClient::ReceiveTimeoutError => e
         if retries < max_retries
           retries += 1
