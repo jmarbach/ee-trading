@@ -151,11 +151,11 @@ namespace :operations do
         symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_open_to_close_volume[:status] == 'success' &&
         response_open_to_close_volume[:body]['resultsCount'] > 0
-        volume_open_to_close = response_open_to_close_volume[:body]['results'][1]['v'].round(2)
-        candle_open = response_open_to_close_volume[:body]['results'][1]['o'].round(2)
-        candle_close = response_open_to_close_volume[:body]['results'][1]['c'].round(2)
-        candle_high = response_open_to_close_volume[:body]['results'][1]['h'].round(2)
-        candle_low = response_open_to_close_volume[:body]['results'][1]['l'].round(2)
+        volume_open_to_close = response_open_to_close_volume[:body]['results'][1]['v'].round(2).to_f
+        candle_open = response_open_to_close_volume[:body]['results'][1]['o'].round(2).to_f
+        candle_close = response_open_to_close_volume[:body]['results'][1]['c'].round(2).to_f
+        candle_high = response_open_to_close_volume[:body]['results'][1]['h'].round(2).to_f
+        candle_low = response_open_to_close_volume[:body]['results'][1]['l'].round(2).to_f
       else
         # No results
       end
@@ -464,7 +464,7 @@ namespace :operations do
         symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_prev_volume[:status] == 'success' &&
         response_prev_volume[:body]['resultsCount'] > 0
-        volume_prev_interval = response_prev_volume[:body]['results'][1]['v'].round(2)
+        volume_prev_interval = response_prev_volume[:body]['results'][1]['v'].round(2).to_f
       else
         volume_prev_interval = 0.0
       end
@@ -479,7 +479,7 @@ namespace :operations do
         symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_volume[:status] == 'success' && 
         response_volume[:body]['resultsCount'] > 0
-        candle_open = response_volume[:body]['results'][1]['o'].round(2)
+        candle_open = response_volume[:body]['results'][1]['o'].round(2).to_f
       else
         # No results found
       end
