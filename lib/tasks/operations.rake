@@ -664,7 +664,7 @@ namespace :operations do
 
       # puts "Inserted new data: #{new_data}"
       loop_start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
-      sleep(5)
+      sleep(0.25)
     end
     puts "Loop finished before next interval: #{loop_start_timestamp_milliseconds}"
     puts "End operations:generate_thirty_minute_training_data_next_interval"
@@ -673,15 +673,36 @@ namespace :operations do
   end
 
   task generate_thirty_minute_prediction: :environment do
-    puts "Begin operations:generate_thirty_minute_training_data_next_interval"
+    puts "Begin operations:generate_thirty_minute_prediction"
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     #
     # Make prediction
     #
+    require "google/cloud/bigquery"
+
+    PROJECT_ID = "encrypted-energy"
+    DATASET_ID = "market_indicators"
+    TABLE_ID = "thirty_minute_training_data"
+    MODEL_ID = "thirty_minute_random_forest"
+
+    # Initialize BigQuery client
+    bigquery = if defined?(Rails) && Rails.env.production?
+      credentials = JSON.parse(ENV['GOOGLE_APPLICATION_CREDENTIALS'], symbolize_names: true)
+      Google::Cloud::Bigquery.new(credentials: credentials, project: PROJECT_ID)
+    else
+      Google::Cloud::Bigquery.new(project: PROJECT_ID)
+    end
+
+    # Get references to the dataset and table
+    dataset = bigquery.dataset(DATASET_ID)
+    table = dataset.table(TABLE_ID)
+
+    # Make prediction
     query = <<-SQL
       WITH latest_data AS (
         SELECT
+          id,
           rsi_open,
           volume_prev_interval,
           simple_moving_average_open,
@@ -701,36 +722,93 @@ namespace :operations do
         LIMIT 1
       )
       SELECT
-        *
+        latest_data.id,
+        predicted_price_direction,
+        predicted_price_direction_probabilities.up as up_probability,
+        predicted_price_direction_probabilities.down as down_probability
       FROM
         ML.PREDICT(MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`,
           (SELECT * FROM latest_data)
-        );
+        ) prediction
+      JOIN latest_data ON 1=1;
     SQL
 
-    #
-    # Log prediction result
-    #
+    # Execute the query and get results
     results = bigquery.query query
-    results.each do |row|
-      puts row.to_json
+
+    # Extract the id and prediction from the results
+    row = results.first
+    if row
+      row_id = row[:id]
+      prediction = row[:predicted_price_direction]
+      up_probability = row[:up_probability]
+      down_probability = row[:down_probability]
+
+      # Prepare the row for update
+      updated_row = {
+        price_direction_prediction: prediction,
+        predicted_price_direction_probabilities: {
+          up: up_probability,
+          down: down_probability
+        }
+      }
+
+      # Construct the MERGE SQL statement
+      update_set = "price_direction_prediction = @price_direction_prediction, " \
+                   "predicted_price_direction_probabilities = STRUCT<up FLOAT64, down FLOAT64>(@up_prob, @down_prob)"
+      merge_sql = <<-SQL
+        MERGE `#{table.project_id}.#{table.dataset_id}.#{table.table_id}` T
+        USING (SELECT @id AS id) S
+        ON T.id = S.id
+        WHEN MATCHED THEN
+          UPDATE SET #{update_set}
+      SQL
+
+      # Set up query parameters
+      query_params = {
+        id: row_id,
+        price_direction_prediction: prediction,
+        up_prob: up_probability,
+        down_prob: down_probability
+      }
+
+      # Execute the MERGE operation with retries
+      max_retries = 3
+      retries = 0
+
+      begin
+        job = dataset.query_job(
+          merge_sql,
+          params: query_params
+        )
+        job.wait_until_done!
+
+        if job.failed?
+          puts "Error updating row: #{job.error}"
+          raise job.error
+        else
+          puts "Row updated successfully with prediction: #{prediction}"
+          puts "Up probability: #{up_probability}"
+          puts "Down probability: #{down_probability}"
+        end
+      rescue Google::Cloud::Error, HTTPClient::ReceiveTimeoutError => e
+        if retries < max_retries
+          retries += 1
+          sleep(2 ** retries) # Exponential backoff
+          retry
+        else
+          raise e
+        end
+      end
+    else
+      puts "No results found to update."
     end
+    puts "End operations:generate_thirty_minute_prediction"
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+  end
 
-    # # Assuming you've just inserted a row and have its ID
-    # last_inserted_id = next_id
-
-    # # New value for price_direction
-    # price_direction_prediction = results
-
-    # # Prepare the row for update
-    # row_to_update = {
-    #   id: inserted_id,
-    #   price_direction_prediction: price_direction_prediction
-    # }
-
-    # # Perform the update
-    # table.update row_to_update
-
+  task update_thirty_minute_model: :environment do
     # #Rake::Task["lnmarkets_trader:attempt_trade_thirty_minute_trend"].execute({prediction: 'test'})
 
     # #
@@ -802,9 +880,6 @@ namespace :operations do
     #
     # End
     #
-    puts "End operations:generate_thirty_minute_prediction"
-    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
-    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
 
   task update_missing_daily_market_data: :environment do
