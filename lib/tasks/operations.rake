@@ -809,77 +809,131 @@ namespace :operations do
   end
 
   task update_thirty_minute_model: :environment do
-    # #Rake::Task["lnmarkets_trader:attempt_trade_thirty_minute_trend"].execute({prediction: 'test'})
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts "Begin operations:update_thirty_minute_model"
+    #
+    # Initialize BigQuery client
+    #
+    require "google/cloud/bigquery"
 
-    # #
-    # # 1x per day... retrain model if script is being run within 3 minutes of 04:00 UTC
-    # #
+    PROJECT_ID = "encrypted-energy"
+    DATASET_ID = "market_indicators"
+
+    bigquery = if Rails.env.production?
+      credentials = JSON.parse(ENV['GOOGLE_APPLICATION_CREDENTIALS'], symbolize_names: true)
+      Google::Cloud::Bigquery.new(credentials: credentials, project: PROJECT_ID)
+    else
+      Google::Cloud::Bigquery.new(project: PROJECT_ID)
+    end
+
+    # Step 1: Create or replace view
+    VIEW_ID = "thirty_minute_prepared_data"
+    create_view_query = <<-SQL
+      CREATE OR REPLACE VIEW `#{PROJECT_ID}.#{DATASET_ID}.#{VIEW_ID}` AS
+      SELECT
+        id,
+        timestamp_open,
+        rsi_open,
+        volume_prev_interval,
+        simple_moving_average_open,
+        exponential_moving_average_open,
+        macd_histogram_open,
+        candle_open,
+        price_btcusd_coinbase_open,
+        price_btcusd_index_open,
+        avg_funding_rate_open,
+        aggregate_open_interest_open,
+        implied_volatility_t3_open,
+        avg_long_short_ratio_open,
+        price_direction
+      FROM
+        `#{PROJECT_ID}.#{DATASET_ID}.thirty_minute_training_data`
+      WHERE
+        timestamp_open >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY)
+        AND rsi_open IS NOT NULL
+        AND volume_prev_interval IS NOT NULL
+        AND simple_moving_average_open IS NOT NULL
+        AND exponential_moving_average_open IS NOT NULL
+        AND macd_histogram_open IS NOT NULL
+        AND candle_open IS NOT NULL
+        AND price_btcusd_coinbase_open IS NOT NULL
+        AND price_btcusd_index_open IS NOT NULL
+        AND avg_funding_rate_open IS NOT NULL
+        AND aggregate_open_interest_open IS NOT NULL
+        AND implied_volatility_t3_open IS NOT NULL
+        AND avg_long_short_ratio_open IS NOT NULL
+        AND price_direction IS NOT NULL
+    SQL
+
+    # Execute the view creation query with wait and error handling
+    view_job = bigquery.query_job create_view_query
+    view_job.wait_until_done!
+
+    if view_job.error?
+      puts "Error creating view: #{view_job.error}"
+    else
+      puts "View created successfully"
+    end
+
+    # Step 2: Create or replace model
+    MODEL_ID = 'thirty_minute_random_forest'
+    create_model_query = <<-SQL
+      CREATE OR REPLACE MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`
+      OPTIONS(
+        model_type='RANDOM_FOREST_CLASSIFIER',
+        input_label_cols=['price_direction'],
+        HPARAM_TUNING_OBJECTIVES=['AUC'],
+        data_split_method='RANDOM',
+        data_split_eval_fraction=0.2,
+        num_trials=10,
+        max_tree_depth=10
+      ) AS
+      SELECT
+        rsi_open,
+        volume_prev_interval,
+        simple_moving_average_open,
+        exponential_moving_average_open,
+        macd_histogram_open,
+        candle_open,
+        price_btcusd_coinbase_open,
+        price_btcusd_index_open,
+        avg_funding_rate_open,
+        aggregate_open_interest_open,
+        implied_volatility_t3_open,
+        avg_long_short_ratio_open,
+        price_direction
+      FROM
+        `#{PROJECT_ID}.#{DATASET_ID}.#{VIEW_ID}`
+    SQL
+
+    # Execute the model creation query with wait and error handling
+    model_job = bigquery.query_job create_model_query
+    model_job.wait_until_done!
+
+    if model_job.error?
+      puts "Error creating model: #{model_job.error}"
+    else
+      puts "Model created successfully"
+    end
+    #
+    # For future consideration, additional tuning options:
+    # max_parallel_trials=5,
+    # max_trees=100,
+    # min_tree_child_weight=1,
+    # subsample=0.8,
+
+    # Cruft. Leftover code...
+    #
+    # #Rake::Task["lnmarkets_trader:attempt_trade_thirty_minute_trend"].execute({prediction: 'test'})
+    #
+    # 1x per day... retrain model if script is being run within 3 minutes of 04:00 UTC
+    #
     # if (Time.now.utc - Time.utc(Time.now.utc.year, Time.now.utc.month, Time.now.utc.day, 4, 0, 0)).abs <= 180
     #   puts "Starting daily model retraining..."
-
-    #   # Additional tuning options
-    #   # max_parallel_trials=5,
-    #   # max_trees=100,
-    #   # max_depth=10,
-    #   # min_tree_child_weight=1,
-    #   # subsample=0.8,
-    #   # auto_class_weights=true,
-
-    #   query = <<-SQL
-    #     CREATE OR REPLACE MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`
-    #     OPTIONS(
-    #       model_type='RANDOM_FOREST_CLASSIFIER',
-    #       input_label_cols=['price_direction'],
-    #       num_trials=10,
-    #       HPARAM_TUNING_OBJECTIVES=['AUC']
-    #     ) AS
-    #     SELECT
-    #       rsi_open,
-    #       rsi_close,
-    #       volume_prev_interval,
-    #       volume_open_to_close,
-    #       simple_moving_average_open,
-    #       simple_moving_average_close,
-    #       exponential_moving_average_open,
-    #       exponential_moving_average_close,
-    #       macd_histogram_open,
-    #       macd_histogram_close,
-    #       candle_open,
-    #       candle_close,
-    #       candle_low,
-    #       candle_high,
-    #       price_btcusd_coinbase_open,
-    #       price_btcusd_coinbase_close,
-    #       price_btcusd_binance_open,
-    #       price_btcusd_binance_close,
-    #       avg_funding_rate_open,
-    #       avg_funding_rate_close,
-    #       aggregate_open_interest_open,
-    #       aggregate_open_interest_close,
-    #       implied_volatility_t3_open,
-    #       implied_volatility_t3_close,
-    #       avg_long_short_ratio_open,
-    #       avg_long_short_ratio_close,
-    #       price_direction
-    #     FROM
-    #       `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
-    #     WHERE
-    #       timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR);
-    #   SQL
-
-    #   job = bigquery.query_job query
-    #   job.wait_until_done!
-
-    #   if job.error?
-    #     puts "Error retraining model: #{job.error}"
-    #   else
-    #     puts "Model retrained successfully"
-    #   end
-    #   puts "End daily model retraining."
-    # end
-    #
-    # End
-    #
+    puts "End operations:update_thirty_minute_model"
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
+    puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
 
   task update_missing_daily_market_data: :environment do
