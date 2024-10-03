@@ -320,7 +320,14 @@ namespace :operations do
       end
 
       loop_start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
-      sleep(5)
+      sleep(0.25)
+    end
+
+    # 1x per day... retrain model if script is being run within 3 minutes of 04:00 UTC
+    if (Time.now.utc - Time.utc(Time.now.utc.year, Time.now.utc.month, Time.now.utc.day, 4, 0, 0)).abs <= 180
+      puts "Starting thirty minute model retraining..."
+      Rake::Task["operations:update_thirty_minute_model"].execute()
+      puts "Finished retraining thirty minute model."
     end
     puts "End operations:generate_thirty_minute_training_data_previous_interval"
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
@@ -927,10 +934,6 @@ namespace :operations do
     #
     # #Rake::Task["lnmarkets_trader:attempt_trade_thirty_minute_trend"].execute({prediction: 'test'})
     #
-    # 1x per day... retrain model if script is being run within 3 minutes of 04:00 UTC
-    #
-    # if (Time.now.utc - Time.utc(Time.now.utc.year, Time.now.utc.month, Time.now.utc.day, 4, 0, 0)).abs <= 180
-    #   puts "Starting daily model retraining..."
     puts "End operations:update_thirty_minute_model"
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
