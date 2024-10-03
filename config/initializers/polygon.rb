@@ -13,7 +13,7 @@ class PolygonAPI
     Faraday::ClientError
   ]
 
-  SKIP_LOGGING_METHODS = ['get_last_trade']
+  SKIP_LOGGING_METHODS = ['get_last_trade', 'get_trades']
 
 
   attr_reader :logger
