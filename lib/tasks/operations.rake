@@ -710,111 +710,144 @@ namespace :operations do
     dataset = bigquery.dataset(DATASET_ID)
     table = dataset.table(TABLE_ID)
 
-    # Make prediction
-    query = <<-SQL
-      WITH latest_data AS (
-        SELECT
-          id,
-          rsi_open,
-          volume_prev_interval,
-          simple_moving_average_open,
-          exponential_moving_average_open,
-          macd_histogram_open,
-          candle_open,
-          price_btcusd_coinbase_open,
-          price_btcusd_index_open,
-          avg_funding_rate_open,
-          aggregate_open_interest_open,
-          implied_volatility_t3_open,
-          avg_long_short_ratio_open
-        FROM
-          `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
-        WHERE timestamp_close >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 MINUTE)
-        ORDER BY id DESC
-        LIMIT 1
-      )
+    # Query to get the latest data
+    latest_data_query = <<-SQL
       SELECT
-        latest_data.id,
-        predicted_price_direction,
-        predicted_price_direction_probabilities.up as up_probability,
-        predicted_price_direction_probabilities.down as down_probability
+        id,
+        rsi_open,
+        volume_prev_interval,
+        simple_moving_average_open,
+        exponential_moving_average_open,
+        macd_histogram_open,
+        candle_open,
+        price_btcusd_coinbase_open,
+        price_btcusd_index_open,
+        avg_funding_rate_open,
+        aggregate_open_interest_open,
+        implied_volatility_t3_open,
+        avg_long_short_ratio_open
       FROM
-        ML.PREDICT(MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`,
-          (SELECT * FROM latest_data)
-        ) prediction
-      JOIN latest_data ON 1=1;
+        `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
+      WHERE timestamp_close >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 MINUTE)
+      ORDER BY id DESC
+      LIMIT 1
     SQL
 
-    # Execute the query and get results
-    results = bigquery.query query
+    # Execute the query to get the latest data
+    latest_data = bigquery.query(latest_data_query).first
 
-    # Extract the id and prediction from the results
-    row = results.first
-    if row
-      row_id = row[:id]
-      prediction = row[:predicted_price_direction]
-      up_probability = row[:up_probability]
-      down_probability = row[:down_probability]
-
-      # Prepare the row for update
-      updated_row = {
-        price_direction_prediction: prediction,
-        predicted_price_direction_probabilities: {
-          up: up_probability,
-          down: down_probability
-        }
-      }
-
-      # Construct the MERGE SQL statement
-      update_set = "price_direction_prediction = @price_direction_prediction, " \
-                   "predicted_price_direction_probabilities = STRUCT<up FLOAT64, down FLOAT64>(@up_prob, @down_prob)"
-      merge_sql = <<-SQL
-        MERGE `#{table.project_id}.#{table.dataset_id}.#{table.table_id}` T
-        USING (SELECT @id AS id) S
-        ON T.id = S.id
-        WHEN MATCHED THEN
-          UPDATE SET #{update_set}
+    if latest_data
+      # Query to make the prediction
+      prediction_query = <<-SQL
+        SELECT
+          *
+        FROM
+          ML.PREDICT(MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`,
+            (
+              SELECT
+                CAST(#{latest_data[:rsi_open]} AS FLOAT64) AS rsi_open,
+                CAST(#{latest_data[:volume_prev_interval]} AS FLOAT64) AS volume_prev_interval,
+                CAST(#{latest_data[:simple_moving_average_open]} AS FLOAT64) AS simple_moving_average_open,
+                CAST(#{latest_data[:exponential_moving_average_open]} AS FLOAT64) AS exponential_moving_average_open,
+                CAST(#{latest_data[:macd_histogram_open]} AS FLOAT64) AS macd_histogram_open,
+                CAST(#{latest_data[:candle_open]} AS FLOAT64) AS candle_open,
+                CAST(#{latest_data[:price_btcusd_coinbase_open]} AS FLOAT64) AS price_btcusd_coinbase_open,
+                CAST(#{latest_data[:price_btcusd_index_open]} AS FLOAT64) AS price_btcusd_index_open,
+                CAST(#{latest_data[:avg_funding_rate_open]} AS FLOAT64) AS avg_funding_rate_open,
+                CAST(#{latest_data[:aggregate_open_interest_open]} AS FLOAT64) AS aggregate_open_interest_open,
+                CAST(#{latest_data[:implied_volatility_t3_open]} AS FLOAT64) AS implied_volatility_t3_open,
+                CAST(#{latest_data[:avg_long_short_ratio_open]} AS FLOAT64) AS avg_long_short_ratio_open
+            )
+          )
       SQL
 
-      # Set up query parameters
-      query_params = {
-        id: row_id,
-        price_direction_prediction: prediction,
-        up_prob: up_probability,
-        down_prob: down_probability
-      }
+      # Add debug logging
+      puts "Prediction Query:"
+      puts prediction_query
 
-      # Execute the MERGE operation with retries
-      max_retries = 3
-      retries = 0
+      # Execute the prediction query
+      prediction_result = bigquery.query(prediction_query).first
 
-      begin
-        job = dataset.query_job(
-          merge_sql,
-          params: query_params
-        )
-        job.wait_until_done!
+      if prediction_result
+        puts "Prediction Result Structure:"
+        puts prediction_result.inspect
 
-        if job.failed?
-          puts "Error updating row: #{job.error}"
-          raise job.error
-        else
-          puts "Row updated successfully with prediction: #{prediction}"
-          puts "Up probability: #{up_probability}"
-          puts "Down probability: #{down_probability}"
+        # Extract the predicted direction and probabilities
+        predicted_direction = prediction_result[:predicted_price_direction]
+        probabilities = prediction_result[:predicted_price_direction_probs]
+
+        puts "Predicted Direction: #{predicted_direction}"
+        puts "Probabilities: #{probabilities.inspect}"
+
+        up_probability = probabilities.find { |p| p[:label] == "up" }[:prob]
+        down_probability = probabilities.find { |p| p[:label] == "down" }[:prob]
+
+        # Prepare the row for update
+        updated_row = {
+          price_direction_prediction: predicted_direction,
+          predicted_price_direction_probabilities: {
+            up: up_probability,
+            down: down_probability
+          }
+        }
+
+        puts "Updated Row:"
+        puts updated_row.inspect
+
+        # Set up query parameters
+        query_params = {
+          id: latest_data[:id],
+          price_direction_prediction: predicted_direction,
+          up_probability: up_probability,
+          down_probability: down_probability
+        }
+
+        # Construct the MERGE SQL statement
+        update_set = "price_direction_prediction = @price_direction_prediction, " \
+                     "predicted_price_direction_probabilities = STRUCT<up FLOAT64, down FLOAT64>(@up_probability, @down_probability)"
+        merge_sql = <<-SQL
+          MERGE `#{table.project_id}.#{table.dataset_id}.#{table.table_id}` T
+          USING (SELECT @id AS id) S
+          ON T.id = S.id
+          WHEN MATCHED THEN
+            UPDATE SET #{update_set}
+        SQL
+
+        # Execute the MERGE operation with retries
+        max_retries = 3
+        retries = 0
+
+        begin
+          job = dataset.query_job(
+            merge_sql,
+            params: query_params
+          )
+          job.wait_until_done!
+
+          if job.failed?
+            puts "Error updating row: #{job.error}"
+            raise job.error
+          else
+            puts "Row updated successfully with prediction: #{predicted_direction}"
+            puts "Up probability: #{up_probability}"
+            puts "Down probability: #{down_probability}"
+          end
+        rescue Google::Cloud::Error, HTTPClient::ReceiveTimeoutError => e
+          if retries < max_retries
+            retries += 1
+            sleep(2 ** retries) # Exponential backoff
+            retry
+          else
+            raise e
+          end
         end
-      rescue Google::Cloud::Error, HTTPClient::ReceiveTimeoutError => e
-        if retries < max_retries
-          retries += 1
-          sleep(2 ** retries) # Exponential backoff
-          retry
-        else
-          raise e
-        end
+      else
+        puts "No prediction result"
       end
     else
-      puts "No results found to update."
+      puts "No latest data found"
     end
+     
     puts "End operations:generate_thirty_minute_prediction"
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
