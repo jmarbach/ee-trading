@@ -385,7 +385,7 @@ namespace :operations do
       min: time_now_utc.min < 30 ? 0 : 30
     )
     loop_end_timestamp_milliseconds = most_recent_30min_interval.to_i.in_milliseconds
-    last_loop_start_timestamp_milliseconds = (loop_end_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
+    last_loop_start_timestamp_milliseconds = loop_end_timestamp_milliseconds
     minutes_since_loop_end_interval = ((time_now_utc - most_recent_30min_interval) / 60).to_i
 
     #
@@ -484,11 +484,16 @@ namespace :operations do
       end_date = (loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds)
       response_volume = polygon_client.get_aggregate_bars(
         symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
-      if response_volume[:status] == 'success' && 
-        response_volume[:body]['resultsCount'] > 0
-        candle_open = response_volume[:body]['results'][1]['o'].round(2).to_f
+      if response_volume[:status] == 'success' && response_volume[:body]['resultsCount'] > 0
+        matching_result = response_volume[:body]['results'].find { |result| result['t'] == loop_start_timestamp_milliseconds }
+
+        if matching_result
+          candle_open = matching_result['o'].round(2).to_f
+        else
+          # No matching result found
+        end
       else
-        # No results found
+        # No results found or status is not 'success'
       end
 
       # Price BTCUSD Coinbase and Price BTCUSD Index
@@ -874,13 +879,17 @@ namespace :operations do
     SQL
 
     # Execute the view creation query with wait and error handling
-    view_job = bigquery.query_job create_view_query
-    view_job.wait_until_done!
+    begin
+      view_job = bigquery.query_job create_view_query
+      view_job.wait_until_done!
 
-    if view_job.error?
-      puts "Error creating view: #{view_job.error}"
-    else
-      puts "View created successfully"
+      if view_job.failed?
+        puts "Error creating view: #{view_job.error}"
+      else
+        puts "View created successfully"
+      end
+    rescue StandardError => e
+      puts "An error occurred while creating the view: #{e.message}"
     end
 
     # Step 2: Create or replace model
@@ -890,7 +899,6 @@ namespace :operations do
       OPTIONS(
         model_type='RANDOM_FOREST_CLASSIFIER',
         input_label_cols=['price_direction'],
-        HPARAM_TUNING_OBJECTIVES=['AUC'],
         data_split_method='RANDOM',
         data_split_eval_fraction=0.2,
         num_trials=10,
