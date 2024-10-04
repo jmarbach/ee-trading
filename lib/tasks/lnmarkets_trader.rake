@@ -1222,118 +1222,80 @@ namespace :lnmarkets_trader do
       end
     end
 
-    most_recent_30min_interval = Time.now.utc
-    most_recent_30min_interval = most_recent_30min_interval.change(
-      min: most_recent_30min_interval.min < 30 ? 0 : 30
-    )
-    timestamp_current = most_recent_30min_interval.to_i.in_milliseconds
-    
-    Rails.logger.info(
-      {
-        message: "Run lnmarkets_trader:check_thirty_minute_trend_indicators...",
-        body: "QUERY DATE: #{DateTime.now.utc.beginning_of_day} - #{timestamp_current}",
-        script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
-      }.to_json
-    )
-
     #
-    # Fetch market data and evaluate inputs against fine tuned model
-    #
-
-    # Standard model inputs
-    polygon_client = PolygonAPI.new
-    symbol = 'X:BTCUSD'
-    timespan = 'hour'
-    window = 60
-    series_type = 'close'
-
-    # Track data errors
-    data_errors = 0
-
-    # Get technical indicators from Polygon
-    rsi_value = 0.0
-    response_rsi = polygon_client.get_rsi(symbol, timestamp_current, timespan, window, series_type)
-
-    if response_rsi[:status] == 'success'
-      rsi_values = response_rsi[:body]['results']['values']
-      rsi_value = rsi_values[0]['value']
-    else
-      data_errors += 1
-    end
-
-    if rsi_value != 0.0
-      Rails.logger.info(
-        {
-          message: "RSI Value",
-          body: "#{rsi_value}",
-          script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
-        }.to_json
-      )
-    elsif rsi_value == 0.0
-      Rails.logger.fatal(
-        {
-          message: "RSI Value",
-          body: "#{rsi_value}",
-          script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
-        }.to_json
-      )
-      abort 'Unable to fetch last hour RSI Value.'
-    end
-
-    # Current BTCUSD price
-    price_btcusd = 0.0
-    currency_from = 'BTC'
-    currency_to = 'USD'
-    response_btcusd = polygon_client.get_last_trade(currency_from, currency_to)
-    if response_btcusd[:status] == 'success'
-      price_btcusd = response_btcusd[:body]['last']['price']
-    else
-      data_errors += 1
-    end
-    Rails.logger.info(
-      {
-        message: "Fetched Last BTCUSD Tick.",
-        body: "#{price_btcusd}",
-        script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
-      }.to_json
-    )
-
-    #
-    # Save MarketDataLog
-    #
-    begin
-      market_data_log = MarketDataLog.create(
-        recorded_date: DateTime.now,
-        price_btcusd: price_btcusd,
-        rsi: rsi_value,
-        strategy: strategy
-      )
-    rescue => e
-      Rails.logger.error(
-        {
-          message: "Error. Unable to save market_data_log record.",
-          body: "#{e}",
-          script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
-        }.to_json
-      )
-      market_data_log = MarketDataLog.create(
-        recorded_date: DateTime.now,
-        strategy: strategy
-      )
-    end
-
     #
     # Initialize score
     #
     trade_direction_score = 0.0
 
     #
-    # Evaluate rules
+    # Query training data
     #
-    
-    #
-    # Use OpenAI ChatGPT
-    #
+    Rails.logger.info(
+      {
+        message: "Query training data for latest prediction.",
+        script: "lnmarkets_trader:check_thirty_minute_trend_indicators"
+      }.to_json
+    )
+    require "google/cloud/bigquery"
+
+    PROJECT_ID = "encrypted-energy"
+    DATASET_ID = "market_indicators"
+    TABLE_ID = "thirty_minute_training_data"
+
+    # Initialize BigQuery client
+    bigquery = if defined?(Rails) && Rails.env.production?
+      credentials = JSON.parse(ENV['GOOGLE_APPLICATION_CREDENTIALS'], symbolize_names: true)
+      Google::Cloud::Bigquery.new(credentials: credentials, project: PROJECT_ID)
+    else
+      Google::Cloud::Bigquery.new(project: PROJECT_ID)
+    end
+
+    # Get references to the dataset and table
+    dataset = bigquery.dataset(DATASET_ID)
+    table = dataset.table(TABLE_ID)
+
+    # Query to get the latest prediction
+    latest_prediction_query = <<-SQL
+      SELECT
+        id,
+        price_direction_prediction,
+        predicted_price_direction_probabilities.up AS up_probability,
+        predicted_price_direction_probabilities.down AS down_probability
+      FROM
+        `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
+      WHERE
+        price_direction_prediction IS NOT NULL
+      ORDER BY id DESC
+      LIMIT 1
+    SQL
+
+    # Execute the query to get the latest prediction
+    latest_prediction = bigquery.query(latest_prediction_query).first
+
+    if latest_prediction
+      puts "Latest Prediction ID: #{latest_prediction[:id]}"
+      puts "Predicted Direction: #{latest_prediction[:price_direction_prediction]}"
+      puts "Up Probability: #{latest_prediction[:up_probability]}"
+      puts "Down Probability: #{latest_prediction[:down_probability]}"
+
+      # Calculate trade score
+      if latest_prediction[:down_probability] > latest_prediction[:up_probability]
+        trade_direction_score = -1 * latest_prediction[:down_probability]
+      else
+        trade_direction_score = latest_prediction[:up_probability]
+      end
+
+      # ToDo - Add cols for BQ project, dataset, table, and row id
+      market_data_log = MarketDataLog.create(
+        recorded_date: DateTime.now,
+        strategy: strategy
+      )
+
+      puts "Calculated Trade Direction Score: #{trade_direction_score}"
+    else
+      puts "No prediction found"
+    end
 
     #
     # Save ScoreLog
@@ -1370,7 +1332,7 @@ namespace :lnmarkets_trader do
     #
     # Invoke trade order scripts
     #
-    if trade_direction_score < 0.0 || trade_direction_score > 0.0
+    if trade_direction_score < -0.5 || trade_direction_score > 0.53
       puts "********************************************"
       puts "********************************************"
       trade_direction = ''
