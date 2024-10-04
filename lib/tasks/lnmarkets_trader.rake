@@ -1374,16 +1374,6 @@ namespace :lnmarkets_trader do
       )
     end
 
-    Rails.logger.info(
-      {
-        message: "Data Errors: #{data_errors}",
-        script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
-      }.to_json
-    )
-    if data_errors > 0
-      market_data_log.update(int_data_errors: data_errors)
-    end
-
     puts 'End lnmarkets_trader:attempt_trade_thirty_minute_trend...'
     puts ''
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
@@ -1950,7 +1940,8 @@ namespace :lnmarkets_trader do
         last_16_implied_volatilities_t3_average = 0.0
       end
 
-      if (last_16_market_data_log_entries[0]['implied_volatility_t3'] < (last_16_implied_volatilities_t3_average))
+      if last_16_implied_volatilities_t3_average != 0.0 &&
+        (last_16_market_data_log_entries[0]['implied_volatility_t3'] < (last_16_implied_volatilities_t3_average))
         leverage_factor = rand(3.1..3.4).round(1)
       else
         leverage_factor = rand(2.6..2.8)
