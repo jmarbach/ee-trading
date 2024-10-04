@@ -3039,7 +3039,7 @@ namespace :lnmarkets_trader do
     if open_futures.any?
       Rails.logger.info(
         {
-          message: "For trades not on 'daily-trend', cancel all open futures trades from prior trading interval...",
+          message: "For trades not on 'daily-trend' or 'thirty-minute-trend', cancel all open futures trades from prior trading interval...",
           script: "lnmarkets_trader:check_stops"
         }.to_json
       )
@@ -3070,9 +3070,9 @@ namespace :lnmarkets_trader do
         end
 
         #
-        # Only cancel trades that are not part of the 'daily-trend' strategy
+        # Only cancel trades that are not part of the 'daily-trend' or 'thirty-minute' strategy
         #
-        if trade_log.present? && trade_log.strategy != 'daily-trend'
+        if trade_log.present? && !['daily-trend', 'thirty-minute-trend'].include?(trade_log.strategy)
           lnmarkets_response = lnmarkets_client.cancel_futures_trade(f['id'])
           if lnmarkets_response[:status] == 'success'
             Rails.logger.info(
