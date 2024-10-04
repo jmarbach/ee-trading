@@ -737,6 +737,7 @@ namespace :operations do
     latest_data = bigquery.query(latest_data_query).first
 
     if latest_data
+      puts "Latest ID: #{latest_data[:id]}"
       # Query to make the prediction
       prediction_query = <<-SQL
         SELECT
