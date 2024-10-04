@@ -1160,7 +1160,7 @@ namespace :lnmarkets_trader do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
   end
 
-  task :attempt_trade_thirty_minute_trend, [:prediction] => :environment do |t, args|
+  task attempt_trade_thirty_minute_trend: :environment do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
 
