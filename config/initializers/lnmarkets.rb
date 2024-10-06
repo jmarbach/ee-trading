@@ -92,6 +92,7 @@ class LnMarketsAPI
         hash_method_response = handle_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time, caller_method)
       end
     rescue => e
+      @logger.error("Error: #{e}")
       hash_method_response = handle_error(e, Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time, caller_method)
     end
 
