@@ -4,7 +4,7 @@ namespace :operations do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts "Begin operations:generate_daily_training_data_previous_interval..."
     #
-    # Every 30mins collect new market data and 1x per day update model
+    # Every 1d collect new market data and 1x per week update model
     #
     #
     # Initialize BigQuery client
@@ -42,18 +42,18 @@ namespace :operations do
     # Assign initial loop start date based on the last timestamp entry with candle_open value but no candle_close value
     #
     parsed_last_timestamp = Time.parse(last_timestamp_close.to_s).utc
-    loop_start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds - 30.minutes.to_i.in_milliseconds)
+    loop_start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds - 1.day.to_i.in_milliseconds)
 
     time_now_utc = Time.now.utc
-    most_recent_30min_interval = time_now_utc.change(
-      min: time_now_utc.min < 30 ? 0 : 30
+    most_recent_1d_interval = time_now_utc.change(
+      min: time_now_utc.min < 1440 ? 0 : 1440
     )
-    loop_end_timestamp_milliseconds = most_recent_30min_interval.to_i.in_milliseconds
-    last_loop_start_timestamp_milliseconds = (loop_end_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
-    minutes_since_loop_end_interval = ((time_now_utc - most_recent_30min_interval) / 60).to_i
+    loop_end_timestamp_milliseconds = most_recent_1d_interval.to_i.in_milliseconds
+    last_loop_start_timestamp_milliseconds = (loop_end_timestamp_milliseconds - 1.day.to_i.in_milliseconds)
+    minutes_since_loop_end_interval = ((time_now_utc - most_recent_1d_interval) / 60).to_i
 
     #
-    # Loop through each 30min interval and fetch interval Close market indicators
+    # Loop through each 1d interval and fetch interval Close market indicators
     #   + Make prediction if latest start timestamp is within the last 30 minutes
     #
     while loop_start_timestamp_milliseconds <= last_loop_start_timestamp_milliseconds
@@ -62,7 +62,7 @@ namespace :operations do
       #
       # Fetch relevant row
       #
-      interval_timestamp_close = loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds
+      interval_timestamp_close = loop_start_timestamp_milliseconds + 1.day.to_i.in_milliseconds
       time_obj_interval_timestamp_close = Time.at(interval_timestamp_close / 1000.0).utc
       query = "SELECT id FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}` WHERE timestamp_close = '#{time_obj_interval_timestamp_close}' LIMIT 1"
       results = bigquery.query(query)
@@ -89,8 +89,8 @@ namespace :operations do
 
       # Polygon inputs
       symbol_polygon = 'X:BTCUSD'
-      timespan = 'minute'
-      window = 30
+      timespan = 'day'
+      window = 1
       series_type = 'close'
 
       # RSI
@@ -143,10 +143,10 @@ namespace :operations do
       # Volume, Candle Close, Candle High, Candle Low
       volume_open_to_close = 0.0
       candle_open, candle_close, candle_high, candle_low = 0.0, 0.0, 0.0, 0.0
-      aggregates_timespan = 'minute'
-      aggregates_multiplier = 30
+      aggregates_timespan = 'day'
+      aggregates_multiplier = 1
       start_date = loop_start_timestamp_milliseconds
-      end_date = (loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds)
+      end_date = (loop_start_timestamp_milliseconds + 1.day.to_i.in_milliseconds)
       response_open_to_close_volume = polygon_client.get_aggregate_bars(
         symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_open_to_close_volume[:status] == 'success' &&
@@ -219,7 +219,7 @@ namespace :operations do
       symbol_coinglass_long_short_ratio = 'BTCUSDT'
       start_timestamp_seconds = ((loop_start_timestamp_milliseconds) / 1000.0).round(0)
       end_timestamp_seconds = ((loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-      interval = "30m"
+      interval = "1d"
       exchange = "Binance"
 
       # Avg Funding Rate
@@ -319,12 +319,12 @@ namespace :operations do
         end
       end
 
-      loop_start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
+      loop_start_timestamp_milliseconds += 1.day.to_i.in_milliseconds
       sleep(0.25)
     end
 
-    # 1x per day... retrain model if script is being run within 3 minutes of 04:00 UTC
-    if (Time.now.utc - Time.utc(Time.now.utc.year, Time.now.utc.month, Time.now.utc.day, 4, 0, 0)).abs <= 180
+    # 1x per day... retrain model if script is being run within 6 minutes of 00:00 UTC
+    if (Time.now.utc - Time.utc(Time.now.utc.year, Time.now.utc.month, Time.now.utc.day, 0, 0, 0)).abs <= 360
       puts "Starting daily model retraining..."
       Rake::Task["operations:update_daily_model"].execute()
       puts "Finished retraining daily model."
@@ -339,7 +339,7 @@ namespace :operations do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts "Begin operations:generate_daily_training_data_next_interval..."
     #
-    # Every 30mins collect new market data and 1x per day update model
+    # Every 1d collect new market data and 1x per week update model
     #
     #
     # Initialize BigQuery client
@@ -378,19 +378,19 @@ namespace :operations do
     # Assign start date based on the last timestamp entry
     #
     parsed_last_timestamp = Time.parse(last_timestamp_open.to_s).utc
-    loop_start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds + 30.minutes.to_i.in_milliseconds)
+    loop_start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds + 1.day.to_i.in_milliseconds)
 
     time_now_utc = Time.now.utc
-    most_recent_30min_interval = time_now_utc.change(
-      min: time_now_utc.min < 30 ? 0 : 30
+    most_recent_1d_interval = time_now_utc.change(
+      min: time_now_utc.min < 1440 ? 0 : 1440
     )
-    loop_end_timestamp_milliseconds = most_recent_30min_interval.to_i.in_milliseconds
+    loop_end_timestamp_milliseconds = most_recent_1d_interval.to_i.in_milliseconds
     last_loop_start_timestamp_milliseconds = loop_end_timestamp_milliseconds
-    minutes_since_loop_end_interval = ((time_now_utc - most_recent_30min_interval) / 60).to_i
+    minutes_since_loop_end_interval = ((time_now_utc - most_recent_1d_interval) / 60).to_i
 
     #
-    # Loop through each 30min interval and fetch market indicators
-    #   + Make prediction if latest start timestamp is within the last 30 minutes
+    # Loop through each 1d interval and fetch market indicators
+    #   + Make prediction if latest start timestamp is within the last 1 day
     #
     while loop_start_timestamp_milliseconds <= last_loop_start_timestamp_milliseconds
       puts "Loop start timestamp milliseconds: #{loop_start_timestamp_milliseconds}"
@@ -410,8 +410,8 @@ namespace :operations do
 
       # Polygon inputs
       symbol_polygon = 'X:BTCUSD'
-      timespan = 'minute'
-      window = 30
+      timespan = 'day'
+      window = 1
       series_type = 'open'
 
       # RSI
@@ -463,9 +463,9 @@ namespace :operations do
 
       # Volume
       volume_prev_interval = 0.0
-      aggregates_timespan = 'minute'
-      aggregates_multiplier = 30
-      start_date = (loop_start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds)
+      aggregates_timespan = 'day'
+      aggregates_multiplier = 1
+      start_date = (loop_start_timestamp_milliseconds - 1.day.to_i.in_milliseconds)
       end_date = loop_start_timestamp_milliseconds
       response_prev_volume = polygon_client.get_aggregate_bars(
         symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
@@ -478,10 +478,10 @@ namespace :operations do
 
       # Candle Open
       candle_open = 0.0
-      aggregates_timespan = 'minute'
-      aggregates_multiplier = 30
+      aggregates_timespan = 'day'
+      aggregates_multiplier = 1
       start_date = loop_start_timestamp_milliseconds
-      end_date = (loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds)
+      end_date = (loop_start_timestamp_milliseconds + 1.day.to_i.in_milliseconds)
       response_volume = polygon_client.get_aggregate_bars(
         symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_volume[:status] == 'success' && response_volume[:body]['resultsCount'] > 0
@@ -546,9 +546,9 @@ namespace :operations do
       #
       symbol_coinglass = 'BTC'
       symbol_coinglass_long_short_ratio = 'BTCUSDT'
-      start_timestamp_seconds = ((loop_start_timestamp_milliseconds - 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
+      start_timestamp_seconds = ((loop_start_timestamp_milliseconds - 1.day.to_i.in_milliseconds) / 1000.0).round(0)
       end_timestamp_seconds = ((loop_start_timestamp_milliseconds) / 1000.0).round(0)
-      interval = "30m"
+      interval = "1d"
       exchange = "Binance"
 
       # Avg Funding Rate
@@ -604,7 +604,7 @@ namespace :operations do
       formatted_start_timestamp_milliseconds = Time.at(
         loop_start_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
       formatted_end_timestamp_milliseconds = Time.at(
-        (loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds) / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
+        (loop_start_timestamp_milliseconds + 1.day.to_i.in_milliseconds) / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
 
       #
       # Prepare new data to insert to table
@@ -675,7 +675,7 @@ namespace :operations do
       end
 
       # puts "Inserted new data: #{new_data}"
-      loop_start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
+      loop_start_timestamp_milliseconds += 1.day.to_i.in_milliseconds
       sleep(0.25)
     end
     puts "Loop finished before next interval: #{loop_start_timestamp_milliseconds}"
@@ -728,7 +728,7 @@ namespace :operations do
         avg_long_short_ratio_open
       FROM
         `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
-      WHERE timestamp_close >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 MINUTE)
+      WHERE timestamp_close >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
       ORDER BY id DESC
       LIMIT 1
     SQL
