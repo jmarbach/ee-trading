@@ -160,15 +160,20 @@ class LnMarketsAPI
 
   def push_error_metric(error, caller_method)
     # Initialize GrafanaCloudInfluxPushAPI
-    grafana_cloud_auth_token = Base64.strict_encode64('210825' + ':' + ENV['GRAFANA_CLOUD_METRICS_API_KEY'])
+    grafana_cloud_auth_token = Base64.strict_encode64('210825' + ':' + ENV['GRAFANA_CLOUD_METRICS_API_KEY'].to_s)
     @grafana_api = GrafanaCloudInfluxPushAPI.new(grafana_cloud_auth_token)
 
     # Configure metric payload
     timestamp = Time.now.to_i * 1_000_000_000 # Convert to nanoseconds
-    metric = "lnmarkets_api_error,error_class=#{error.class},status_code=#{error.respond_to?(:response) ? error.response[:status].to_s : 'unknown'},method=#{caller_method} value=1 #{timestamp}"
+    error_class = error.class.to_s
+    status_code = error.respond_to?(:response) && error.response ? error.response[:status].to_s : 'unknown'
+    
+    metric = "lnmarkets_api_error,error_class=#{error_class},status_code=#{status_code},method=#{caller_method} value=1 #{timestamp}"
 
     # Push metric
     @grafana_api.push_metrics(metric)
+  rescue => e
+    @logger.error("Failed to push error metric: #{e.message}")
   end
 
   public
@@ -241,7 +246,20 @@ class LnMarketsAPI
   end
 
   def close_futures_trade(trade_id)
-    execute_request('DELETE', '/futures', { id: trade_id })
+    @logger.info("Attempting to close futures trade with ID: #{trade_id}")
+    
+    if verify_trade_exists(trade_id)
+      response = execute_request('DELETE', '/futures', { id: trade_id })
+      if response[:status] == 'success'
+        @logger.info("Successfully closed futures trade with ID: #{trade_id}")
+      else
+        @logger.error("Failed to close futures trade with ID: #{trade_id}. Error: #{response[:message]}")
+      end
+      response
+    else
+      @logger.warn("Trade with ID: #{trade_id} does not exist or is already closed")
+      { status: 'error', message: 'Trade does not exist or is already closed' }
+    end
   end
 
   def cancel_futures_trade(trade_id)
@@ -259,6 +277,25 @@ class LnMarketsAPI
 
   def get_price_btcusd_ticker
     execute_request('GET', "/futures/ticker")
+  end
+
+  def get_open_futures_trades
+    @logger.info("Fetching open futures trades")
+    response = execute_request('GET', '/futures', { type: 'open' })
+    if response[:status] == 'success'
+      @logger.info("Successfully fetched open futures trades")
+      response[:body]
+    else
+      @logger.error("Failed to fetch open futures trades. Error: #{response[:message]}")
+      []
+    end
+  end
+
+  def verify_trade_exists(trade_id)
+    open_trades = get_open_futures_trades
+    trade_exists = open_trades.any? { |trade| trade['id'] == trade_id }
+    @logger.info("Trade #{trade_id} #{trade_exists ? 'exists' : 'does not exist'}")
+    trade_exists
   end
 
   # def get_price_btcusd_index_history(start_timestamp_seconds, end_timestamp_seconds)

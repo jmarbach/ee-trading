@@ -382,7 +382,7 @@ namespace :operations do
 
     time_now_utc = Time.now.utc
     time_now_beginning_of_day_utc = Time.now.utc.beginning_of_day
-    most_recent_1d_interval = time_now_utc.change(
+    most_recent_1d_interval = time_now_beginning_of_day_utc.change(
       min: time_now_utc.min < 1440 ? 0 : 1440
     )
     loop_end_timestamp_milliseconds = most_recent_1d_interval.to_i.in_milliseconds
