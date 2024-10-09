@@ -323,8 +323,9 @@ namespace :operations do
       sleep(0.25)
     end
 
-    # 1x per day... retrain model if script is being run within 6 minutes of 00:00 UTC
-    if (Time.now.utc - Time.utc(Time.now.utc.year, Time.now.utc.month, Time.now.utc.day, 0, 0, 0)).abs <= 360
+    # 1x per week on Sunday... retrain model if script is being run within 6 minutes of 00:00 UTC on Sunday
+    if Time.now.utc.sunday? &&
+      (Time.now.utc - Time.utc(Time.now.utc.year, Time.now.utc.month, Time.now.utc.day, 0, 0, 0)).abs <= 360
       puts "Starting daily model retraining..."
       Rake::Task["operations:update_daily_model"].execute()
       puts "Finished retraining daily model."
