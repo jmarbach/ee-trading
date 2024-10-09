@@ -144,10 +144,12 @@ class LnMarketsAPI
       message: error_message,
       body: error_body,
       elapsed_time: elapsed_time.round(6),
-      error_class: error.class.to_s
+      error_class: error.class.to_s,
+      response_status: error.respond_to?(:response) ? error.response[:status] : nil,
+      response_headers: error.respond_to?(:response) ? error.response[:headers] : nil
     }
     
-    @logger.error("LnMarketsAPI Request failed. Error: #{error.class}, Message: #{error_message}, Elapsed time: #{elapsed_time.round(3)}s")
+    @logger.error("LnMarketsAPI Request failed. Error: #{error.class}, Message: #{error_message}, Status: #{error_response[:response_status]}, Elapsed time: #{elapsed_time.round(3)}s")
     @logger.debug("Full error response object: #{JSON.pretty_generate(error_response)}")
 
     # Push metric to Grafana Cloud
