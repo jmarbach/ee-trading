@@ -422,7 +422,7 @@ namespace :operations do
         symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_rsi[:status] == 'success' &&
         response_rsi[:body]['results']['values'].present?
-        rsi_open = response_rsi[:body]['results']['values'][0]['value'].round(2)
+        rsi_open = response_rsi[:body]['results']['values'][0]['value'].to_f.round(2)
       else
         rsi_open = 0.0
       end
@@ -433,7 +433,7 @@ namespace :operations do
         symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_sma[:status] == 'success' &&
         response_sma[:body]['results']['values'].present?
-        simple_moving_average_open = response_sma[:body]['results']['values'][0]['value'].round(2)
+        simple_moving_average_open = response_sma[:body]['results']['values'][0]['value'].to_f.round(2)
       else
         simple_moving_average_open = 0.0
       end
@@ -444,7 +444,7 @@ namespace :operations do
         symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_ema[:status] == 'success' &&
         response_ema[:body]['results']['values'].present?
-        exponential_moving_average_open = response_ema[:body]['results']['values'][0]['value'].round(2)
+        exponential_moving_average_open = response_ema[:body]['results']['values'][0]['value'].to_f.round(2)
       else
         exponential_moving_average_open = 0.0
       end
@@ -458,7 +458,7 @@ namespace :operations do
         symbol_polygon, loop_start_timestamp_milliseconds, timespan, short_window, long_window, signal_window, series_type)
       if response_macd[:status] == 'success' &&
         response_macd[:body]['results']['values'].present?
-        macd_histogram_open = response_macd[:body]['results']['values'][0]['histogram'].round(2)
+        macd_histogram_open = response_macd[:body]['results']['values'][0]['histogram'].to_f.round(2)
       else
         macd_histogram_open = 0.0
       end
@@ -473,7 +473,7 @@ namespace :operations do
         symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_prev_volume[:status] == 'success' &&
         response_prev_volume[:body]['resultsCount'] > 0
-        volume_prev_interval = response_prev_volume[:body]['results'][1]['v'].round(2).to_f
+        volume_prev_interval = response_prev_volume[:body]['results'][1]['v'].to_f.round(2)
       else
         volume_prev_interval = 0.0
       end
@@ -490,7 +490,7 @@ namespace :operations do
         matching_result = response_volume[:body]['results'].find { |result| result['t'] == loop_start_timestamp_milliseconds }
 
         if matching_result
-          candle_open = matching_result['o'].round(2).to_f
+          candle_open = matching_result['o'].to_f.round(2)
         else
           # No matching result found
         end
@@ -558,7 +558,7 @@ namespace :operations do
       coinglass_response = coinglass_client.get_aggregated_funding_rates(
         symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success'
-        avg_funding_rate_open = coinglass_response[:body]['data'][0]['c'].to_f
+        avg_funding_rate_open = coinglass_response[:body]['data'][0]['c'].to_f.round(2)
       end
 
       # Aggregate Open Interest
@@ -567,7 +567,7 @@ namespace :operations do
         symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success' && 
         coinglass_response[:body]['data'].present?
-        aggregate_open_interest_open = coinglass_response[:body]['data'][0]['c'].to_f
+        aggregate_open_interest_open = coinglass_response[:body]['data'][0]['c'].to_f.round(2)
       else
         aggregate_open_interest_open = 0.0
       end
@@ -578,7 +578,7 @@ namespace :operations do
         exchange, symbol_coinglass_long_short_ratio, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success' &&
         coinglass_response[:body]['data'].present?
-        avg_long_short_ratio_open = coinglass_response[:body]['data'][0]['longShortRatio'].to_f
+        avg_long_short_ratio_open = coinglass_response[:body]['data'][0]['longShortRatio'].to_f.round(3)
       else
         avg_long_short_ratio_open = 0.0
       end
