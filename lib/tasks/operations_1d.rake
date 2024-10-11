@@ -99,7 +99,7 @@ namespace :operations do
         symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_rsi[:status] == 'success' &&
         response_rsi[:body]['results']['values'].present?
-        rsi_close = response_rsi[:body]['results']['values'][0]['value'].round(2)
+        rsi_close = response_rsi[:body]['results']['values'][0]['value'].to_f.round(2)
       else
         rsi_close = 0.0
       end
@@ -110,7 +110,7 @@ namespace :operations do
         symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_sma[:status] == 'success' &&
         response_sma[:body]['results']['values'].present?
-        simple_moving_average_close = response_sma[:body]['results']['values'][0]['value'].round(2)
+        simple_moving_average_close = response_sma[:body]['results']['values'][0]['value'].to_f.round(2)
       else
         simple_moving_average_close = 0.0
       end
@@ -121,7 +121,7 @@ namespace :operations do
         symbol_polygon, loop_start_timestamp_milliseconds, timespan, window, series_type)
       if response_ema[:status] == 'success' &&
         response_ema[:body]['results']['values'].present?
-        exponential_moving_average_close = response_ema[:body]['results']['values'][0]['value'].round(2)
+        exponential_moving_average_close = response_ema[:body]['results']['values'][0]['value'].to_f.round(2)
       else
         exponential_moving_average_close = 0.0
       end
@@ -135,7 +135,7 @@ namespace :operations do
         symbol_polygon, loop_start_timestamp_milliseconds, timespan, short_window, long_window, signal_window, series_type)
       if response_macd[:status] == 'success' &&
         response_macd[:body]['results']['values'].present?
-        macd_histogram_close = response_macd[:body]['results']['values'][0]['histogram'].round(2)
+        macd_histogram_close = response_macd[:body]['results']['values'][0]['histogram'].to_f.round(2)
       else
         macd_histogram_close = 0.0
       end
@@ -209,7 +209,7 @@ namespace :operations do
       current_tick = Time.at(loop_start_timestamp_milliseconds / 1000).utc.strftime("%Y-%m-%d-%H-%M-%S")
       t3_response = t3_client.get_tick(current_tick)
       if t3_response[:status] == 'success'
-        implied_volatility_t3_close = t3_response[:body]['value']
+        implied_volatility_t3_close = t3_response[:body]['value'].to_f.round(2)
       end
 
       #
@@ -227,7 +227,7 @@ namespace :operations do
       coinglass_response = coinglass_client.get_aggregated_funding_rates(
         symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success'
-        avg_funding_rate_close = coinglass_response[:body]['data'][0]['c'].to_f
+        avg_funding_rate_close = coinglass_response[:body]['data'][0]['c'].to_f.round(2)
       end
 
       # Aggregate Open Interest
@@ -236,7 +236,7 @@ namespace :operations do
         symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success' &&
         coinglass_response[:body]['data'].present?
-        aggregate_open_interest_close = coinglass_response[:body]['data'][0]['c'].to_f
+        aggregate_open_interest_close = coinglass_response[:body]['data'][0]['c'].to_f.round(2)
       else
         aggregate_open_interest_close = 0.0
       end
@@ -247,7 +247,7 @@ namespace :operations do
         exchange, symbol_coinglass_long_short_ratio, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success' &&
         coinglass_response[:body]['data'].present?
-        avg_long_short_ratio_close = coinglass_response[:body]['data'][0]['longShortRatio'].to_f
+        avg_long_short_ratio_close = coinglass_response[:body]['data'][0]['longShortRatio'].to_f.round(2)
       else
         avg_long_short_ratio_close = 0.0
       end
@@ -540,7 +540,7 @@ namespace :operations do
       current_tick = Time.at(loop_start_timestamp_milliseconds / 1000).utc.strftime("%Y-%m-%d-%H-%M-%S")
       t3_response = t3_client.get_tick(current_tick)
       if t3_response[:status] == 'success'
-        implied_volatility_t3_open = t3_response[:body]['value']
+        implied_volatility_t3_open = t3_response[:body]['value'].to_f.round(2)
       end
 
       #
