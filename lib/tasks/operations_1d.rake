@@ -227,7 +227,7 @@ namespace :operations do
       coinglass_response = coinglass_client.get_aggregated_funding_rates(
         symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success'
-        avg_funding_rate_close = coinglass_response[:body]['data'][0]['c'].to_f.round(2)
+        avg_funding_rate_close = coinglass_response[:body]['data'][0]['c'].to_f.round(4)
       end
 
       # Aggregate Open Interest
@@ -247,7 +247,7 @@ namespace :operations do
         exchange, symbol_coinglass_long_short_ratio, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success' &&
         coinglass_response[:body]['data'].present?
-        avg_long_short_ratio_close = coinglass_response[:body]['data'][0]['longShortRatio'].to_f.round(2)
+        avg_long_short_ratio_close = coinglass_response[:body]['data'][0]['longShortRatio'].to_f.round(4)
       else
         avg_long_short_ratio_close = 0.0
       end
@@ -426,6 +426,7 @@ namespace :operations do
       else
         rsi_open = 0.0
       end
+      # TODO - Fix rsi which is always returning 100
 
       # SMA
       simple_moving_average_open = 0.0
@@ -558,7 +559,7 @@ namespace :operations do
       coinglass_response = coinglass_client.get_aggregated_funding_rates(
         symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success'
-        avg_funding_rate_open = coinglass_response[:body]['data'][0]['c'].to_f.round(2)
+        avg_funding_rate_open = coinglass_response[:body]['data'][0]['c'].to_f.round(4)
       end
 
       # Aggregate Open Interest
@@ -578,7 +579,7 @@ namespace :operations do
         exchange, symbol_coinglass_long_short_ratio, interval, start_timestamp_seconds, end_timestamp_seconds)
       if coinglass_response[:status] == 'success' &&
         coinglass_response[:body]['data'].present?
-        avg_long_short_ratio_open = coinglass_response[:body]['data'][0]['longShortRatio'].to_f.round(3)
+        avg_long_short_ratio_open = coinglass_response[:body]['data'][0]['longShortRatio'].to_f.round(4)
       else
         avg_long_short_ratio_open = 0.0
       end
