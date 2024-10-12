@@ -899,7 +899,7 @@ namespace :operations do
       FROM
         `#{PROJECT_ID}.#{DATASET_ID}.daily_training_data`
       WHERE
-        timestamp_open >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY)
+        timestamp_open >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 365 DAY)
         AND rsi_open IS NOT NULL
         AND volume_prev_interval IS NOT NULL
         AND simple_moving_average_open IS NOT NULL
