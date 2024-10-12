@@ -318,491 +318,79 @@ namespace :lnmarkets_trader do
       }.to_json
     )
 
-    # Standard model inputs
-    polygon_client = PolygonAPI.new
-    symbol = 'X:BTCUSD'
-    timespan = 'hour'
-    window = 24
-    short_window = 48
-    long_window = 104
-    signal_window = 36
-    series_type = 'close'
-
-    # Extra params for aggregates
-    aggregates_timespan = 'day'
-    aggregates_multiplier = 1
-
-    # Extra params for aggregates
-    start_date = (timestamp_current - (11 * 86400000))
-    end_date = timestamp_current
-
-    rsi_values, volume_values, simple_moving_average_values, exponential_moving_average_values, macd_values, avg_funding_rate, aggregate_open_interest =
-      nil, nil, nil, nil, nil, nil, nil
-    data_errors = 0
-
-    # Get technical indicators from Polygon
-    response_rsi = polygon_client.get_rsi(symbol, timestamp_current, timespan, window, series_type)
-    rsi_value = 0.0
-    if response_rsi[:status] == 'success'
-      rsi_values = response_rsi[:body]['results']['values']
-      rsi_value = rsi_values[0]['value']
-    else
-      data_errors += 1
-    end
-    puts "RSI VALUES:"
-    puts rsi_values
-    puts ""
-
-    response_volume = polygon_client.get_aggregate_bars(symbol, aggregates_timespan, aggregates_multiplier, start_date, end_date)
-    current_day_volume, prior_day_volume, two_days_ago_volume, three_days_ago_volume, four_days_ago_volume, five_days_ago_volume, 
-    six_days_ago_volume, seven_days_ago_volume = 0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
-    if response_volume[:status] == 'success'
-      volume_values = response_volume[:body]['results']
-
-      seven_days_ago_volume = volume_values[7]['v'].to_f
-      six_days_ago_volume = volume_values[6]['v'].to_f
-      five_days_ago_volume = volume_values[5]['v'].to_f
-      four_days_ago_volume = volume_values[4]['v'].to_f
-      three_days_ago_volume = volume_values[3]['v'].to_f
-      two_days_ago_volume = volume_values[2]['v'].to_f
-      prior_day_volume = volume_values[1]['v'].to_f
-      current_day_volume = volume_values[0]['v'].to_f
-    else
-      data_errors += 1
-    end
-    puts "VOLUME VALUES:"
-    puts volume_values
-    puts ""
-
-    response_simple_moving_average = polygon_client.get_sma(symbol, timestamp_current, timespan, window, series_type)
-    simple_moving_average = 0.0
-    if response_simple_moving_average[:status] == 'success'
-      simple_moving_average_values = response_simple_moving_average[:body]['results']['values']
-      simple_moving_average = simple_moving_average_values[0]['value']
-    else
-      data_errors += 1
-    end
-    puts "SIMPLE MOVING AVERAGE VALUES:"
-    puts simple_moving_average_values
-    puts ""
-
-    response_exponential_moving_average = polygon_client.get_ema(symbol, timestamp_current, timespan, window, series_type)
-    exponential_moving_average = 0.0
-    if response_exponential_moving_average[:status] == 'success'
-      exponential_moving_average_values = response_exponential_moving_average[:body]['results']['values']
-      exponential_moving_average = exponential_moving_average_values[0]['value']
-    else
-      data_errors += 1
-    end
-    puts "EXPONENTIAL MOVING AVERAGE VALUES:"
-    puts exponential_moving_average_values
-    puts ""
-
-    response_macd = polygon_client.get_macd(symbol, timestamp_current, timespan, short_window, long_window, signal_window, series_type)
-    macd_value, macd_signal, macd_histogram = 0.0,0.0,0.0
-    if response_macd[:status] == 'success'
-      macd_values = response_macd[:body]['results']['values']
-      macd_value = macd_values[0]['value']
-      macd_signal = macd_values[0]['signal']
-      macd_histogram = macd_values[0]['histogram']
-    else
-      data_errors += 1
-    end
-    puts "MACD:"
-    puts macd_values
-    puts ""
-
-    # Funding data
-    avg_funding_rate = 0.0
-    begin
-      coinalyze_client = CoinalyzeAPI.new
-      start_time = (DateTime.now.utc.beginning_of_day.to_i - 86400)
-      end_time = DateTime.now.utc.beginning_of_day.to_i
-      symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6'
-      coinalyze_response = coinalyze_client.get_avg_funding_history(symbols, 'daily', start_time, end_time)
-
-      if coinalyze_response[:body].count > 0
-        coinalyze_response[:body].each_with_index do |f, index|
-          avg_funding_rate += coinalyze_response[:body][index]['history'][0]['c']
-        end
-        avg_funding_rate = (avg_funding_rate/coinalyze_response[:body].count).round(4)
-      end
-    rescue => e
-      puts e
-      puts 'Error fetching funding rate data'
-      data_errors += 1
-    end
-    puts "FUNDING RATE:"
-    puts avg_funding_rate
-    puts ""
-
-    # Open Interest data
-    aggregate_open_interest = 0.0
-    begin
-      coinalyze_client = CoinalyzeAPI.new
-      start_time = (DateTime.now.utc.beginning_of_day.to_i - 86400)
-      end_time = DateTime.now.utc.beginning_of_day.to_i
-      symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
-      coinalyze_response = coinalyze_client.get_avg_open_interest_history(symbols, 'daily', start_time, end_time)
-
-      if coinalyze_response[:body].count > 0
-        coinalyze_response[:body].each_with_index do |f, index|
-          aggregate_open_interest += coinalyze_response[:body][index]['history'][0]['c']
-        end
-        aggregate_open_interest = aggregate_open_interest.round(1)
-      end
-    rescue => e
-      puts e
-      puts 'Error fetching open interest data'
-      data_errors += 1
-    end
-    puts "OPEN INTEREST:"
-    puts aggregate_open_interest
-    puts ""
-
     #
-    # Find average open interest over last 8 days
-    #
-    last_8_market_data_log_entries = nil
-    last_8_market_data_log_entries = MarketDataLog.where(strategy:'daily-trend', created_at: 10.days.ago..).order(recorded_date: :desc).limit(8).pluck(:aggregate_open_interest)
-    if last_8_market_data_log_entries != nil
-      # Remove nil values from array
-      last_8_market_data_log_entries.compact!
-      if !last_8_market_data_log_entries.empty?
-        last_8_aggregate_open_interests_average = last_8_market_data_log_entries.sum.fdiv(last_8_market_data_log_entries.size).round(2)
-      else
-        last_8_aggregate_open_interests_average = 0.0
-      end
-    else
-      last_8_aggregate_open_interests_average = 0.0
-      data_errors += 1
-    end
-
-    # Last 10 1D Candle Close Avg
-    last_10_candle_closes_average = 0.0
-    start_date = (timestamp_current - (9 * 86400000))
-    response_last_10_1d_candles = polygon_client.get_aggregate_bars(symbol, aggregates_timespan, aggregates_multiplier, start_date, end_date)
-    if response_exponential_moving_average[:status] == 'success'
-      last_10_1d_candles = response_last_10_1d_candles[:body]['results']
-
-      if last_10_1d_candles.count > 0
-        last_10_candle_closes_sum = 0.0
-        last_10_1d_candles.each do |f|
-          last_10_candle_closes_sum += f['c']
-        end
-        last_10_candle_closes_average = (last_10_candle_closes_sum/last_10_1d_candles.count).round(4)
-      end
-    else
-      data_errors += 1
-    end
-    puts "LAST 10 1D CANDLES CLOSE AVG:"
-    puts last_10_candle_closes_average
-    puts ""
-
-    # Current BTCUSD price
-    btcusd = 0.0
-    currency_from = 'BTC'
-    currency_to = 'USD'
-    response_btcusd = polygon_client.get_last_trade(currency_from, currency_to)
-    if response_btcusd[:status] == 'success'
-      btcusd = response_btcusd[:body]['last']['price']
-    else
-      data_errors += 1
-    end
-    Rails.logger.info(
-      {
-        message: "Fetched Last BTCUSD Tick.",
-        body: "#{btcusd}",
-        script: "lnmarkets_trader:check_daily_trend_indicators"
-      }.to_json
-    )
-
-    # Implied volatility deribit
-    implied_volatility_deribit = 0.0
-    lnmarkets_client = LnMarketsAPI.new
-    lnmarkets_response = lnmarkets_client.get_options_volatility_index()
-    if lnmarkets_response[:status] == 'success'
-      implied_volatility_deribit = lnmarkets_response[:body]['volatilityIndex']
-    else
-      Rails.logger.error(
-        {
-          message: "Error. Unable to get implied volatility from LnMarkets.",
-          script: "lnmarkets_trader:check_daily_trend_indicators"
-        }.to_json
-      )
-      data_errors += 1
-    end
-
-    # Implied volatility t3
-    implied_volatility_t3 = 0.0
-    t3_client = T3IndexAPI.new
-    current_tick = DateTime.now.utc.strftime("%Y-%m-%d-00-00-00")
-    t3_response = t3_client.get_tick(current_tick)
-    if t3_response[:status] == 'success'
-      implied_volatility_t3 = t3_response[:body]['value']
-    else
-      Rails.logger.error(
-        {
-          message: "Error. Unable to get implied volatility from T3IndexAPI.",
-          script: "lnmarkets_trader:check_daily_trend_indicators"
-        }.to_json
-      )
-      data_errors += 1
-    end
-
-    #
-    # Find average implied volatilities from T3
-    #
-    last_16_market_data_log_entries = nil
-    last_16_market_data_log_entries = MarketDataLog.where(strategy:'daily-trend', created_at: 17.days.ago..).order(recorded_date: :desc).limit(16).pluck(:implied_volatility_t3)
-    if last_16_market_data_log_entries != nil
-      # Remote nil values from array
-      last_16_market_data_log_entries.compact!
-      if !last_16_market_data_log_entries.empty?
-        last_16_implied_volatilities_t3_average = last_16_market_data_log_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
-      else
-        last_16_implied_volatilities_t3_average = 0.0
-      end
-    else
-      last_16_implied_volatilities_t3_average = 0.0
-      data_errors += 1
-    end
-
-    sleep(62)
-    # Long/Short data
-    avg_long_short_ratio = 0.0
-    begin
-      coinalyze_client = CoinalyzeAPI.new
-      start_time = (DateTime.now.utc.beginning_of_day.to_i - 86400)
-      end_time = DateTime.now.utc.beginning_of_day.to_i
-      symbols = 'BTCUSD.6,BTCUSD.7,BTCUSDT.6,BTCUSD_PERP.A,BTCUSDT_PERP.A,BTCUSD_PERP.0,BTCUSDC_PERP.3,BTCUSD_PERP.4,BTCUSDT_PERP.4,BTCUSDH24.6,BTC-PERP.V,BTC_USDT.Y,BTC_USDC-PERPETUAL.2,BTCUSDC_PERP.A,BTCUSDT_PERP.F,BTC-USD.8,BTC_USD.Y,BTC-PERPETUAL.2,BTCUSDT_PERP.3,BTCEURT_PERP.F,BTCUSDU24.6,BTCUSDZ24.6'
-      coinalyze_response = coinalyze_client.get_long_short_ratio_history(symbols, 'daily', start_time, end_time)
-
-      if coinalyze_response[:body].count > 0
-        count_of_records = 0.0
-        coinalyze_response[:body].each_with_index do |f, index|
-          coinalyze_response[:body][index]['history'].each do |o|
-            count_of_records += 1.0
-            avg_long_short_ratio += o['r']
-          end
-        end
-        avg_long_short_ratio = (avg_long_short_ratio / count_of_records).round(3)
-      end
-    rescue => e
-      puts e
-      puts 'Error fetching long/short ratio data'
-      data_errors += 1
-    end
-    puts "LONG/SHORT RATIO:"
-    puts avg_long_short_ratio
-    puts ""
-
-    #
-    # Find average long/short ratios
-    #
-    last_30_market_data_log_entries = nil
-    last_30_market_data_log_entries = MarketDataLog.where(strategy:'daily-trend', created_at: 31.days.ago..).order(recorded_date: :desc).limit(30).pluck(:avg_long_short_ratio)
-    if last_30_market_data_log_entries != nil
-      # Remote nil values from array
-      last_30_market_data_log_entries.compact!
-      if !last_30_market_data_log_entries.empty?
-        last_30_long_short_ratios_average = last_30_market_data_log_entries.sum.fdiv(last_30_market_data_log_entries.size).round(2)
-      else
-        last_30_long_short_ratios_average = 0.0
-      end
-    else
-      last_30_long_short_ratios_average = 0.0
-      data_errors += 1
-    end
-
-    #
-    # Save MarketDataLog
-    #
-    begin
-      market_data_log = MarketDataLog.create(
-        recorded_date: DateTime.now,
-        price_btcusd: btcusd,
-        prior_day_volume: prior_day_volume,
-        two_days_ago_volume: two_days_ago_volume,
-        three_days_ago_volume: three_days_ago_volume,
-        four_days_ago_volume: four_days_ago_volume,
-        five_days_ago_volume: five_days_ago_volume,
-        six_days_ago_volume: six_days_ago_volume,
-        seven_days_ago_volume: seven_days_ago_volume,
-        rsi: rsi_value,
-        simple_moving_average: simple_moving_average,
-        exponential_moving_average: exponential_moving_average,
-        macd_value: macd_value,
-        macd_signal: macd_signal,
-        macd_histogram: macd_histogram,
-        avg_funding_rate: avg_funding_rate,
-        aggregate_open_interest: aggregate_open_interest,
-        avg_last_10_candle_closes: last_10_candle_closes_average,
-        avg_last_8_aggregate_open_interests: last_8_aggregate_open_interests_average,
-        implied_volatility_deribit: implied_volatility_deribit,
-        implied_volatility_t3: implied_volatility_t3,
-        avg_long_short_ratio: avg_long_short_ratio,
-        strategy: 'daily-trend'
-      )
-    rescue => e
-      Rails.logger.error(
-        {
-          message: "Error. Unable to save market_data_log record.",
-          body: "#{e}",
-          script: "lnmarkets_trader:check_daily_trend_indicators"
-        }.to_json
-      )
-      market_data_log = MarketDataLog.create(
-        recorded_date: DateTime.now,
-        strategy: 'daily-trend'
-      )
-    end
-
     #
     # Initialize score
     #
     trade_direction_score = 0.0
 
     #
-    # Evaluate rules
+    # Query training data
     #
-    if volume_values.present?
-      if (prior_day_volume < two_days_ago_volume &&
-        prior_day_volume < three_days_ago_volume &&
-        prior_day_volume < four_days_ago_volume &&
-        prior_day_volume < five_days_ago_volume &&
-        prior_day_volume < six_days_ago_volume) || (
-        (two_days_ago_volume < three_days_ago_volume &&
-        two_days_ago_volume < four_days_ago_volume &&
-        two_days_ago_volume < five_days_ago_volume &&
-        two_days_ago_volume < six_days_ago_volume) && (prior_day_volume < three_days_ago_volume))
-        trade_direction_score -= 1.0
-      end
+    Rails.logger.info(
+      {
+        message: "Query training data for latest prediction.",
+        script: "lnmarkets_trader:check_daily_trend_indicators"
+      }.to_json
+    )
+    require "google/cloud/bigquery"
 
-      if (prior_day_volume > two_days_ago_volume &&
-        two_days_ago_volume > three_days_ago_volume &&
-        three_days_ago_volume > four_days_ago_volume &&
-        four_days_ago_volume > five_days_ago_volume)
-        trade_direction_score += 2.0
-      end
+    PROJECT_ID = "encrypted-energy"
+    DATASET_ID = "market_indicators"
+    TABLE_ID = "daily_training_data"
+
+    # Initialize BigQuery client
+    bigquery = if defined?(Rails) && Rails.env.production?
+      credentials = JSON.parse(ENV['GOOGLE_APPLICATION_CREDENTIALS'], symbolize_names: true)
+      Google::Cloud::Bigquery.new(credentials: credentials, project: PROJECT_ID)
     else
-      data_errors += 1
+      Google::Cloud::Bigquery.new(project: PROJECT_ID)
     end
 
-    if rsi_values.present?
-      if rsi_values[0]['value'] > 65 && rsi_values[0]['value'] < 100
-        trade_direction_score += 3.0
+    # Get references to the dataset and table
+    dataset = bigquery.dataset(DATASET_ID)
+    table = dataset.table(TABLE_ID)
+
+    # Query to get the latest prediction
+    latest_prediction_query = <<-SQL
+      SELECT
+        id,
+        price_direction_prediction,
+        predicted_price_direction_probabilities.up AS up_probability,
+        predicted_price_direction_probabilities.down AS down_probability
+      FROM
+        `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
+      WHERE
+        price_direction_prediction IS NOT NULL
+      ORDER BY id DESC
+      LIMIT 1
+    SQL
+
+    # Execute the query to get the latest prediction
+    latest_prediction = bigquery.query(latest_prediction_query).first
+
+    if latest_prediction
+      puts "Latest Prediction ID: #{latest_prediction[:id]}"
+      puts "Predicted Direction: #{latest_prediction[:price_direction_prediction]}"
+      puts "Up Probability: #{latest_prediction[:up_probability]}"
+      puts "Down Probability: #{latest_prediction[:down_probability]}"
+
+      # Calculate trade score
+      if latest_prediction[:down_probability] > latest_prediction[:up_probability]
+        trade_direction_score = -1 * latest_prediction[:down_probability]
       else
-        trade_direction_score -= 1.0
+        trade_direction_score = latest_prediction[:up_probability]
       end
+
+      # ToDo - Add cols for BQ project, dataset, table, and row id
+      market_data_log = MarketDataLog.create(
+        recorded_date: DateTime.now,
+        strategy: strategy
+      )
+
+      puts "Calculated Trade Direction Score: #{trade_direction_score}"
     else
-      data_errors += 1
-    end
-
-    if macd_values.present?
-      if macd_values[0]['histogram'] < 100
-        trade_direction_score += 1.0
-      elsif macd_values[0]['histogram'] > 500.0
-        trade_direction_score -= 2.0
-      end
-    else
-      data_errors += 1
-    end
-
-    if exponential_moving_average_values.present? && simple_moving_average_values.present?
-      if exponential_moving_average_values[0]['value'] > (simple_moving_average_values[0]['value'] * 1.019)
-        trade_direction_score += 1.0
-      elsif exponential_moving_average_values[0]['value'] < (simple_moving_average_values[0]['value'] * 0.98)
-        trade_direction_score -= 1.0
-      end
-    else
-      data_errors += 1
-    end
-
-    if avg_funding_rate != nil
-      if avg_funding_rate > 0.003 && avg_funding_rate < 0.01
-        trade_direction_score -= 6.0
-      elsif avg_funding_rate < -0.008 && avg_funding_rate > -0.01
-        trade_direction_score += 3.0
-      end
-    else
-      data_errors += 1
-    end
-
-    if last_10_candle_closes_average != 0.0
-      if btcusd > ((last_10_candle_closes_average) * 1.20)
-        trade_direction_score -= 6.0
-      end
-    else
-      data_errors += 1
-    end
-
-    if last_8_aggregate_open_interests_average != 0.0 && aggregate_open_interest != 0.0
-      if aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.015) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.02)
-        trade_direction_score -= 1.0
-      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.02) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.04)
-        trade_direction_score -= 1.0
-      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.04) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.10)
-        trade_direction_score += 0.0
-      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.10) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.11)
-        trade_direction_score -= 1.0
-      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.11) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.12)
-        trade_direction_score += 1.0
-      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.14) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.20)
-        trade_direction_score += 1.0
-      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.20) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.30)
-        trade_direction_score += 2.0
-      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.30) && aggregate_open_interest < ((last_8_aggregate_open_interests_average)*1.40)
-        trade_direction_score -= 5.0
-      elsif aggregate_open_interest > ((last_8_aggregate_open_interests_average)*1.40)
-        trade_direction_score += 1.0
-      end
-
-      if aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.98) && aggregate_open_interest > ((last_8_aggregate_open_interests_average)*0.960)
-        trade_direction_score -= 0.0
-      elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.96) && aggregate_open_interest > ((last_8_aggregate_open_interests_average)*0.95)
-        trade_direction_score += 1.0
-      elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.95) && aggregate_open_interest > ((last_8_aggregate_open_interests_average)*0.94)
-        trade_direction_score -= 5.0
-      elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.92) && aggregate_open_interest > ((last_8_aggregate_open_interests_average)*0.88)
-        trade_direction_score -= 3.0
-      elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.88) && aggregate_open_interest > ((last_8_aggregate_open_interests_average)*0.80)
-        trade_direction_score -= 3.0
-      elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.80) && aggregate_open_interest > ((last_8_aggregate_open_interests_average)*0.70)
-        trade_direction_score += 1.0
-      elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.70) && aggregate_open_interest > ((last_8_aggregate_open_interests_average)*0.60)
-        trade_direction_score += 1.0
-      elsif aggregate_open_interest < ((last_8_aggregate_open_interests_average)*0.60)
-        trade_direction_score += 1.0
-      end
-    end
-
-    if last_16_implied_volatilities_t3_average != 0.0 && implied_volatility_t3 != 0.0
-      if implied_volatility_t3 > ((last_16_implied_volatilities_t3_average)*1.31) && implied_volatility_t3 < ((last_16_implied_volatilities_t3_average)*1.40)
-        trade_direction_score -= 1.0
-      elsif implied_volatility_t3 > ((last_16_implied_volatilities_t3_average)*1.49) && implied_volatility_t3 < ((last_16_implied_volatilities_t3_average)*1.79)
-        trade_direction_score -= 1.0
-      elsif implied_volatility_t3 < ((last_16_implied_volatilities_t3_average)*0.97) && implied_volatility_t3 > ((last_16_implied_volatilities_t3_average)*0.92)
-        trade_direction_score -= 1.0
-      elsif implied_volatility_t3 < ((last_16_implied_volatilities_t3_average)*0.89) && implied_volatility_t3 > ((last_16_implied_volatilities_t3_average)*0.75)
-        trade_direction_score -= 2.0
-      end
-    end
-
-    if last_30_long_short_ratios_average != 0.0 && avg_long_short_ratio != 0.0
-      if avg_long_short_ratio > ((last_30_long_short_ratios_average)*1.30) && avg_long_short_ratio < ((last_30_long_short_ratios_average)*1.50)
-        trade_direction_score -= 1.0
-      elsif avg_long_short_ratio > ((last_30_long_short_ratios_average)*1.09) && avg_long_short_ratio < ((last_30_long_short_ratios_average)*1.19)
-        trade_direction_score -= 0.0
-      elsif avg_long_short_ratio > ((last_30_long_short_ratios_average)*1.01) && avg_long_short_ratio < ((last_30_long_short_ratios_average)*1.09)
-        trade_direction_score += 1.0
-      elsif avg_long_short_ratio < ((last_30_long_short_ratios_average)*0.985) && avg_long_short_ratio > ((last_30_long_short_ratios_average)*0.98)
-        trade_direction_score += 1.0
-      elsif avg_long_short_ratio < ((last_30_long_short_ratios_average)*0.98) && avg_long_short_ratio > ((last_30_long_short_ratios_average)*0.96)
-        trade_direction_score += 2.0
-      elsif avg_long_short_ratio < ((last_30_long_short_ratios_average)*0.93) && avg_long_short_ratio > ((last_30_long_short_ratios_average)*0.90)
-        trade_direction_score += 3.0
-      end
+      puts "No prediction found"
     end
 
     #
@@ -834,13 +422,13 @@ namespace :lnmarkets_trader do
     end
 
     puts ""
-    puts "4. Proceed to create new trade..."
+    puts "Evaluate if we should create a new trade..."
     puts "--------------------------------------------"
     puts ""
     #
     # Invoke trade order scripts
     #
-    if trade_direction_score < 0.0 || trade_direction_score > 0.0
+    if trade_direction_score < -0.5 || trade_direction_score > 0.53
       puts "********************************************"
       puts "********************************************"
       trade_direction = ''
