@@ -320,7 +320,7 @@ namespace :operations do
       end
 
       loop_start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
-      sleep(0.25)
+      sleep(0.1)
     end
 
     # 1x per day... retrain model if script is being run within 3 minutes of 04:00 UTC
@@ -676,7 +676,7 @@ namespace :operations do
 
       # puts "Inserted new data: #{new_data}"
       loop_start_timestamp_milliseconds += 30.minutes.to_i.in_milliseconds
-      sleep(0.25)
+      sleep(0.1)
     end
     puts "Loop finished before next interval: #{loop_start_timestamp_milliseconds}"
     puts "End operations:generate_thirty_minute_training_data_next_interval"
