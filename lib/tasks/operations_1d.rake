@@ -89,8 +89,8 @@ namespace :operations do
 
       # Polygon inputs
       symbol_polygon = 'X:BTCUSD'
-      timespan = 'day'
-      window = 1
+      timespan = 'hour'
+      window = 24
       series_type = 'close'
 
       # RSI
