@@ -379,7 +379,7 @@ namespace :operations do
       # Assign start date based on the last timestamp entry
       #
       parsed_last_timestamp = Time.parse(last_timestamp_open.to_s).utc
-      loop_start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds + 1.day.to_i.in_milliseconds)
+      loop_start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds + 1.hour.to_i.in_milliseconds)
   
       time_now_utc = Time.now.utc
       time_now_beginning_of_day_utc = Time.now.utc.beginning_of_day
