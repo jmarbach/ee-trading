@@ -48,9 +48,9 @@ namespace :operations do
       most_recent_1h_interval = time_now_utc.change(
         min: time_now_utc.min < 60 ? 0 : 60
       )
-      loop_end_timestamp_milliseconds = most_recent_1d_interval.to_i.in_milliseconds
+      loop_end_timestamp_milliseconds = most_recent_1h_interval.to_i.in_milliseconds
       last_loop_start_timestamp_milliseconds = (loop_end_timestamp_milliseconds - 1.hour.to_i.in_milliseconds)
-      minutes_since_loop_end_interval = ((time_now_utc - most_recent_1d_interval) / 60).to_i
+      minutes_since_loop_end_interval = ((time_now_utc - most_recent_1h_interval) / 60).to_i
   
       #
       # Loop through each 1d interval and fetch interval Close market indicators
