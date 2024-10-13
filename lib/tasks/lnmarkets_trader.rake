@@ -470,16 +470,6 @@ namespace :lnmarkets_trader do
       )
     end
 
-    Rails.logger.info(
-      {
-        message: "Data Errors: #{data_errors}",
-        script: "lnmarkets_trader:check_daily_trend_indicators"
-      }.to_json
-    )
-    if data_errors > 0
-      market_data_log.update(int_data_errors: data_errors)
-    end
-
     puts 'End lnmarkets_trader:check_daily_trend_indicators...'
     puts ''
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
