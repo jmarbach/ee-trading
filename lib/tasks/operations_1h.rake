@@ -146,7 +146,7 @@ namespace :operations do
         aggregates_timespan = 'hour'
         aggregates_multiplier = 1
         start_date = loop_start_timestamp_milliseconds
-        end_date = (loop_start_timestamp_milliseconds + 1.day.to_i.in_milliseconds)
+        end_date = (loop_start_timestamp_milliseconds + 1.hour.to_i.in_milliseconds)
         response_open_to_close_volume = polygon_client.get_aggregate_bars(
           symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
         if response_open_to_close_volume[:status] == 'success' &&
@@ -319,7 +319,7 @@ namespace :operations do
           end
         end
   
-        loop_start_timestamp_milliseconds += 1.day.to_i.in_milliseconds
+        loop_start_timestamp_milliseconds += 1.hour.to_i.in_milliseconds
         sleep(0.1)
       end
   
@@ -468,7 +468,7 @@ namespace :operations do
         volume_prev_interval = 0.0
         aggregates_timespan = 'hour'
         aggregates_multiplier = 1
-        start_date = (loop_start_timestamp_milliseconds - 1.day.to_i.in_milliseconds)
+        start_date = (loop_start_timestamp_milliseconds - 1.hour.to_i.in_milliseconds)
         end_date = loop_start_timestamp_milliseconds
         response_prev_volume = polygon_client.get_aggregate_bars(
           symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
@@ -484,7 +484,7 @@ namespace :operations do
         aggregates_timespan = 'hour'
         aggregates_multiplier = 1
         start_date = loop_start_timestamp_milliseconds
-        end_date = (loop_start_timestamp_milliseconds + 1.day.to_i.in_milliseconds)
+        end_date = (loop_start_timestamp_milliseconds + 1.hour.to_i.in_milliseconds)
         response_volume = polygon_client.get_aggregate_bars(
           symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
         if response_volume[:status] == 'success' && response_volume[:body]['resultsCount'] > 0
@@ -549,7 +549,7 @@ namespace :operations do
         #
         symbol_coinglass = 'BTC'
         symbol_coinglass_long_short_ratio = 'BTCUSDT'
-        start_timestamp_seconds = ((loop_start_timestamp_milliseconds - 1.day.to_i.in_milliseconds) / 1000.0).round(0)
+        start_timestamp_seconds = ((loop_start_timestamp_milliseconds - 1.hour.to_i.in_milliseconds) / 1000.0).round(0)
         end_timestamp_seconds = ((loop_start_timestamp_milliseconds) / 1000.0).round(0)
         interval = "1h"
         exchange = "Binance"
@@ -607,7 +607,7 @@ namespace :operations do
         formatted_start_timestamp_milliseconds = Time.at(
           loop_start_timestamp_milliseconds / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
         formatted_end_timestamp_milliseconds = Time.at(
-          (loop_start_timestamp_milliseconds + 1.day.to_i.in_milliseconds) / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
+          (loop_start_timestamp_milliseconds + 1.hour.to_i.in_milliseconds) / 1000.0).utc.strftime('%Y-%m-%d %H:%M:%S.%6N')
   
         #
         # Prepare new data to insert to table
@@ -899,7 +899,7 @@ namespace :operations do
         FROM
           `#{PROJECT_ID}.#{DATASET_ID}.hourly_training_data`
         WHERE
-          timestamp_open >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 100 DAY)
+          timestamp_open >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 180 DAY)
           AND rsi_open IS NOT NULL
           AND volume_prev_interval IS NOT NULL
           AND simple_moving_average_open IS NOT NULL
