@@ -42,7 +42,7 @@ namespace :operations do
       # Assign initial loop start date based on the last timestamp entry with candle_open value but no candle_close value
       #
       parsed_last_timestamp = Time.parse(last_timestamp_close.to_s).utc
-      loop_start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds - 1.day.to_i.in_milliseconds)
+      loop_start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds - 3.minutes.to_i.in_milliseconds)
   
       time_now_utc = Time.now.utc
       most_recent_1d_interval = time_now_utc.change(
@@ -62,7 +62,7 @@ namespace :operations do
         #
         # Fetch relevant row
         #
-        interval_timestamp_close = loop_start_timestamp_milliseconds + 1.day.to_i.in_milliseconds
+        interval_timestamp_close = loop_start_timestamp_milliseconds + 3.minutes.to_i.in_milliseconds
         time_obj_interval_timestamp_close = Time.at(interval_timestamp_close / 1000.0).utc
         query = "SELECT id FROM `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}` WHERE timestamp_close = '#{time_obj_interval_timestamp_close}' LIMIT 1"
         results = bigquery.query(query)
@@ -678,7 +678,7 @@ namespace :operations do
         end
   
         # puts "Inserted new data: #{new_data}"
-        loop_start_timestamp_milliseconds += 1.day.to_i.in_milliseconds
+        loop_start_timestamp_milliseconds += 3.minutes.to_i.in_milliseconds
         sleep(0.1)
       end
       puts "Loop finished before next interval: #{loop_start_timestamp_milliseconds}"
