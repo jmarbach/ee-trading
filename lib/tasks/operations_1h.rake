@@ -45,11 +45,11 @@ namespace :operations do
       loop_start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds - 1.hour.to_i.in_milliseconds)
   
       time_now_utc = Time.now.utc
-      most_recent_1d_interval = time_now_utc.change(
-        min: time_now_utc.min < 1440 ? 0 : 1440
+      most_recent_1h_interval = time_now_utc.change(
+        min: time_now_utc.min < 60 ? 0 : 60
       )
       loop_end_timestamp_milliseconds = most_recent_1d_interval.to_i.in_milliseconds
-      last_loop_start_timestamp_milliseconds = (loop_end_timestamp_milliseconds - 1.day.to_i.in_milliseconds)
+      last_loop_start_timestamp_milliseconds = (loop_end_timestamp_milliseconds - 1.hour.to_i.in_milliseconds)
       minutes_since_loop_end_interval = ((time_now_utc - most_recent_1d_interval) / 60).to_i
   
       #
@@ -382,13 +382,13 @@ namespace :operations do
       loop_start_timestamp_milliseconds = (parsed_last_timestamp.to_i.in_milliseconds + 1.hour.to_i.in_milliseconds)
   
       time_now_utc = Time.now.utc
-      time_now_beginning_of_day_utc = Time.now.utc.beginning_of_day
-      most_recent_1d_interval = time_now_beginning_of_day_utc.change(
-        min: time_now_utc.min < 1440 ? 0 : 1440
+      time_now_beginning_of_hour_utc = Time.now.utc.beginning_of_hour
+      most_recent_1h_interval = time_now_beginning_of_hour_utc.change(
+        min: time_now_utc.min < 60 ? 0 : 60
       )
-      loop_end_timestamp_milliseconds = most_recent_1d_interval.to_i.in_milliseconds
+      loop_end_timestamp_milliseconds = most_recent_1h_interval.to_i.in_milliseconds
       last_loop_start_timestamp_milliseconds = loop_end_timestamp_milliseconds
-      minutes_since_loop_end_interval = ((time_now_utc - most_recent_1d_interval) / 60).to_i
+      minutes_since_loop_end_interval = ((time_now_utc - most_recent_1h_interval) / 60).to_i
   
       #
       # Loop through each 1d interval and fetch market indicators
