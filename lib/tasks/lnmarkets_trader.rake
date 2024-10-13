@@ -304,7 +304,7 @@ namespace :lnmarkets_trader do
     end
   end
 
-  task check_daily_trend_indicators: :environment do
+  task attempt_trade_daily_trend: :environment do
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     timestamp_current = DateTime.now.utc.beginning_of_day.to_i.in_milliseconds
@@ -312,9 +312,9 @@ namespace :lnmarkets_trader do
     strategy = 'daily-trend'
     Rails.logger.info(
       {
-        message: "Run lnmarkets_trader:check_daily_trend_indicators...",
+        message: "Run lnmarkets_trader:attempt_trade_daily_trend...",
         body: "QUERY DATE: #{DateTime.now.utc.beginning_of_day} - #{timestamp_current}",
-        script: "lnmarkets_trader:check_daily_trend_indicators"
+        script: "lnmarkets_trader:attempt_trade_daily_trend"
       }.to_json
     )
 
@@ -330,7 +330,7 @@ namespace :lnmarkets_trader do
     Rails.logger.info(
       {
         message: "Query training data for latest prediction.",
-        script: "lnmarkets_trader:check_daily_trend_indicators"
+        script: "lnmarkets_trader:attempt_trade_daily_trend"
       }.to_json
     )
     require "google/cloud/bigquery"
@@ -399,7 +399,7 @@ namespace :lnmarkets_trader do
     Rails.logger.info(
       {
         message: "Final Trade Direction Score: #{trade_direction_score}",
-        script: "lnmarkets_trader:check_daily_trend_indicators"
+        script: "lnmarkets_trader:attempt_trade_daily_trend"
       }.to_json
     )
     begin
@@ -413,7 +413,7 @@ namespace :lnmarkets_trader do
         {
           message: "Error saving score_log record",
           body: e,
-          script: "lnmarkets_trader:check_daily_trend_indicators"
+          script: "lnmarkets_trader:attempt_trade_daily_trend"
         }.to_json
       )
       score_log = ScoreLog.create(
@@ -441,7 +441,7 @@ namespace :lnmarkets_trader do
         {
           message: "Proceed with new trade direction.",
           body: "#{trade_direction}",
-          script: "lnmarkets_trader:check_daily_trend_indicators"
+          script: "lnmarkets_trader:attempt_trade_daily_trend"
         }.to_json
       )
 
@@ -453,7 +453,7 @@ namespace :lnmarkets_trader do
       Rails.logger.info(
         {
           message: "Finished creating new #{trade_direction} trade.",
-          script: "lnmarkets_trader:check_daily_trend_indicators"
+          script: "lnmarkets_trader:attempt_trade_daily_trend"
         }.to_json
       )
       puts "********************************************"
@@ -465,12 +465,12 @@ namespace :lnmarkets_trader do
       Rails.logger.info(
         {
           message: "No trade.",
-          script: "lnmarkets_trader:check_daily_trend_indicators"
+          script: "lnmarkets_trader:attempt_trade_daily_trend"
         }.to_json
       )
     end
 
-    puts 'End lnmarkets_trader:check_daily_trend_indicators...'
+    puts 'End lnmarkets_trader:attempt_trade_daily_trend...'
     puts ''
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
