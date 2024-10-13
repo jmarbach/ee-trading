@@ -1,8 +1,8 @@
 namespace :operations do
-    task generate_hourly_training_data_previous_interval: :environment do
+    task generate_three_minute_training_data_previous_interval: :environment do
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
-      puts "Begin operations:generate_hourly_training_data_previous_interval..."
+      puts "Begin operations:generate_three_minute_training_data_previous_interval..."
       #
       # Every 1d collect new market data and 1x per week update model
       #
@@ -23,7 +23,7 @@ namespace :operations do
       # Set dataset, table, and table names
       #
       DATASET_ID = "market_indicators"
-      TABLE_ID = "hourly_training_data"
+      TABLE_ID = "three_minute_training_data"
   
       #
       # Fetch last date in the training data table
@@ -90,7 +90,7 @@ namespace :operations do
         # Polygon inputs
         symbol_polygon = 'X:BTCUSD'
         timespan = 'minute'
-        window = 60
+        window = 3
         series_type = 'close'
   
         # RSI
@@ -320,25 +320,25 @@ namespace :operations do
         end
   
         loop_start_timestamp_milliseconds += 1.day.to_i.in_milliseconds
-        sleep(0.25)
+        sleep(0.1)
       end
   
       # 1x per week on Sunday... retrain model if script is being run within 6 minutes of 00:00 UTC on Sunday
       if Time.now.utc.sunday? &&
         (Time.now.utc - Time.utc(Time.now.utc.year, Time.now.utc.month, Time.now.utc.day, 0, 0, 0)).abs <= 360
-        puts "Starting hourly model retraining..."
-        Rake::Task["operations:update_hourly_model"].execute()
-        puts "Finished retraining hourly model."
+        puts "Starting three minute model retraining..."
+        Rake::Task["operations:update_three_minute_model"].execute()
+        puts "Finished retraining three minute model."
       end
-      puts "End operations:generate_hourly_training_data_previous_interval"
+      puts "End operations:generate_three_minute_training_data_previous_interval"
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     end
   
-    task generate_hourly_training_data_next_interval: :environment do
+    task generate_three_minute_training_data_next_interval: :environment do
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
-      puts "Begin operations:generate_hourly_training_data_next_interval..."
+      puts "Begin operations:generate_three_minute_training_data_next_interval..."
       #
       # Every 1d collect new market data and 1x per week update model
       #
@@ -360,7 +360,7 @@ namespace :operations do
       # Set dataset, table, and table names
       #
       DATASET_ID = "market_indicators"
-      TABLE_ID = "hourly_training_data"
+      TABLE_ID = "three_minute_training_data"
   
       #
       # Fetch last date in the training data table
@@ -413,7 +413,7 @@ namespace :operations do
         # Polygon inputs
         symbol_polygon = 'X:BTCUSD'
         timespan = 'minute'
-        window = 60
+        window = 3
         series_type = 'open'
   
         # RSI
@@ -466,7 +466,7 @@ namespace :operations do
   
         # Volume
         volume_prev_interval = 0.0
-        aggregates_timespan = 'hour'
+        aggregates_timespan = 'day'
         aggregates_multiplier = 1
         start_date = (loop_start_timestamp_milliseconds - 1.day.to_i.in_milliseconds)
         end_date = loop_start_timestamp_milliseconds
@@ -481,7 +481,7 @@ namespace :operations do
   
         # Candle Open
         candle_open = 0.0
-        aggregates_timespan = 'hour'
+        aggregates_timespan = 'day'
         aggregates_multiplier = 1
         start_date = loop_start_timestamp_milliseconds
         end_date = (loop_start_timestamp_milliseconds + 1.day.to_i.in_milliseconds)
@@ -679,16 +679,16 @@ namespace :operations do
   
         # puts "Inserted new data: #{new_data}"
         loop_start_timestamp_milliseconds += 1.day.to_i.in_milliseconds
-        sleep(0.25)
+        sleep(0.1)
       end
       puts "Loop finished before next interval: #{loop_start_timestamp_milliseconds}"
-      puts "End operations:generate_hourly_training_data_next_interval"
+      puts "End operations:generate_three_minute_training_data_next_interval"
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     end
   
-    task generate_hourly_prediction: :environment do
-      puts "Begin operations:generate_hourly_prediction"
+    task generate_three_minute_prediction: :environment do
+      puts "Begin operations:generate_three_minute_prediction"
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
       #
@@ -698,8 +698,8 @@ namespace :operations do
   
       PROJECT_ID = "encrypted-energy"
       DATASET_ID = "market_indicators"
-      TABLE_ID = "hourly_training_data"
-      MODEL_ID = "hourly_random_forest"
+      TABLE_ID = "three_minute_training_data"
+      MODEL_ID = "three_minute_random_forest"
   
       # Initialize BigQuery client
       bigquery = if defined?(Rails) && Rails.env.production?
@@ -852,15 +852,15 @@ namespace :operations do
         puts "No latest data found"
       end
        
-      puts "End operations:generate_hourly_prediction"
+      puts "End operations:generate_three_minute_prediction"
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     end
   
-    task update_hourly_model: :environment do
+    task update_three_minute_model: :environment do
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
-      puts "Begin operations:update_hourly_model"
+      puts "Begin operations:update_three_minute_model"
       #
       # Initialize BigQuery client
       #
@@ -877,7 +877,7 @@ namespace :operations do
       end
   
       # Step 1: Create or replace view
-      VIEW_ID = "hourly_prepared_data"
+      VIEW_ID = "three_minute_prepared_data"
       create_view_query = <<-SQL
         CREATE OR REPLACE VIEW `#{PROJECT_ID}.#{DATASET_ID}.#{VIEW_ID}` AS
         SELECT
@@ -897,9 +897,9 @@ namespace :operations do
           avg_long_short_ratio_open,
           price_direction
         FROM
-          `#{PROJECT_ID}.#{DATASET_ID}.hourly_training_data`
+          `#{PROJECT_ID}.#{DATASET_ID}.three_minute_training_data`
         WHERE
-          timestamp_open >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 100 DAY)
+          timestamp_open >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 365 DAY)
           AND rsi_open IS NOT NULL
           AND volume_prev_interval IS NOT NULL
           AND simple_moving_average_open IS NOT NULL
@@ -930,7 +930,7 @@ namespace :operations do
       end
   
       # Step 2: Create or replace model
-      MODEL_ID = 'hourly_random_forest'
+      MODEL_ID = 'three_minute_random_forest'
       create_model_query = <<-SQL
         CREATE OR REPLACE MODEL `#{PROJECT_ID}.#{DATASET_ID}.#{MODEL_ID}`
         OPTIONS(
@@ -974,7 +974,7 @@ namespace :operations do
       # max_trees=100,
       # min_tree_child_weight=1,
       # subsample=0.8,
-      puts "End operations:update_hourly_model"
+      puts "End operations:update_three_minute_model"
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
     end
