@@ -143,7 +143,7 @@ namespace :operations do
         # Volume, Candle Close, Candle High, Candle Low
         volume_open_to_close = 0.0
         candle_open, candle_close, candle_high, candle_low = 0.0, 0.0, 0.0, 0.0
-        aggregates_timespan = 'day'
+        aggregates_timespan = 'hour'
         aggregates_multiplier = 1
         start_date = loop_start_timestamp_milliseconds
         end_date = (loop_start_timestamp_milliseconds + 1.day.to_i.in_milliseconds)
@@ -219,7 +219,7 @@ namespace :operations do
         symbol_coinglass_long_short_ratio = 'BTCUSDT'
         start_timestamp_seconds = ((loop_start_timestamp_milliseconds) / 1000.0).round(0)
         end_timestamp_seconds = ((loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-        interval = "1d"
+        interval = "1h"
         exchange = "Binance"
   
         # Avg Funding Rate
@@ -320,7 +320,7 @@ namespace :operations do
         end
   
         loop_start_timestamp_milliseconds += 1.day.to_i.in_milliseconds
-        sleep(0.25)
+        sleep(0.1)
       end
   
       # 1x per week on Sunday... retrain model if script is being run within 6 minutes of 00:00 UTC on Sunday
@@ -551,7 +551,7 @@ namespace :operations do
         symbol_coinglass_long_short_ratio = 'BTCUSDT'
         start_timestamp_seconds = ((loop_start_timestamp_milliseconds - 1.day.to_i.in_milliseconds) / 1000.0).round(0)
         end_timestamp_seconds = ((loop_start_timestamp_milliseconds) / 1000.0).round(0)
-        interval = "1d"
+        interval = "1h"
         exchange = "Binance"
   
         # Avg Funding Rate

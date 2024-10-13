@@ -4,7 +4,7 @@ namespace :operations do
       puts '/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/'
       puts "Begin operations:generate_three_minute_training_data_previous_interval..."
       #
-      # Every 1d collect new market data and 1x per week update model
+      # Every 1h collect new market data and 1x per day update model
       #
       #
       # Initialize BigQuery client
@@ -143,8 +143,8 @@ namespace :operations do
         # Volume, Candle Close, Candle High, Candle Low
         volume_open_to_close = 0.0
         candle_open, candle_close, candle_high, candle_low = 0.0, 0.0, 0.0, 0.0
-        aggregates_timespan = 'day'
-        aggregates_multiplier = 1
+        aggregates_timespan = 'minute'
+        aggregates_multiplier = 3
         start_date = loop_start_timestamp_milliseconds
         end_date = (loop_start_timestamp_milliseconds + 1.day.to_i.in_milliseconds)
         response_open_to_close_volume = polygon_client.get_aggregate_bars(
@@ -219,7 +219,7 @@ namespace :operations do
         symbol_coinglass_long_short_ratio = 'BTCUSDT'
         start_timestamp_seconds = ((loop_start_timestamp_milliseconds) / 1000.0).round(0)
         end_timestamp_seconds = ((loop_start_timestamp_milliseconds + 30.minutes.to_i.in_milliseconds) / 1000.0).round(0)
-        interval = "1d"
+        interval = "3m"
         exchange = "Binance"
   
         # Avg Funding Rate
@@ -466,8 +466,8 @@ namespace :operations do
   
         # Volume
         volume_prev_interval = 0.0
-        aggregates_timespan = 'day'
-        aggregates_multiplier = 1
+        aggregates_timespan = 'minute'
+        aggregates_multiplier = 3
         start_date = (loop_start_timestamp_milliseconds - 1.day.to_i.in_milliseconds)
         end_date = loop_start_timestamp_milliseconds
         response_prev_volume = polygon_client.get_aggregate_bars(
@@ -481,8 +481,8 @@ namespace :operations do
   
         # Candle Open
         candle_open = 0.0
-        aggregates_timespan = 'day'
-        aggregates_multiplier = 1
+        aggregates_timespan = 'minute'
+        aggregates_multiplier = 3
         start_date = loop_start_timestamp_milliseconds
         end_date = (loop_start_timestamp_milliseconds + 1.day.to_i.in_milliseconds)
         response_volume = polygon_client.get_aggregate_bars(
