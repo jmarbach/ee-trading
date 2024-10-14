@@ -1271,7 +1271,7 @@ namespace :lnmarkets_trader do
 
       # Query to get the last 16 days of volatility data
       volatility_query = <<-SQL
-        SELECT implied_volatility_t3_open
+        SELECT implied_volatility_t3_open, macd_histogram_open
         FROM `encrypted-energy.market_indicators.daily_training_data`
         WHERE DATE(timestamp_close) >= DATE_SUB(CURRENT_DATE(), INTERVAL 16 DAY)
         ORDER BY DATE(timestamp_close) DESC
@@ -1308,10 +1308,10 @@ namespace :lnmarkets_trader do
       #
       macd_value = 0.0
       last_macd_value = nil
-      last_market_data_log_entry = last_16_market_data_log_entries.first
+      last_market_data_log_entry = volatility_results[0]
       if last_market_data_log_entry != nil
-        if last_market_data_log_entry.macd_value != nil
-          last_macd_value = last_market_data_log_entry.macd_value
+        if last_market_data_log_entry[:macd_histogram_open] != nil
+          last_macd_value = last_market_data_log_entry[:macd_histogram_open]
         end
       end
 
@@ -1493,7 +1493,7 @@ namespace :lnmarkets_trader do
       
       # Query to get the last 16 days of volatility data
       volatility_query = <<-SQL
-        SELECT implied_volatility_t3_open
+        SELECT implied_volatility_t3_open, macd_histogram_open
         FROM `encrypted-energy.market_indicators.daily_training_data`
         WHERE DATE(timestamp_close) >= DATE_SUB(CURRENT_DATE(), INTERVAL 16 DAY)
         ORDER BY DATE(timestamp_close) DESC
@@ -1537,10 +1537,10 @@ namespace :lnmarkets_trader do
       #
       macd_value = 0.0
       last_macd_value = nil
-      last_market_data_log_entry = last_16_market_data_log_entries.first
+      last_market_data_log_entry = volatility_results[0]
       if last_market_data_log_entry != nil
-        if last_market_data_log_entry.macd_value != nil
-          last_macd_value = last_market_data_log_entry.macd_value
+        if last_market_data_log_entry[:macd_histogram_open] != nil
+          last_macd_value = last_market_data_log_entry[:macd_histogram_open]
         end
       end
 
