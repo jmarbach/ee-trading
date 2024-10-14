@@ -1261,6 +1261,7 @@ namespace :lnmarkets_trader do
       #
       # Define leverage factor using recent volatility data from the 'daily-trend' strategy
       #
+      PROJECT_ID = 'encrypted-energy'
       bigquery = if defined?(Rails) && Rails.env.production?
         credentials = JSON.parse(ENV['GOOGLE_APPLICATION_CREDENTIALS'], symbolize_names: true)
         Google::Cloud::Bigquery.new(credentials: credentials, project: PROJECT_ID)
@@ -1270,7 +1271,7 @@ namespace :lnmarkets_trader do
 
       # Query to get the last 16 days of volatility data
       volatility_query = <<-SQL
-        SELECT implied_volatility_t3_close
+        SELECT implied_volatility_t3_open
         FROM `encrypted-energy.market_indicators.daily_training_data`
         WHERE DATE(timestamp_close) >= DATE_SUB(CURRENT_DATE(), INTERVAL 16 DAY)
         ORDER BY DATE(timestamp_close) DESC
@@ -1290,7 +1291,7 @@ namespace :lnmarkets_trader do
         last_16_implied_volatilities_t3_average = 0.0
       end
 
-      if (last_16_market_data_log_entries[0]['implied_volatility_t3'] < (last_16_implied_volatilities_t3_average))
+      if (volatility_results[0][:implied_volatility_t3_open] < (last_16_implied_volatilities_t3_average))
         leverage_factor = rand(3.1..3.4).round(1)
       else
         leverage_factor = rand(2.6..2.8)
@@ -1475,6 +1476,7 @@ namespace :lnmarkets_trader do
       #
       # Define leverage factor
       #
+      PROJECT_ID = 'encrypted-energy'
       bigquery = if defined?(Rails) && Rails.env.production?
         credentials = JSON.parse(ENV['GOOGLE_APPLICATION_CREDENTIALS'], symbolize_names: true)
         Google::Cloud::Bigquery.new(credentials: credentials, project: PROJECT_ID)
@@ -1491,7 +1493,7 @@ namespace :lnmarkets_trader do
       
       # Query to get the last 16 days of volatility data
       volatility_query = <<-SQL
-        SELECT implied_volatility_t3_close
+        SELECT implied_volatility_t3_open
         FROM `encrypted-energy.market_indicators.daily_training_data`
         WHERE DATE(timestamp_close) >= DATE_SUB(CURRENT_DATE(), INTERVAL 16 DAY)
         ORDER BY DATE(timestamp_close) DESC
@@ -1518,7 +1520,7 @@ namespace :lnmarkets_trader do
       )
 
       if last_16_implied_volatilities_t3_average != 0.0 &&
-        (last_16_market_data_log_entries[0]['implied_volatility_t3'] < (last_16_implied_volatilities_t3_average))
+        (volatility_results[0][:implied_volatility_t3_open] < (last_16_implied_volatilities_t3_average))
         leverage_factor = rand(3.1..3.4).round(1)
       else
         leverage_factor = rand(2.6..2.8)
