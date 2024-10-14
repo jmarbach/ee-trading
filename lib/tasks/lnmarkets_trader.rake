@@ -1272,8 +1272,8 @@ namespace :lnmarkets_trader do
       volatility_query = <<-SQL
         SELECT implied_volatility_t3_close
         FROM `encrypted-energy.market_indicators.daily_training_data`
-        WHERE DATE(_PARTITIONTIME) >= DATE_SUB(CURRENT_DATE(), INTERVAL 16 DAY)
-        ORDER BY DATE(_PARTITIONTIME) DESC
+        WHERE DATE(timestamp_close) >= DATE_SUB(CURRENT_DATE(), INTERVAL 16 DAY)
+        ORDER BY DATE(timestamp_close) DESC
         LIMIT 16
       SQL
       
@@ -1493,8 +1493,8 @@ namespace :lnmarkets_trader do
       volatility_query = <<-SQL
         SELECT implied_volatility_t3_close
         FROM `encrypted-energy.market_indicators.daily_training_data`
-        WHERE DATE(_PARTITIONTIME) >= DATE_SUB(CURRENT_DATE(), INTERVAL 16 DAY)
-        ORDER BY DATE(_PARTITIONTIME) DESC
+        WHERE DATE(timestamp_close) >= DATE_SUB(CURRENT_DATE(), INTERVAL 16 DAY)
+        ORDER BY DATE(timestamp_close) DESC
         LIMIT 16
       SQL
       
