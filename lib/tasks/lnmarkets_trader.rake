@@ -1261,16 +1261,31 @@ namespace :lnmarkets_trader do
       #
       # Define leverage factor using recent volatility data from the 'daily-trend' strategy
       #
-      last_16_market_data_log_entries = MarketDataLog.where(strategy:'daily-trend', created_at: 17.days.ago..).order(recorded_date: :desc).limit(16)
-      last_16_market_data_log_volatility_entries = last_16_market_data_log_entries.pluck(:implied_volatility_t3)
-      if last_16_market_data_log_volatility_entries != nil
-        # Remove nil values from array
-        last_16_market_data_log_volatility_entries.compact!
-        if !last_16_market_data_log_volatility_entries.empty?
-          last_16_implied_volatilities_t3_average = last_16_market_data_log_volatility_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
-        else
-          last_16_implied_volatilities_t3_average = 0.0
-        end
+      bigquery = if defined?(Rails) && Rails.env.production?
+        credentials = JSON.parse(ENV['GOOGLE_APPLICATION_CREDENTIALS'], symbolize_names: true)
+        Google::Cloud::Bigquery.new(credentials: credentials, project: PROJECT_ID)
+      else
+        Google::Cloud::Bigquery.new(project: PROJECT_ID)
+      end
+
+      # Query to get the last 16 days of volatility data
+      volatility_query = <<-SQL
+        SELECT implied_volatility_t3_close
+        FROM `encrypted-energy.market_indicators.daily_training_data`
+        WHERE DATE(_PARTITIONTIME) >= DATE_SUB(CURRENT_DATE(), INTERVAL 16 DAY)
+        ORDER BY DATE(_PARTITIONTIME) DESC
+        LIMIT 16
+      SQL
+      
+      # Execute the query
+      volatility_results = bigquery.query(volatility_query)
+      
+      # Extract the volatility values
+      last_16_market_data_log_volatility_entries = volatility_results.map { |row| row[:implied_volatility_t3_close] }
+      
+      # Calculate the average
+      if !last_16_market_data_log_volatility_entries.empty?
+        last_16_implied_volatilities_t3_average = last_16_market_data_log_volatility_entries.compact.sum.fdiv(last_16_market_data_log_volatility_entries.compact.size).round(2)
       else
         last_16_implied_volatilities_t3_average = 0.0
       end
@@ -1460,19 +1475,47 @@ namespace :lnmarkets_trader do
       #
       # Define leverage factor
       #
-      last_16_market_data_log_entries = MarketDataLog.where(strategy:'daily-trend', created_at: 17.days.ago..).order(recorded_date: :desc).limit(16)
-      last_16_market_data_log_volatility_entries = last_16_market_data_log_entries.pluck(:implied_volatility_t3)
-      if last_16_market_data_log_volatility_entries != nil
-        # Remove nil values from array
-        last_16_market_data_log_volatility_entries.compact!
-        if !last_16_market_data_log_volatility_entries.empty?
-          last_16_implied_volatilities_t3_average = last_16_market_data_log_volatility_entries.sum.fdiv(last_16_market_data_log_entries.size).round(2)
-        else
-          last_16_implied_volatilities_t3_average = 0.0
-        end
+      bigquery = if defined?(Rails) && Rails.env.production?
+        credentials = JSON.parse(ENV['GOOGLE_APPLICATION_CREDENTIALS'], symbolize_names: true)
+        Google::Cloud::Bigquery.new(credentials: credentials, project: PROJECT_ID)
+      else
+        Google::Cloud::Bigquery.new(project: PROJECT_ID)
+      end
+
+      Rails.logger.info(
+        {
+          message: "Query latest volatility data...",
+          script: "lnmarkets_trader:create_short_trade"
+        }.to_json
+      )
+      
+      # Query to get the last 16 days of volatility data
+      volatility_query = <<-SQL
+        SELECT implied_volatility_t3_close
+        FROM `encrypted-energy.market_indicators.daily_training_data`
+        WHERE DATE(_PARTITIONTIME) >= DATE_SUB(CURRENT_DATE(), INTERVAL 16 DAY)
+        ORDER BY DATE(_PARTITIONTIME) DESC
+        LIMIT 16
+      SQL
+      
+      # Execute the query
+      volatility_results = bigquery.query(volatility_query)
+      
+      # Extract the volatility values
+      last_16_market_data_log_volatility_entries = volatility_results.map { |row| row[:implied_volatility_t3_close] }
+      
+      # Calculate the average
+      if !last_16_market_data_log_volatility_entries.empty?
+        last_16_implied_volatilities_t3_average = last_16_market_data_log_volatility_entries.compact.sum.fdiv(last_16_market_data_log_volatility_entries.compact.size).round(2)
       else
         last_16_implied_volatilities_t3_average = 0.0
       end
+      Rails.logger.info(
+        {
+          message: "last_16_implied_volatilities_t3_average: #{last_16_implied_volatilities_t3_average}",
+          script: "lnmarkets_trader:create_short_trade"
+        }.to_json
+      )
 
       if last_16_implied_volatilities_t3_average != 0.0 &&
         (last_16_market_data_log_entries[0]['implied_volatility_t3'] < (last_16_implied_volatilities_t3_average))
