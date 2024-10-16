@@ -957,13 +957,17 @@ namespace :operations do
     SQL
 
     # Execute the model creation query with wait and error handling
-    model_job = bigquery.query_job create_model_query
-    model_job.wait_until_done!
-
-    if model_job.error?
-      puts "Error creating model: #{model_job.error}"
-    else
-      puts "Model created successfully"
+    begin
+      model_job = bigquery.query_job create_model_query
+      model_job.wait_until_done!
+    
+      if model_job.failed?
+        puts "Error creating model: #{model_job.error}"
+      else
+        puts "Model created successfully"
+      end
+    rescue Google::Cloud::Error => e
+      puts "An error occurred: #{e.message}"
     end
     #
     # For future consideration, additional tuning options:
