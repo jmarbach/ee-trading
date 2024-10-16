@@ -683,7 +683,7 @@ namespace :operations do
   
         # puts "Inserted new data: #{new_data}"
         loop_start_timestamp_milliseconds += 1.hour.to_i.in_milliseconds
-        sleep(0.25)
+        sleep(0.1)
       end
       puts "Loop finished before next interval: #{loop_start_timestamp_milliseconds}"
       puts "End operations:generate_hourly_training_data_next_interval"
