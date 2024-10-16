@@ -181,7 +181,7 @@ namespace :operations do
         else
           price_btcusd_index = 0.0
         end
-        price_btcusd_index_close = price_btcusd_index
+        price_btcusd_index_close = price_btcusd_index.to_f.round(2)
 
         # Get Coinbase
         response_btc_usd_trades = polygon_client.get_trades(symbol_polygon)
@@ -197,7 +197,7 @@ namespace :operations do
           if exchange_1_price == nil
             price_btcusd_coinbase_close = price_btcusd_index
           else
-            price_btcusd_coinbase_close = exchange_1_price
+            price_btcusd_coinbase_close = exchange_1_price.to_f.round(2)
           end
         end
       else
@@ -533,7 +533,7 @@ namespace :operations do
           if exchange_1_price == nil
             price_btcusd_coinbase_open = price_btcusd_index
           else
-            price_btcusd_coinbase_open = exchange_1_price
+            price_btcusd_coinbase_open = exchange_1_price.to_f.round(2)
           end
         end
       else
