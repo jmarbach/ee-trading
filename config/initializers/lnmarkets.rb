@@ -35,7 +35,6 @@ class LnMarketsAPI
       headers: {
         'LNM-ACCESS-KEY' => ENV.fetch("LNMARKETS_API_KEY"),
         'LNM-ACCESS-PASSPHRASE' => ENV.fetch("LNMARKETS_API_PASSPHRASE"),
-        'Content-Type' => 'application/json'
       },
       ssl: { verify: true },
       proxy: ENV["SQUID_PROXY_URL"],
@@ -68,9 +67,11 @@ class LnMarketsAPI
       @logger.debug("Signature: #{signature}")
 
       response = @conn.send(method.downcase, full_path) do |req|
-        req.headers['Content-Type'] = 'application/json'
         req.headers['LNM-ACCESS-SIGNATURE'] = signature
         req.headers['LNM-ACCESS-TIMESTAMP'] = timestamp
+
+        # Add Content-Type header for non-DELETE requests
+        req.headers['Content-Type'] = 'application/json' unless method.upcase == 'DELETE'
 
         if ['GET', 'DELETE'].include?(method.upcase)
           req.params = data
@@ -246,20 +247,7 @@ class LnMarketsAPI
   end
 
   def close_futures_trade(trade_id)
-    @logger.info("Attempting to close futures trade with ID: #{trade_id}")
-    
-    if verify_trade_exists(trade_id)
-      response = execute_request('DELETE', '/futures', { id: trade_id })
-      if response[:status] == 'success'
-        @logger.info("Successfully closed futures trade with ID: #{trade_id}")
-      else
-        @logger.error("Failed to close futures trade with ID: #{trade_id}. Error: #{response[:message]}")
-      end
-      response
-    else
-      @logger.warn("Trade with ID: #{trade_id} does not exist or is already closed")
-      { status: 'error', message: 'Trade does not exist or is already closed' }
-    end
+    execute_request('DELETE', '/futures', { id: trade_id })
   end
 
   def cancel_futures_trade(trade_id)
@@ -283,19 +271,12 @@ class LnMarketsAPI
     @logger.info("Fetching open futures trades")
     response = execute_request('GET', '/futures', { type: 'open' })
     if response[:status] == 'success'
-      @logger.info("Successfully fetched open futures trades")
+      @logger.info("Successfully fetched running futures trades")
       response[:body]
     else
       @logger.error("Failed to fetch open futures trades. Error: #{response[:message]}")
       []
     end
-  end
-
-  def verify_trade_exists(trade_id)
-    open_trades = get_open_futures_trades
-    trade_exists = open_trades.any? { |trade| trade['id'] == trade_id }
-    @logger.info("Trade #{trade_id} #{trade_exists ? 'exists' : 'does not exist'}")
-    trade_exists
   end
 
   # def get_price_btcusd_index_history(start_timestamp_seconds, end_timestamp_seconds)
