@@ -517,7 +517,7 @@ namespace :operations do
         else
           price_btcusd_index = 0.0
         end
-        price_btcusd_index_open = price_btcusd_index
+        price_btcusd_index_open = price_btcusd_index.to_f.round(2)
 
         # Get Coinbase
         response_btc_usd_trades = polygon_client.get_trades(symbol_polygon)
