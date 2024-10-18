@@ -150,7 +150,8 @@ namespace :operations do
       response_open_to_close_volume = polygon_client.get_aggregate_bars(
         symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_open_to_close_volume[:status] == 'success' &&
-        response_open_to_close_volume[:body]['resultsCount'] > 0
+        response_open_to_close_volume[:body]['resultsCount'] > 0 &&
+        response_open_to_close_volume[:body]['results'][1].present?
         volume_open_to_close = response_open_to_close_volume[:body]['results'][1]['v'].round(2).to_f
         candle_open = response_open_to_close_volume[:body]['results'][1]['o'].round(2).to_f
         candle_close = response_open_to_close_volume[:body]['results'][1]['c'].round(2).to_f
@@ -470,7 +471,8 @@ namespace :operations do
       response_prev_volume = polygon_client.get_aggregate_bars(
         symbol_polygon, aggregates_timespan, aggregates_multiplier, start_date, end_date)
       if response_prev_volume[:status] == 'success' &&
-        response_prev_volume[:body]['resultsCount'] > 0
+        response_prev_volume[:body]['resultsCount'] > 0 &&
+        response_prev_volume[:body]['results'][1].present?
         volume_prev_interval = response_prev_volume[:body]['results'][1]['v'].round(2).to_f
       else
         volume_prev_interval = 0.0
