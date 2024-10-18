@@ -3,8 +3,8 @@ require 'json'
 require 'logger'
 
 class PolygonAPI
-  MAX_RETRIES = 3
-  RETRY_DELAY = 10
+  MAX_RETRIES = 5
+  RETRY_BASE_DELAY = 5
   RETRYABLE_ERRORS = [
     Faraday::ServerError,
     Faraday::ConnectionFailed,
@@ -35,7 +35,7 @@ class PolygonAPI
       },
       ssl: { verify: true },
       proxy: ENV["SQUID_PROXY_URL"],
-      request: { timeout: 10 }
+      request: { timeout: 30 }
     ) do |faraday|
       faraday.response :raise_error
     end
@@ -62,8 +62,8 @@ class PolygonAPI
     rescue *RETRYABLE_ERRORS => e
       retries += 1
       if retries <= MAX_RETRIES
-        @logger.warn("PolygonAPI Error: #{e.class} - #{e.message}. Retrying in #{RETRY_DELAY} seconds (Attempt #{retries}/#{MAX_RETRIES})")
-        sleep RETRY_DELAY
+        @logger.warn("PolygonAPI Error: #{e.class} - #{e.message}. Retrying in #{RETRY_DELAY} seconds (Attempt #{retries}/#{MAX_RETRIES}). Endpoint: #{full_path}")
+        sleep ((RETRY_BASE_DELAY ** retries) * (1 + rand * 0.1))
         retry
       else
         handle_error(e, start_time)
