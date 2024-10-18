@@ -502,19 +502,45 @@ namespace :lnmarkets_trader do
               script: "lnmarkets_trader:attempt_trade_hourly_trend"
             }.to_json
           )
-          if lnmarkets_response[:body]['open'] == true ||
-            lnmarkets_response[:body]['running'] == true
+          if lnmarkets_response[:body]['running'] == true
             Rails.logger.warn(
               {
-                message: "We already opened an hourly trend trade that is still open or running. Skip.",
+                message: "We already opened an hourly trend trade that is still running. Skip.",
                 script: "lnmarkets_trader:attempt_trade_hourly_trend"
               }.to_json
             )
             exit(0)
+          elsif lnmarkets_response[:body]['open'] == true
+            Rails.logger.warn(
+              {
+                message: "We already created an hourly trend trade that is still open. Cancel trade and continue.",
+                script: "lnmarkets_trader:attempt_trade_hourly_trend"
+              }.to_json
+            )
+            lnmarkets_response = lnmarkets_client.cancel_futures_trade(t.external_id)
+            if lnmarkets_response[:status] == 'success'
+              Rails.logger.info(
+                {
+                  message: "Finished closing open futures trade: #{t.external_id}.",
+                  script: "lnmarkets_trader:attempt_trade_hourly_trend"
+                }.to_json
+              )
+              TradeLog.find_by_external_id(t.external_id).update(
+                open: false,
+                canceled: true
+              )
+            else
+              Rails.logger.error(
+                {
+                  message: "Error. Unable to close futures trade: #{t.external_id}",
+                  script: "lnmarkets_trader:attempt_trade_hourly_trend"
+                }.to_json
+              )
+            end
           else
             Rails.logger.info(
               {
-                message: "Trade #{t.external_id} is not running or open. Update TradeLog record...",
+                message: "Trade #{t.external_id} is not running. Update TradeLog record...",
                 script: "lnmarkets_trader:attempt_trade_hourly_trend"
               }.to_json
             )
@@ -720,8 +746,7 @@ namespace :lnmarkets_trader do
               script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
             }.to_json
           )
-          if lnmarkets_response[:body]['open'] == true ||
-            lnmarkets_response[:body]['running'] == true
+          if lnmarkets_response[:body]['running'] == true
             Rails.logger.warn(
               {
                 message: "We already opened an hourly trend trade that is still open or running. Skip.",
@@ -729,6 +754,33 @@ namespace :lnmarkets_trader do
               }.to_json
             )
             exit(0)
+          elsif lnmarkets_response[:body]['open'] == true
+            Rails.logger.warn(
+              {
+                message: "We already created an hourly trend trade that is still open. Cancel trade and continue.",
+                script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
+              }.to_json
+            )
+            lnmarkets_response = lnmarkets_client.cancel_futures_trade(t.external_id)
+            if lnmarkets_response[:status] == 'success'
+              Rails.logger.info(
+                {
+                  message: "Finished closing open futures trade: #{t.external_id}.",
+                  script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
+                }.to_json
+              )
+              TradeLog.find_by_external_id(t.external_id).update(
+                open: false,
+                canceled: true
+              )
+            else
+              Rails.logger.error(
+                {
+                  message: "Error. Unable to close futures trade: #{t.external_id}",
+                  script: "lnmarkets_trader:attempt_trade_thirty_minute_trend"
+                }.to_json
+              )
+            end
           else
             Rails.logger.info(
               {
