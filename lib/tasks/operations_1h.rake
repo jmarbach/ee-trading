@@ -228,7 +228,8 @@ namespace :operations do
         coinglass_response = coinglass_client.get_aggregated_funding_rates(
           symbol_coinglass, interval, start_timestamp_seconds, end_timestamp_seconds)
         if coinglass_response[:status] == 'success'
-          if avg_funding_rate_close = coinglass_response[:body]['data'][0].present?
+          if coinglass_response[:body]['data'].present? &&
+            coinglass_response[:body]['data'][0].present?
             avg_funding_rate_close = coinglass_response[:body]['data'][0]['c'].to_f.round(4)
           else
             avg_funding_rate_close = 0.0
