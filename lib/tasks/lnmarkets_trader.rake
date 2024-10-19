@@ -428,7 +428,7 @@ namespace :lnmarkets_trader do
     #
     # Invoke trade order scripts
     #
-    if trade_direction_score < -0.5 || trade_direction_score > 0.53
+    if trade_direction_score < -0.5 || trade_direction_score > 0.52
       puts "********************************************"
       puts "********************************************"
       trade_direction = ''
