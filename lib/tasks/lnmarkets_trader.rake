@@ -362,6 +362,8 @@ namespace :lnmarkets_trader do
         `#{PROJECT_ID}.#{DATASET_ID}.#{TABLE_ID}`
       WHERE
         price_direction_prediction IS NOT NULL
+      AND
+        DATE(timestamp_open) = DATE(CURRENT_TIMESTAMP(), 'UTC')
       ORDER BY id DESC
       LIMIT 1
     SQL
