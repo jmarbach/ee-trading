@@ -332,7 +332,12 @@ namespace :operations do
     # 1x per day... retrain model if script is being run within 3 minutes of 04:00 UTC
     if (Time.now.utc - Time.utc(Time.now.utc.year, Time.now.utc.month, Time.now.utc.day, 4, 0, 0)).abs <= 360
       puts "Starting thirty minute model retraining..."
-      Rake::Task["operations:update_thirty_minute_model"].execute()
+      begin
+        Rake::Task["operations:update_thirty_minute_model"].execute()
+      rescue => e
+        puts e
+        puts "Error updating 30m model."
+      end
       puts "Finished retraining thirty minute model."
     end
     puts "End operations:generate_thirty_minute_training_data_previous_interval"

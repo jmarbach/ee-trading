@@ -333,7 +333,12 @@ namespace :operations do
       if Time.now.utc.sunday? &&
         (Time.now.utc - Time.utc(Time.now.utc.year, Time.now.utc.month, Time.now.utc.day, 0, 0, 0)).abs <= 360
         puts "Starting hourly model retraining..."
-        Rake::Task["operations:update_hourly_model"].execute()
+        begin
+          Rake::Task["operations:update_hourly_model"].execute()
+        rescue => e
+          puts e
+          puts "Error updating 1h model."
+        end
         puts "Finished retraining hourly model."
       end
       puts "End operations:generate_hourly_training_data_previous_interval"
