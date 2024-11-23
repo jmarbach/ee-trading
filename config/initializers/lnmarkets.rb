@@ -223,6 +223,11 @@ class LnMarketsAPI
     execute_request('GET', '/user')
   end
 
+  def create_deposit(amount)
+    data = { amount: amount }
+    execute_request('POST', '/user/deposit', data)
+  end
+
   # Futures API methods
   def get_futures_trades(trade_type, from_time, to_time)
     data = { type: trade_type, from: from_time, to: to_time, limit: 1000 }
