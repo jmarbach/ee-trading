@@ -223,8 +223,8 @@ class LnMarketsAPI
   def validate_futures_update_params(data)
     data[:value] = handle_numeric_param(data[:value], 'value')
 
-    unless %w[tp sl].include?(data[:type])
-      raise ArgumentError, "Update type must be either 'tp' (take profit) or 'sl' (stop loss)"
+    unless %w[takeprofit stoploss].include?(data[:type])
+      raise ArgumentError, "Update type must be either 'takeprofit' or 'stoploss'"
     end
   end
 
