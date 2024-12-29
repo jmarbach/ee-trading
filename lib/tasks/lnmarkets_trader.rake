@@ -1384,7 +1384,7 @@ namespace :lnmarkets_trader do
       # Execute Buy Limit order
       #
       #
-      side = 'b'
+      side = 'l'
       type = 'l'
       leverage = 4
       price = (bid_price_btcusd * 0.999925).round(0)
