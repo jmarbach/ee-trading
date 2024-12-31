@@ -188,8 +188,8 @@ class LnMarketsAPI
     data[:stoploss] = handle_numeric_param(data[:stoploss], 'stoploss')
     
     # Validate side
-    unless %w[s l].include?(data[:side])
-      raise ArgumentError, "Side must be either 's' (short) or 'l' (long)"
+    unless %w[b s].include?(data[:side])
+      raise ArgumentError, "Side must be either 'b' (long) or 's' (short)"
     end
     
     # Validate type
